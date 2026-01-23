@@ -16,8 +16,14 @@ class MealPlanGenerator {
     func generateMealPlan(
         for profile: UserProfile,
         startDate: Date = Date(),
+        weeklyPreferences: String? = nil,
         modelContext: ModelContext
     ) async throws -> MealPlan {
+        print("[DEBUG:Generator] ========== GENERATE MEAL PLAN START ==========")
+        print("[DEBUG:Generator] Start Date: \(startDate)")
+        print("[DEBUG:Generator] Weekly Preferences: \(weeklyPreferences ?? "None")")
+        print("[DEBUG:Generator] Profile calories: \(profile.dailyCalorieTarget)")
+
         isGenerating = true
         progress = "Building your personalized meal plan..."
         error = nil
@@ -25,33 +31,56 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            print("[DEBUG:Generator] ========== GENERATE MEAL PLAN END ==========")
         }
 
         do {
-            // Build the prompt from user profile
-            let prompt = buildPrompt(for: profile)
-            let systemPrompt = buildSystemPrompt()
+            // Build API user profile from SwiftData profile
+            print("[DEBUG:Generator] Building API user profile...")
+            let apiProfile = buildAPIUserProfile(from: profile)
 
             progress = "Generating recipes with AI..."
+            print("[DEBUG:Generator] Calling generateMealPlan API...")
 
-            // Call the API
-            let responseJSON = try await apiService.sendMessage(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                maxTokens: 8000
+            // Call the new API endpoint
+            let apiResponse = try await apiService.generateMealPlan(
+                userProfile: apiProfile,
+                weeklyPreferences: weeklyPreferences,
+                excludeRecipeNames: []
             )
+
+            print("[DEBUG:Generator] API response received")
+            print("[DEBUG:Generator] Success: \(apiResponse.success)")
+            print("[DEBUG:Generator] Recipes added: \(apiResponse.recipesAdded ?? 0)")
+            print("[DEBUG:Generator] Recipes duplicate: \(apiResponse.recipesDuplicate ?? 0)")
+
+            // Check for errors
+            if !apiResponse.success {
+                print("[DEBUG:Generator] ERROR: API returned failure - \(apiResponse.error ?? "Unknown error")")
+                throw APIError.serverError(apiResponse.error ?? "Unknown error")
+            }
+
+            guard let apiMealPlan = apiResponse.mealPlan else {
+                print("[DEBUG:Generator] ERROR: No meal plan in response")
+                throw APIError.invalidResponse
+            }
 
             progress = "Processing meal plan..."
 
-            // Parse the response
-            let mealPlanResponse = try parseResponse(responseJSON)
+            // Convert API response to MealPlanResponse format
+            print("[DEBUG:Generator] Converting API response to MealPlanResponse...")
+            let mealPlanResponse = convertAPIResponseToMealPlanResponse(apiMealPlan)
+            print("[DEBUG:Generator] Converted \(mealPlanResponse.days.count) days")
 
             progress = "Saving to your library..."
 
             // Convert to SwiftData models and save
+            print("[DEBUG:Generator] Converting to SwiftData models...")
             let result = mealPlanResponse.toSwiftDataModels(startDate: startDate)
+            print("[DEBUG:Generator] Created: \(result.days.count) days, \(result.recipes.count) recipes, \(result.meals.count) meals")
 
             // Insert all models into context
+            print("[DEBUG:Generator] Inserting models into context...")
             modelContext.insert(result.mealPlan)
             result.mealPlan.userProfile = profile
 
@@ -75,14 +104,77 @@ class MealPlanGenerator {
                 modelContext.insert(meal)
             }
 
+            print("[DEBUG:Generator] Saving context...")
             try modelContext.save()
+            print("[DEBUG:Generator] Context saved successfully")
 
             return result.mealPlan
 
         } catch {
+            print("[DEBUG:Generator] ERROR: \(error.localizedDescription)")
+            print("[DEBUG:Generator] Error type: \(type(of: error))")
             self.error = error
             throw error
         }
+    }
+
+    // MARK: - Build API User Profile
+    private func buildAPIUserProfile(from profile: UserProfile) -> GeneratePlanUserProfile {
+        return GeneratePlanUserProfile(
+            age: profile.age,
+            gender: profile.gender.rawValue,
+            weightKg: profile.weightKg,
+            heightCm: profile.heightCm,
+            activityLevel: profile.activityLevel.rawValue,
+            dailyCalorieTarget: profile.dailyCalorieTarget,
+            proteinGrams: profile.proteinGrams,
+            carbsGrams: profile.carbsGrams,
+            fatGrams: profile.fatGrams,
+            weightGoal: profile.weightGoal.rawValue,
+            dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
+            allergies: profile.allergies.map { $0.rawValue },
+            preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
+            cookingSkill: profile.cookingSkill.rawValue,
+            maxCookingTimeMinutes: profile.maxCookingTime.maxMinutes,
+            simpleModeEnabled: profile.simpleModeEnabled,
+            mealsPerDay: profile.mealsPerDay,
+            includeSnacks: profile.includeSnacks
+        )
+    }
+
+    // MARK: - Convert API Response to MealPlanResponse
+    private func convertAPIResponseToMealPlanResponse(_ apiPlan: APIMealPlan) -> MealPlanResponse {
+        let days = apiPlan.days.map { apiDay -> DayDTO in
+            let meals = apiDay.meals.map { apiMeal -> MealDTO in
+                let recipe = RecipeDTO(
+                    name: apiMeal.recipe.name,
+                    description: apiMeal.recipe.description,
+                    instructions: apiMeal.recipe.instructions,
+                    prepTimeMinutes: apiMeal.recipe.prepTimeMinutes,
+                    cookTimeMinutes: apiMeal.recipe.cookTimeMinutes,
+                    servings: apiMeal.recipe.servings,
+                    complexity: apiMeal.recipe.complexity,
+                    cuisineType: apiMeal.recipe.cuisineType,
+                    calories: apiMeal.recipe.calories,
+                    proteinGrams: apiMeal.recipe.proteinGrams,
+                    carbsGrams: apiMeal.recipe.carbsGrams,
+                    fatGrams: apiMeal.recipe.fatGrams,
+                    fiberGrams: apiMeal.recipe.fiberGrams,
+                    ingredients: apiMeal.recipe.ingredients.map { apiIng in
+                        IngredientDTO(
+                            name: apiIng.name,
+                            quantity: apiIng.quantity,
+                            unit: apiIng.unit,
+                            category: apiIng.category
+                        )
+                    },
+                    matchedImageUrl: apiMeal.recipe.matchedImageUrl
+                )
+                return MealDTO(mealType: apiMeal.mealType, recipe: recipe)
+            }
+            return DayDTO(dayOfWeek: apiDay.dayOfWeek, meals: meals)
+        }
+        return MealPlanResponse(days: days)
     }
 
     // MARK: - Generate Single Meal Replacement
@@ -92,6 +184,10 @@ class MealPlanGenerator {
         excludeRecipes: [String] = [],
         modelContext: ModelContext
     ) async throws -> (recipe: Recipe, ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
+        print("[DEBUG:Generator] ========== REPLACEMENT MEAL START ==========")
+        print("[DEBUG:Generator] Meal Type: \(mealType.rawValue)")
+        print("[DEBUG:Generator] Exclude Recipes: \(excludeRecipes.joined(separator: ", "))")
+
         isGenerating = true
         progress = "Finding a new \(mealType.rawValue.lowercased())..."
         error = nil
@@ -99,24 +195,74 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            print("[DEBUG:Generator] ========== REPLACEMENT MEAL END ==========")
         }
 
         do {
-            let prompt = buildSingleMealPrompt(for: mealType, profile: profile, excludeRecipes: excludeRecipes)
-            let systemPrompt = buildSystemPrompt()
-
-            let responseJSON = try await apiService.sendMessage(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                maxTokens: 2000
+            // Build API user profile for swap
+            print("[DEBUG:Generator] Building swap API profile...")
+            let swapProfile = SwapMealUserProfile(
+                dailyCalorieTarget: profile.dailyCalorieTarget,
+                proteinGrams: profile.proteinGrams,
+                carbsGrams: profile.carbsGrams,
+                fatGrams: profile.fatGrams,
+                dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
+                allergies: profile.allergies.map { $0.rawValue },
+                preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
+                cookingSkill: profile.cookingSkill.rawValue,
+                maxCookingTimeMinutes: profile.maxCookingTime.maxMinutes,
+                simpleModeEnabled: profile.simpleModeEnabled
             )
 
-            // Parse single meal response
-            guard let data = responseJSON.data(using: .utf8) else {
+            print("[DEBUG:Generator] Calling swapMeal API...")
+            let apiResponse = try await apiService.swapMeal(
+                userProfile: swapProfile,
+                mealType: mealType.rawValue.lowercased(),
+                excludeRecipeNames: excludeRecipes
+            )
+
+            print("[DEBUG:Generator] API response received")
+            print("[DEBUG:Generator] Success: \(apiResponse.success)")
+
+            // Check for errors
+            if !apiResponse.success {
+                print("[DEBUG:Generator] ERROR: API returned failure - \(apiResponse.error ?? "Unknown error")")
+                throw APIError.serverError(apiResponse.error ?? "Unknown error")
+            }
+
+            guard let apiRecipe = apiResponse.recipe else {
+                print("[DEBUG:Generator] ERROR: No recipe in response")
                 throw APIError.invalidResponse
             }
 
-            let recipeDTO = try JSONDecoder().decode(RecipeDTO.self, from: data)
+            print("[DEBUG:Generator] Received recipe: \(apiRecipe.name)")
+
+            // Convert API recipe to RecipeDTO
+            let recipeDTO = RecipeDTO(
+                name: apiRecipe.name,
+                description: apiRecipe.description,
+                instructions: apiRecipe.instructions,
+                prepTimeMinutes: apiRecipe.prepTimeMinutes,
+                cookTimeMinutes: apiRecipe.cookTimeMinutes,
+                servings: apiRecipe.servings,
+                complexity: apiRecipe.complexity,
+                cuisineType: apiRecipe.cuisineType,
+                calories: apiRecipe.calories,
+                proteinGrams: apiRecipe.proteinGrams,
+                carbsGrams: apiRecipe.carbsGrams,
+                fatGrams: apiRecipe.fatGrams,
+                fiberGrams: apiRecipe.fiberGrams,
+                ingredients: apiRecipe.ingredients.map { apiIng in
+                    IngredientDTO(
+                        name: apiIng.name,
+                        quantity: apiIng.quantity,
+                        unit: apiIng.unit,
+                        category: apiIng.category
+                    )
+                },
+                matchedImageUrl: apiRecipe.matchedImageUrl
+            )
+
             let recipe = recipeDTO.toRecipe()
 
             var ingredients: [Ingredient] = []
@@ -132,7 +278,10 @@ class MealPlanGenerator {
                 recipeIngredients.append(recipeIngredient)
             }
 
+            print("[DEBUG:Generator] Created \(ingredients.count) ingredients")
+
             // Save to context
+            print("[DEBUG:Generator] Saving to context...")
             modelContext.insert(recipe)
             for ingredient in ingredients {
                 modelContext.insert(ingredient)
@@ -141,10 +290,13 @@ class MealPlanGenerator {
                 modelContext.insert(ri)
             }
             try modelContext.save()
+            print("[DEBUG:Generator] Context saved successfully")
 
             return (recipe, ingredients, recipeIngredients)
 
         } catch {
+            print("[DEBUG:Generator] ERROR: \(error.localizedDescription)")
+            print("[DEBUG:Generator] Error type: \(type(of: error))")
             self.error = error
             throw error
         }
@@ -169,7 +321,7 @@ class MealPlanGenerator {
     }
 
     // MARK: - Build Full Week Prompt
-    private func buildPrompt(for profile: UserProfile) -> String {
+    private func buildPrompt(for profile: UserProfile, weeklyPreferences: String? = nil) -> String {
         let restrictions = profile.dietaryRestrictions.map { $0.rawValue }.joined(separator: ", ")
         let allergies = profile.allergies.map { $0.rawValue }.joined(separator: ", ")
         let cuisines = profile.preferredCuisines.map { $0.rawValue }.joined(separator: ", ")
@@ -182,6 +334,17 @@ class MealPlanGenerator {
         }
 
         let maxTime = profile.maxCookingTime.maxMinutes
+
+        let weeklyPreferencesSection: String
+        if let prefs = weeklyPreferences, !prefs.isEmpty {
+            weeklyPreferencesSection = """
+
+            THIS WEEK'S SPECIAL REQUESTS:
+            \(prefs)
+            """
+        } else {
+            weeklyPreferencesSection = ""
+        }
 
         return """
         Create a 7-day meal plan for a person with the following profile:
@@ -197,7 +360,7 @@ class MealPlanGenerator {
         PREFERRED CUISINES: \(cuisines.isEmpty ? "Varied" : cuisines)
         COOKING SKILL: \(profile.cookingSkill.rawValue)
         MAX COOKING TIME PER MEAL: \(maxTime) minutes
-        SIMPLE MODE: \(profile.simpleModeEnabled ? "Yes - prefer recipes with fewer ingredients" : "No")
+        SIMPLE MODE: \(profile.simpleModeEnabled ? "Yes - prefer recipes with fewer ingredients" : "No")\(weeklyPreferencesSection)
 
         Each day must include: \(mealTypes)
 

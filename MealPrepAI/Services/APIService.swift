@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - API Configuration
 // nonisolated(unsafe) required to opt out of default MainActor isolation for actor access
-private let apiConfigBaseURL = "https://your-worker.your-subdomain.workers.dev"
-private let apiConfigUseMockData = true
+private let apiConfigBaseURL = "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api"
+private let apiConfigUseMockData = false // Backend deployed and ready
 
 // MARK: - API Errors
 enum APIError: LocalizedError, Sendable {
@@ -185,11 +185,19 @@ actor APIService {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
+    private let longTimeoutSession: URLSession
+
     private init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 120 // Claude can take time for long responses
         config.timeoutIntervalForResource = 180
         self.session = URLSession(configuration: config)
+
+        // Longer timeout session for meal plan generation (2 Claude batches + processing)
+        let longConfig = URLSessionConfiguration.default
+        longConfig.timeoutIntervalForRequest = 300 // 5 minutes
+        longConfig.timeoutIntervalForResource = 360 // 6 minutes
+        self.longTimeoutSession = URLSession(configuration: longConfig)
 
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
@@ -252,6 +260,307 @@ actor APIService {
         // Return mock meal plan JSON
         return mockMealPlanJSON
     }
+
+    // MARK: - Generate Meal Plan (New API)
+    func generateMealPlan(
+        userProfile: GeneratePlanUserProfile,
+        weeklyPreferences: String? = nil,
+        excludeRecipeNames: [String] = []
+    ) async throws -> GeneratePlanAPIResponse {
+        print("[DEBUG:API] ========== GENERATE MEAL PLAN START ==========")
+        print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
+
+        // Use mock data for development
+        if apiConfigUseMockData {
+            print("[DEBUG:API] Using mock data, sleeping 1.5s...")
+            try await Task.sleep(nanoseconds: 1_500_000_000)
+            print("[DEBUG:API] Returning mock response")
+            return GeneratePlanAPIResponse(
+                success: true,
+                mealPlan: nil, // Will use local mock
+                recipesAdded: 0,
+                recipesDuplicate: 0,
+                error: nil,
+                rateLimitInfo: nil
+            )
+        }
+
+        let urlString = "\(apiConfigBaseURL)/v1/generate-plan"
+        print("[DEBUG:API] URL: \(urlString)")
+
+        guard let url = URL(string: urlString) else {
+            print("[DEBUG:API] ERROR: Invalid URL")
+            throw APIError.invalidURL
+        }
+
+        let deviceId = await DeviceIdentifier.shared.deviceId
+        print("[DEBUG:API] Device ID: \(deviceId.prefix(8))...")
+
+        let requestBody = GeneratePlanRequest(
+            userProfile: userProfile,
+            weeklyPreferences: weeklyPreferences,
+            excludeRecipeNames: excludeRecipeNames.isEmpty ? nil : excludeRecipeNames,
+            deviceId: deviceId
+        )
+
+        print("[DEBUG:API] User Profile:", String(describing: [
+            "calories": userProfile.dailyCalorieTarget,
+            "protein": userProfile.proteinGrams,
+            "restrictions": userProfile.dietaryRestrictions,
+            "allergies": userProfile.allergies,
+        ]))
+        print("[DEBUG:API] Weekly Preferences: \(weeklyPreferences ?? "None")")
+        print("[DEBUG:API] Exclude Recipes: \(excludeRecipeNames.joined(separator: ", "))")
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(requestBody)
+
+        print("[DEBUG:API] Sending request (5min timeout)...")
+        let startTime = Date()
+
+        // Use long timeout session for meal plan generation (2 batches + processing)
+        let (data, response) = try await longTimeoutSession.data(for: urlRequest)
+
+        let duration = Date().timeIntervalSince(startTime)
+        print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+        print("[DEBUG:API] Response size: \(data.count) bytes")
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("[DEBUG:API] ERROR: Invalid response type")
+            throw APIError.invalidResponse
+        }
+
+        print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
+
+        switch httpResponse.statusCode {
+        case 200...299:
+            let apiResponse = try decoder.decode(GeneratePlanAPIResponse.self, from: data)
+            print("[DEBUG:API] SUCCESS: \(apiResponse.mealPlan?.days.count ?? 0) days, \(apiResponse.recipesAdded ?? 0) new recipes")
+            print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+            print("[DEBUG:API] ========== GENERATE MEAL PLAN SUCCESS ==========")
+            return apiResponse
+        case 429:
+            print("[DEBUG:API] ERROR: Rate limited")
+            throw APIError.rateLimited
+        default:
+            if let errorResponse = try? decoder.decode(GeneratePlanAPIResponse.self, from: data),
+               let errorMessage = errorResponse.error {
+                print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                throw APIError.serverError(errorMessage)
+            }
+            print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
+            if let responseText = String(data: data, encoding: .utf8) {
+                print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+            }
+            throw APIError.httpError(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    // MARK: - Swap Meal (New API)
+    func swapMeal(
+        userProfile: SwapMealUserProfile,
+        mealType: String,
+        excludeRecipeNames: [String] = [],
+        weeklyPreferences: String? = nil
+    ) async throws -> SwapMealAPIResponse {
+        print("[DEBUG:API] ========== SWAP MEAL START ==========")
+        print("[DEBUG:API] Meal Type: \(mealType)")
+        print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
+
+        // Use mock data for development
+        if apiConfigUseMockData {
+            print("[DEBUG:API] Using mock data, sleeping 1s...")
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            print("[DEBUG:API] Returning mock response")
+            return SwapMealAPIResponse(
+                success: true,
+                recipe: nil, // Will use local mock
+                error: nil,
+                rateLimitInfo: nil
+            )
+        }
+
+        let urlString = "\(apiConfigBaseURL)/v1/swap-meal"
+        print("[DEBUG:API] URL: \(urlString)")
+
+        guard let url = URL(string: urlString) else {
+            print("[DEBUG:API] ERROR: Invalid URL")
+            throw APIError.invalidURL
+        }
+
+        let deviceId = await DeviceIdentifier.shared.deviceId
+        print("[DEBUG:API] Device ID: \(deviceId.prefix(8))...")
+
+        let requestBody = SwapMealRequest(
+            userProfile: userProfile,
+            mealType: mealType,
+            excludeRecipeNames: excludeRecipeNames.isEmpty ? nil : excludeRecipeNames,
+            weeklyPreferences: weeklyPreferences,
+            deviceId: deviceId
+        )
+
+        print("[DEBUG:API] Exclude Recipes: \(excludeRecipeNames.joined(separator: ", "))")
+        print("[DEBUG:API] Weekly Preferences: \(weeklyPreferences ?? "None")")
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(requestBody)
+
+        print("[DEBUG:API] Sending request...")
+        let startTime = Date()
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        let duration = Date().timeIntervalSince(startTime)
+        print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+        print("[DEBUG:API] Response size: \(data.count) bytes")
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("[DEBUG:API] ERROR: Invalid response type")
+            throw APIError.invalidResponse
+        }
+
+        print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
+
+        switch httpResponse.statusCode {
+        case 200...299:
+            let apiResponse = try decoder.decode(SwapMealAPIResponse.self, from: data)
+            print("[DEBUG:API] SUCCESS: Recipe - \(apiResponse.recipe?.name ?? "nil")")
+            print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+            print("[DEBUG:API] ========== SWAP MEAL SUCCESS ==========")
+            return apiResponse
+        case 429:
+            print("[DEBUG:API] ERROR: Rate limited")
+            throw APIError.rateLimited
+        default:
+            if let errorResponse = try? decoder.decode(SwapMealAPIResponse.self, from: data),
+               let errorMessage = errorResponse.error {
+                print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                throw APIError.serverError(errorMessage)
+            }
+            print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
+            if let responseText = String(data: data, encoding: .utf8) {
+                print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+            }
+            throw APIError.httpError(statusCode: httpResponse.statusCode)
+        }
+    }
+}
+
+// MARK: - API Request/Response Types
+
+struct GeneratePlanUserProfile: Codable, Sendable {
+    let age: Int
+    let gender: String
+    let weightKg: Double
+    let heightCm: Double
+    let activityLevel: String
+    let dailyCalorieTarget: Int
+    let proteinGrams: Int
+    let carbsGrams: Int
+    let fatGrams: Int
+    let weightGoal: String
+    let dietaryRestrictions: [String]
+    let allergies: [String]
+    let preferredCuisines: [String]
+    let cookingSkill: String
+    let maxCookingTimeMinutes: Int
+    let simpleModeEnabled: Bool
+    let mealsPerDay: Int
+    let includeSnacks: Bool
+}
+
+struct GeneratePlanRequest: Codable, Sendable {
+    let userProfile: GeneratePlanUserProfile
+    let weeklyPreferences: String?
+    let excludeRecipeNames: [String]?
+    let deviceId: String
+}
+
+struct GeneratePlanAPIResponse: Codable, Sendable {
+    let success: Bool
+    let mealPlan: APIMealPlan?
+    let recipesAdded: Int?
+    let recipesDuplicate: Int?
+    let error: String?
+    let rateLimitInfo: RateLimitInfo?
+}
+
+struct APIMealPlan: Codable, Sendable {
+    let id: String
+    let days: [APIDayDTO]
+}
+
+struct APIDayDTO: Codable, Sendable {
+    let dayOfWeek: Int
+    let meals: [APIMealDTO]
+}
+
+struct APIMealDTO: Codable, Sendable {
+    let mealType: String
+    let recipe: APIRecipeDTO
+}
+
+struct APIRecipeDTO: Codable, Sendable {
+    let name: String
+    let description: String
+    let matchedImageUrl: String?
+    let prepTimeMinutes: Int
+    let cookTimeMinutes: Int
+    let servings: Int
+    let complexity: String
+    let cuisineType: String
+    let calories: Int
+    let proteinGrams: Int
+    let carbsGrams: Int
+    let fatGrams: Int
+    let fiberGrams: Int
+    let ingredients: [APIIngredientDTO]
+    let instructions: [String]
+}
+
+struct APIIngredientDTO: Codable, Sendable {
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+}
+
+struct RateLimitInfo: Codable, Sendable {
+    let remaining: Int
+    let resetTime: String
+    let limit: Int
+}
+
+struct SwapMealUserProfile: Codable, Sendable {
+    let dailyCalorieTarget: Int
+    let proteinGrams: Int
+    let carbsGrams: Int
+    let fatGrams: Int
+    let dietaryRestrictions: [String]
+    let allergies: [String]
+    let preferredCuisines: [String]
+    let cookingSkill: String
+    let maxCookingTimeMinutes: Int
+    let simpleModeEnabled: Bool
+}
+
+struct SwapMealRequest: Codable, Sendable {
+    let userProfile: SwapMealUserProfile
+    let mealType: String
+    let excludeRecipeNames: [String]?
+    let weeklyPreferences: String?
+    let deviceId: String
+}
+
+struct SwapMealAPIResponse: Codable, Sendable {
+    let success: Bool
+    let recipe: APIRecipeDTO?
+    let error: String?
+    let rateLimitInfo: RateLimitInfo?
 }
 
 // MARK: - Mock Data

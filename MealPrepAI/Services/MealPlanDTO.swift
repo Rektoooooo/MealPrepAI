@@ -5,16 +5,30 @@ import Foundation
 
 struct MealPlanResponse: Codable {
     let days: [DayDTO]
+
+    init(days: [DayDTO]) {
+        self.days = days
+    }
 }
 
 struct DayDTO: Codable {
     let dayOfWeek: Int
     let meals: [MealDTO]
+
+    init(dayOfWeek: Int, meals: [MealDTO]) {
+        self.dayOfWeek = dayOfWeek
+        self.meals = meals
+    }
 }
 
 struct MealDTO: Codable {
     let mealType: String
     let recipe: RecipeDTO
+
+    init(mealType: String, recipe: RecipeDTO) {
+        self.mealType = mealType
+        self.recipe = recipe
+    }
 }
 
 struct RecipeDTO: Codable {
@@ -32,6 +46,68 @@ struct RecipeDTO: Codable {
     let fatGrams: Int
     let fiberGrams: Int
     let ingredients: [IngredientDTO]
+    /// Image URL matched from Spoonacular database by ingredient similarity
+    let matchedImageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, description, instructions, prepTimeMinutes, cookTimeMinutes
+        case servings, complexity, cuisineType, calories, proteinGrams
+        case carbsGrams, fatGrams, fiberGrams, ingredients, matchedImageUrl
+    }
+
+    /// Direct initializer for creating from API response
+    init(
+        name: String,
+        description: String,
+        instructions: [String],
+        prepTimeMinutes: Int,
+        cookTimeMinutes: Int,
+        servings: Int,
+        complexity: String,
+        cuisineType: String?,
+        calories: Int,
+        proteinGrams: Int,
+        carbsGrams: Int,
+        fatGrams: Int,
+        fiberGrams: Int,
+        ingredients: [IngredientDTO],
+        matchedImageUrl: String? = nil
+    ) {
+        self.name = name
+        self.description = description
+        self.instructions = instructions
+        self.prepTimeMinutes = prepTimeMinutes
+        self.cookTimeMinutes = cookTimeMinutes
+        self.servings = servings
+        self.complexity = complexity
+        self.cuisineType = cuisineType
+        self.calories = calories
+        self.proteinGrams = proteinGrams
+        self.carbsGrams = carbsGrams
+        self.fatGrams = fatGrams
+        self.fiberGrams = fiberGrams
+        self.ingredients = ingredients
+        self.matchedImageUrl = matchedImageUrl
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decode(String.self, forKey: .description)
+        instructions = try container.decode([String].self, forKey: .instructions)
+        prepTimeMinutes = try container.decode(Int.self, forKey: .prepTimeMinutes)
+        cookTimeMinutes = try container.decode(Int.self, forKey: .cookTimeMinutes)
+        servings = try container.decode(Int.self, forKey: .servings)
+        complexity = try container.decode(String.self, forKey: .complexity)
+        cuisineType = try container.decodeIfPresent(String.self, forKey: .cuisineType)
+        calories = try container.decode(Int.self, forKey: .calories)
+        proteinGrams = try container.decode(Int.self, forKey: .proteinGrams)
+        carbsGrams = try container.decode(Int.self, forKey: .carbsGrams)
+        fatGrams = try container.decode(Int.self, forKey: .fatGrams)
+        fiberGrams = try container.decode(Int.self, forKey: .fiberGrams)
+        ingredients = try container.decode([IngredientDTO].self, forKey: .ingredients)
+        matchedImageUrl = try container.decodeIfPresent(String.self, forKey: .matchedImageUrl)
+    }
 }
 
 struct IngredientDTO: Codable {
@@ -40,6 +116,15 @@ struct IngredientDTO: Codable {
     let unit: String
     let category: String
     let notes: String?
+
+    /// Direct initializer for creating from API response
+    init(name: String, quantity: Double, unit: String, category: String, notes: String? = nil) {
+        self.name = name
+        self.quantity = quantity
+        self.unit = unit
+        self.category = category
+        self.notes = notes
+    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -142,7 +227,8 @@ extension RecipeDTO {
             proteinGrams: proteinGrams,
             carbsGrams: carbsGrams,
             fatGrams: fatGrams,
-            fiberGrams: fiberGrams
+            fiberGrams: fiberGrams,
+            imageURL: matchedImageUrl
         )
         return recipe
     }

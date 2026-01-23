@@ -495,127 +495,364 @@ struct GenerateMealPlanSheet: View {
     @Query private var userProfiles: [UserProfile]
     @Bindable var generator: MealPlanGenerator
 
+    /// Weekly preferences text input for custom requests
+    @State private var weeklyPreferences: String = ""
+    @FocusState private var isTextFieldFocused: Bool
+
     private var userProfile: UserProfile? {
         userProfiles.first
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: Design.Spacing.xl) {
+            ZStack {
+                LinearGradient.mintBackgroundGradient.ignoresSafeArea()
+
                 if generator.isGenerating {
-                    // Loading state
-                    Spacer()
-
-                    VStack(spacing: Design.Spacing.lg) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.accentPurple.opacity(0.1))
-                                .frame(width: 80, height: 80)
-
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .tint(Color.accentPurple)
-                        }
-
-                        Text(generator.progress)
-                            .font(.headline)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-
-                    Spacer()
+                    // Beautiful loading state
+                    GeneratingMealPlanView(progress: generator.progress)
                 } else {
                     // Ready state
-                    Spacer()
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: Design.Spacing.xl) {
+                            Spacer(minLength: 40)
 
-                    ZStack {
-                        Circle()
-                            .fill(Color.accentPurple.opacity(0.1))
-                            .frame(width: 100, height: 100)
+                            // Hero Icon
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.accentPurple.opacity(0.2), Color.accentPurple.opacity(0.05)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 120, height: 120)
 
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 44))
-                            .foregroundStyle(Color.accentPurple)
-                    }
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.accentPurple.opacity(0.3), Color.accentPurple.opacity(0.1)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 90, height: 90)
 
-                    VStack(spacing: Design.Spacing.sm) {
-                        Text("Generate Your Meal Plan")
-                            .font(Design.Typography.title)
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 40, weight: .medium))
+                                    .foregroundStyle(Color.accentPurple)
+                            }
 
-                        Text("We'll create a personalized 7-day meal plan based on your dietary preferences, restrictions, and nutritional goals.")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
+                            VStack(spacing: Design.Spacing.sm) {
+                                Text("Generate Your Meal Plan")
+                                    .font(.system(size: 26, weight: .bold))
+                                    .foregroundStyle(Color.textPrimary)
+
+                                Text("We'll create a personalized 7-day meal plan based on your dietary preferences and nutritional goals.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, Design.Spacing.lg)
+                            }
+
+                            if let profile = userProfile {
+                                // Profile summary card
+                                VStack(spacing: Design.Spacing.sm) {
+                                    HStack(spacing: Design.Spacing.lg) {
+                                        ProfileStatBadge(
+                                            icon: "flame.fill",
+                                            value: "\(profile.dailyCalorieTarget)",
+                                            label: "Calories",
+                                            color: .orange
+                                        )
+
+                                        ProfileStatBadge(
+                                            icon: "bolt.fill",
+                                            value: "\(profile.proteinGrams)g",
+                                            label: "Protein",
+                                            color: Color.accentPurple
+                                        )
+
+                                        ProfileStatBadge(
+                                            icon: "fork.knife",
+                                            value: "\(profile.mealsPerDay)",
+                                            label: "Meals",
+                                            color: Color.mintVibrant
+                                        )
+                                    }
+                                }
+                                .padding(Design.Spacing.lg)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Design.Radius.lg)
+                                        .fill(Color.cardBackground)
+                                        .shadow(color: Color.black.opacity(0.05), radius: 10, y: 5)
+                                )
+                                .padding(.horizontal)
+                            }
+
+                            // Weekly Preferences Input
+                            VStack(alignment: .leading, spacing: Design.Spacing.sm) {
+                                HStack {
+                                    Image(systemName: "text.bubble")
+                                        .foregroundStyle(Color.accentPurple)
+                                    Text("Weekly Preferences")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(Color.textPrimary)
+                                }
+
+                                TextField("Any special requests this week?", text: $weeklyPreferences, axis: .vertical)
+                                    .textFieldStyle(.plain)
+                                    .lineLimit(3...5)
+                                    .padding(Design.Spacing.md)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: Design.Radius.md)
+                                            .fill(Color.cardBackground)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: Design.Radius.md)
+                                                    .strokeBorder(isTextFieldFocused ? Color.accentPurple : Color.gray.opacity(0.2), lineWidth: 1.5)
+                                            )
+                                    )
+                                    .focused($isTextFieldFocused)
+
+                                Text("Examples: \"No fish this week\", \"Budget-friendly\", \"Quick recipes only\"")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
                             .padding(.horizontal)
-                    }
 
-                    if let profile = userProfile {
-                        VStack(spacing: Design.Spacing.xs) {
-                            profileInfoRow(label: "Daily Calories", value: "\(profile.dailyCalorieTarget) kcal")
-                            profileInfoRow(label: "Protein Target", value: "\(profile.proteinGrams)g")
-                            profileInfoRow(label: "Meals per Day", value: "\(profile.mealsPerDay)\(profile.includeSnacks ? " + snacks" : "")")
+                            Spacer(minLength: 30)
+
+                            // Generate Button
+                            Button(action: generatePlan) {
+                                HStack(spacing: Design.Spacing.sm) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 18, weight: .semibold))
+                                    Text("Generate Meal Plan")
+                                        .font(.headline)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(
+                                    LinearGradient.purpleButtonGradient
+                                )
+                                .foregroundStyle(.white)
+                                .clipShape(RoundedRectangle(cornerRadius: Design.Radius.lg))
+                                .shadow(color: Color.accentPurple.opacity(0.4), radius: 15, y: 8)
+                            }
+                            .padding(.horizontal)
+                            .padding(.bottom, Design.Spacing.xl)
                         }
-                        .padding(Design.Spacing.md)
-                        .background(
-                            RoundedRectangle(cornerRadius: Design.Radius.md)
-                                .fill(Color.mintLight)
-                        )
-                        .padding(.horizontal)
                     }
-
-                    Spacer()
-
-                    Button(action: generatePlan) {
-                        HStack(spacing: Design.Spacing.sm) {
-                            Image(systemName: "sparkles")
-                            Text("Generate Now")
-                        }
-                    }
-                    .purpleButton()
-                    .padding(.horizontal)
-                    .padding(.bottom)
                 }
             }
-            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
-            .navigationTitle("New Meal Plan")
+            .navigationTitle(generator.isGenerating ? "" : "New Meal Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.accentPurple)
-                        .disabled(generator.isGenerating)
+                    if !generator.isGenerating {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color.accentPurple)
+                    }
                 }
             }
             .interactiveDismissDisabled(generator.isGenerating)
         }
-        .presentationDetents([.medium])
-    }
-
-    private func profileInfoRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(Color.textSecondary)
-            Spacer()
-            Text(value)
-                .fontWeight(.semibold)
-                .foregroundStyle(Color.textPrimary)
-        }
-        .font(.subheadline)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     private func generatePlan() {
         guard let profile = userProfile else { return }
+        isTextFieldFocused = false
 
         Task {
             do {
+                let preferences = weeklyPreferences.trimmingCharacters(in: .whitespacesAndNewlines)
                 _ = try await generator.generateMealPlan(
                     for: profile,
                     startDate: Date(),
+                    weeklyPreferences: preferences.isEmpty ? nil : preferences,
                     modelContext: modelContext
                 )
                 dismiss()
             } catch {
                 print("Failed to generate meal plan: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Profile Stat Badge
+struct ProfileStatBadge: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundStyle(color)
+            }
+
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Color.textPrimary)
+
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(Color.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Generating Meal Plan View (Animated Loading)
+struct GeneratingMealPlanView: View {
+    let progress: String
+
+    @State private var isAnimating = false
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var rotationAngle: Double = 0
+    @State private var currentTipIndex = 0
+
+    private let tips = [
+        "Balancing your macros...",
+        "Finding delicious recipes...",
+        "Considering your preferences...",
+        "Optimizing nutrition...",
+        "Creating variety for the week...",
+        "Matching your cooking skill...",
+        "Almost there..."
+    ]
+
+    private let foodEmojis = ["🥗", "🍳", "🥘", "🍝", "🥙", "🍲", "🥪", "🍜"]
+
+    var body: some View {
+        VStack(spacing: Design.Spacing.xxl) {
+            Spacer()
+
+            // Animated cooking illustration
+            ZStack {
+                // Outer pulsing ring
+                Circle()
+                    .stroke(Color.accentPurple.opacity(0.2), lineWidth: 3)
+                    .frame(width: 180, height: 180)
+                    .scaleEffect(pulseScale)
+                    .opacity(2 - pulseScale)
+
+                // Middle ring
+                Circle()
+                    .stroke(Color.accentPurple.opacity(0.3), lineWidth: 2)
+                    .frame(width: 140, height: 140)
+                    .rotationEffect(.degrees(rotationAngle))
+
+                // Inner gradient circle
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accentPurple.opacity(0.2), Color.accentPurple.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+
+                // Center content
+                VStack(spacing: 8) {
+                    // Animated food emoji
+                    Text(foodEmojis[currentTipIndex % foodEmojis.count])
+                        .font(.system(size: 50))
+                        .transition(.scale.combined(with: .opacity))
+                        .id(currentTipIndex)
+
+                    // Small sparkle
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.accentPurple)
+                        .opacity(isAnimating ? 1 : 0.3)
+                }
+
+                // Orbiting dots
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(Color.accentPurple)
+                        .frame(width: 8, height: 8)
+                        .offset(y: -90)
+                        .rotationEffect(.degrees(rotationAngle + Double(index * 120)))
+                }
+            }
+
+            // Progress text
+            VStack(spacing: Design.Spacing.md) {
+                Text("Creating Your Plan")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(Color.textPrimary)
+
+                Text(progress.isEmpty ? tips[currentTipIndex % tips.count] : progress)
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .animation(.easeInOut, value: currentTipIndex)
+                    .id(currentTipIndex)
+            }
+            .padding(.horizontal, Design.Spacing.xl)
+
+            // Progress bar
+            VStack(spacing: Design.Spacing.sm) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.accentPurple.opacity(0.15))
+                            .frame(height: 8)
+
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(LinearGradient.purpleButtonGradient)
+                            .frame(width: isAnimating ? geometry.size.width : 0, height: 8)
+                            .animation(.easeInOut(duration: 30), value: isAnimating)
+                    }
+                }
+                .frame(height: 8)
+                .padding(.horizontal, 60)
+
+                Text("This may take a moment")
+                    .font(.caption)
+                    .foregroundStyle(Color.textSecondary.opacity(0.7))
+            }
+
+            Spacer()
+            Spacer()
+        }
+        .onAppear {
+            startAnimations()
+        }
+    }
+
+    private func startAnimations() {
+        isAnimating = true
+
+        // Pulse animation
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            pulseScale = 1.3
+        }
+
+        // Rotation animation
+        withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+            rotationAngle = 360
+        }
+
+        // Tip cycling
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+            withAnimation(.easeInOut(duration: 0.5)) {
+                currentTipIndex += 1
             }
         }
     }

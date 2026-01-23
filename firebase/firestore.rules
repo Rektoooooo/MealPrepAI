@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Recipes collection - read-only for authenticated users
+    // Only Cloud Functions can write (via Admin SDK)
+    match /recipes/{recipeId} {
+      // Allow read for any authenticated user (including anonymous)
+      allow read: if request.auth != null;
+
+      // Writes only allowed via Admin SDK (Cloud Functions)
+      allow write: if false;
+    }
+
+    // User favorites (if we want to track favorites in Firestore)
+    match /users/{userId}/favorites/{recipeId} {
+      // Users can only read/write their own favorites
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

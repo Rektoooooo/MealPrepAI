@@ -2,29 +2,76 @@ import SwiftUI
 import SwiftData
 
 // MARK: - Recipe Async Image with Fallback
-/// Smart image loader that tries high-res first, falls back to original, then placeholder
+/// Smart image loader with fallback chain:
+/// 1. High-res version of original image
+/// 2. Original image URL
+/// 3. Matched image URL (from AI recipe matching)
+/// 4. Placeholder gradient
 struct RecipeAsyncImage: View {
     let recipe: Recipe
     let height: CGFloat
     let cornerRadius: CGFloat
+    /// Optional matched image URL from AI recipe generation (takes priority if set)
+    var matchedImageUrl: String?
 
-    @State private var useOriginalURL = false
-    @State private var loadFailed = false
+    @State private var imageLoadState: ImageLoadState = .highRes
+
+    private enum ImageLoadState {
+        case highRes    // Try high-res first
+        case original   // Fall back to original
+        case matched    // Fall back to matched image
+        case failed     // All failed, show placeholder
+    }
 
     private var currentURL: URL? {
-        if loadFailed {
+        switch imageLoadState {
+        case .highRes:
+            // Try high-res version first
+            if let urlString = recipe.highResImageURL ?? recipe.imageURL,
+               urlString.hasPrefix("http") {
+                return URL(string: urlString)
+            }
+            return nil
+        case .original:
+            // Try original URL
+            if let urlString = recipe.imageURL, urlString.hasPrefix("http") {
+                return URL(string: urlString)
+            }
+            return nil
+        case .matched:
+            // Try matched image URL from AI generation
+            if let urlString = matchedImageUrl, urlString.hasPrefix("http") {
+                return URL(string: urlString)
+            }
+            return nil
+        case .failed:
             return nil
         }
+    }
 
-        let urlString: String?
-        if useOriginalURL {
-            urlString = recipe.imageURL
-        } else {
-            urlString = recipe.highResImageURL ?? recipe.imageURL
+    private func handleLoadFailure() {
+        switch imageLoadState {
+        case .highRes:
+            // Try original URL if high-res failed
+            if recipe.highResImageURL != recipe.imageURL && recipe.imageURL != nil {
+                imageLoadState = .original
+            } else if matchedImageUrl != nil {
+                imageLoadState = .matched
+            } else {
+                imageLoadState = .failed
+            }
+        case .original:
+            // Try matched image if original failed
+            if matchedImageUrl != nil {
+                imageLoadState = .matched
+            } else {
+                imageLoadState = .failed
+            }
+        case .matched:
+            imageLoadState = .failed
+        case .failed:
+            break
         }
-
-        guard let str = urlString, str.hasPrefix("http") else { return nil }
-        return URL(string: str)
     }
 
     var body: some View {
@@ -44,24 +91,22 @@ struct RecipeAsyncImage: View {
                             .frame(height: height)
                             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
                     case .failure:
-                        // Try fallback to original URL if high-res failed
-                        if !useOriginalURL && recipe.highResImageURL != recipe.imageURL {
-                            Color.clear
-                                .onAppear {
-                                    useOriginalURL = true
-                                }
-                        } else {
-                            placeholderView
-                                .onAppear {
-                                    loadFailed = true
-                                }
-                        }
+                        Color.clear
+                            .onAppear {
+                                handleLoadFailure()
+                            }
                     @unknown default:
                         placeholderView
                     }
                 }
-            } else {
+            } else if imageLoadState == .failed {
                 placeholderView
+            } else {
+                // No URL available for current state, try next
+                Color.clear
+                    .onAppear {
+                        handleLoadFailure()
+                    }
             }
         }
         .frame(height: height)

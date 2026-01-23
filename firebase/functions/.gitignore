@@ -1,0 +1,13 @@
+# Secrets
+.env
+.env.local
+serviceAccountKey.json
+
+# Dependencies
+node_modules/
+
+# Compiled output
+lib/
+
+# Logs
+*.log
