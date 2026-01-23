@@ -3,9 +3,9 @@ import SwiftData
 
 @Model
 final class Day {
-    var id: UUID
-    var date: Date
-    var dayOfWeek: Int
+    var id: UUID = UUID()
+    var date: Date = Date()
+    var dayOfWeek: Int = 0
 
     // Relationship to meal plan
     var mealPlan: MealPlan?

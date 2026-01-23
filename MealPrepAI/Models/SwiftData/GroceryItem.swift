@@ -3,12 +3,12 @@ import SwiftData
 
 @Model
 final class GroceryItem {
-    var id: UUID
-    var quantity: Double
-    var unitRaw: String
-    var isChecked: Bool
-    var isLocked: Bool
-    var isManuallyAdded: Bool
+    var id: UUID = UUID()
+    var quantity: Double = 1
+    var unitRaw: String = "piece"
+    var isChecked: Bool = false
+    var isLocked: Bool = false
+    var isManuallyAdded: Bool = false
     var notes: String?
 
     // Relationship to grocery list

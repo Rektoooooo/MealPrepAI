@@ -3,16 +3,16 @@ import SwiftData
 
 @Model
 final class Ingredient {
-    var id: UUID
-    var name: String
-    var categoryRaw: String
-    var defaultUnitRaw: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var categoryRaw: String = "Other"
+    var defaultUnitRaw: String = "g"
 
     // Nutrition per 100g
-    var caloriesPer100g: Int
-    var proteinPer100g: Double
-    var carbsPer100g: Double
-    var fatPer100g: Double
+    var caloriesPer100g: Int = 0
+    var proteinPer100g: Double = 0
+    var carbsPer100g: Double = 0
+    var fatPer100g: Double = 0
 
     // Relationships
     @Relationship(inverse: \RecipeIngredient.ingredient)

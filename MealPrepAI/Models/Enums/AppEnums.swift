@@ -235,6 +235,35 @@ enum GroceryCategory: String, Codable, CaseIterable, Identifiable, Sendable {
         case .other: return "bag.fill"
         }
     }
+
+    /// Convert Spoonacular aisle string to GroceryCategory
+    static func fromAisle(_ aisle: String) -> GroceryCategory {
+        let lowercased = aisle.lowercased()
+        if lowercased.contains("produce") || lowercased.contains("vegetable") || lowercased.contains("fruit") {
+            return .produce
+        } else if lowercased.contains("meat") || lowercased.contains("seafood") || lowercased.contains("poultry") {
+            return .meat
+        } else if lowercased.contains("dairy") || lowercased.contains("milk") || lowercased.contains("cheese") || lowercased.contains("egg") {
+            return .dairy
+        } else if lowercased.contains("bak") || lowercased.contains("bread") {
+            return .bakery
+        } else if lowercased.contains("frozen") {
+            return .frozen
+        } else if lowercased.contains("canned") {
+            return .canned
+        } else if lowercased.contains("condiment") || lowercased.contains("sauce") || lowercased.contains("oil") || lowercased.contains("vinegar") {
+            return .condiments
+        } else if lowercased.contains("spice") || lowercased.contains("season") || lowercased.contains("herb") {
+            return .spices
+        } else if lowercased.contains("beverage") || lowercased.contains("drink") {
+            return .beverages
+        } else if lowercased.contains("snack") {
+            return .snacks
+        } else if lowercased.contains("pasta") || lowercased.contains("rice") || lowercased.contains("grain") || lowercased.contains("cereal") {
+            return .pantry
+        }
+        return .other
+    }
 }
 
 // MARK: - Measurement Unit
@@ -382,6 +411,40 @@ enum MeasurementUnit: String, Codable, CaseIterable, Identifiable, Sendable {
             formatted = String(format: "%.1f", quantity)
         }
         return "\(formatted) \(unit.rawValue)"
+    }
+
+    /// Convert string unit from Spoonacular to MeasurementUnit
+    static func fromString(_ unitString: String) -> MeasurementUnit {
+        let lowercased = unitString.lowercased().trimmingCharacters(in: .whitespaces)
+
+        // Check for exact matches first
+        if let exact = MeasurementUnit(rawValue: lowercased) {
+            return exact
+        }
+
+        // Volume variations
+        if lowercased.contains("cup") { return .cup }
+        if lowercased.contains("tbsp") || lowercased.contains("tablespoon") { return .tablespoon }
+        if lowercased.contains("tsp") || lowercased.contains("teaspoon") { return .teaspoon }
+        if lowercased == "ml" || lowercased.contains("milliliter") { return .milliliter }
+        if lowercased == "l" || lowercased.contains("liter") { return .liter }
+        if lowercased.contains("fl oz") || lowercased.contains("fluid ounce") { return .fluidOunce }
+
+        // Weight variations
+        if lowercased == "g" || lowercased.contains("gram") { return .gram }
+        if lowercased == "kg" || lowercased.contains("kilogram") { return .kilogram }
+        if lowercased == "oz" || lowercased.contains("ounce") { return .ounce }
+        if lowercased == "lb" || lowercased.contains("pound") { return .pound }
+
+        // Count variations
+        if lowercased.contains("slice") { return .slice }
+        if lowercased.contains("clove") { return .clove }
+        if lowercased.contains("bunch") { return .bunch }
+        if lowercased.contains("can") { return .can }
+        if lowercased.contains("package") || lowercased.contains("pkg") { return .package }
+
+        // Default to piece for unrecognized units
+        return .piece
     }
 }
 

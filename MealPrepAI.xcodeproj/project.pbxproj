@@ -6,6 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		EC0FEE592F23C61500159966 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE582F23C61500159966 /* FirebaseAI */; };
+		EC0FEE5B2F23C61500159966 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE5A2F23C61500159966 /* FirebaseAILogic */; };
+		EC0FEE5D2F23C61500159966 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE5C2F23C61500159966 /* FirebaseAnalytics */; };
+		EC0FEE5F2F23C61500159966 /* FirebaseAnalyticsCore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE5E2F23C61500159966 /* FirebaseAnalyticsCore */; };
+		EC0FEE612F23C61500159966 /* FirebaseAnalyticsIdentitySupport in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE602F23C61500159966 /* FirebaseAnalyticsIdentitySupport */; };
+		EC0FEE632F23C61500159966 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE622F23C61500159966 /* FirebaseAuth */; };
+		EC0FEE652F23C61500159966 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE642F23C61500159966 /* FirebaseCore */; };
+		EC0FEE672F23C61500159966 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE662F23C61500159966 /* FirebaseFirestore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		EC90E6CF2F1C34A7004BE865 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +63,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EC0FEE5B2F23C61500159966 /* FirebaseAILogic in Frameworks */,
+				EC0FEE612F23C61500159966 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
+				EC0FEE592F23C61500159966 /* FirebaseAI in Frameworks */,
+				EC0FEE5D2F23C61500159966 /* FirebaseAnalytics in Frameworks */,
+				EC0FEE5F2F23C61500159966 /* FirebaseAnalyticsCore in Frameworks */,
+				EC0FEE632F23C61500159966 /* FirebaseAuth in Frameworks */,
+				EC0FEE652F23C61500159966 /* FirebaseCore in Frameworks */,
+				EC0FEE672F23C61500159966 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +131,14 @@
 			);
 			name = MealPrepAI;
 			packageProductDependencies = (
+				EC0FEE582F23C61500159966 /* FirebaseAI */,
+				EC0FEE5A2F23C61500159966 /* FirebaseAILogic */,
+				EC0FEE5C2F23C61500159966 /* FirebaseAnalytics */,
+				EC0FEE5E2F23C61500159966 /* FirebaseAnalyticsCore */,
+				EC0FEE602F23C61500159966 /* FirebaseAnalyticsIdentitySupport */,
+				EC0FEE622F23C61500159966 /* FirebaseAuth */,
+				EC0FEE642F23C61500159966 /* FirebaseCore */,
+				EC0FEE662F23C61500159966 /* FirebaseFirestore */,
 			);
 			productName = MealPrepAI;
 			productReference = EC90E6C12F1C34A5004BE865 /* MealPrepAI.app */;
@@ -195,6 +222,9 @@
 			);
 			mainGroup = EC90E6B82F1C34A5004BE865;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EC90E6C22F1C34A5004BE865 /* Products */;
 			projectDirPath = "";
@@ -405,6 +435,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MealPrepAI logs your meal nutrition to Apple Health when you mark meals as eaten, helping you track your daily intake.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -437,6 +468,7 @@
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MealPrepAI logs your meal nutrition to Apple Health when you mark meals as eaten, helping you track your daily intake.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -570,6 +602,60 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EC0FEE582F23C61500159966 /* FirebaseAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAI;
+		};
+		EC0FEE5A2F23C61500159966 /* FirebaseAILogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAILogic;
+		};
+		EC0FEE5C2F23C61500159966 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
+		};
+		EC0FEE5E2F23C61500159966 /* FirebaseAnalyticsCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsCore;
+		};
+		EC0FEE602F23C61500159966 /* FirebaseAnalyticsIdentitySupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalyticsIdentitySupport;
+		};
+		EC0FEE622F23C61500159966 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		EC0FEE642F23C61500159966 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		EC0FEE662F23C61500159966 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = EC90E6B92F1C34A5004BE865 /* Project object */;
 }

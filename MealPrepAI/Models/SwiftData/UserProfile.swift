@@ -3,30 +3,31 @@ import SwiftData
 
 @Model
 final class UserProfile {
-    var id: UUID
-    var name: String
-    var createdAt: Date
+    // CloudKit requires default values for all non-optional properties
+    var id: UUID = UUID()
+    var name: String = ""
+    var createdAt: Date = Date()
 
     // Authentication
     var appleUserID: String?        // nil for guest users
-    var isGuestAccount: Bool
-    var iCloudSyncEnabled: Bool
+    var isGuestAccount: Bool = true
+    var iCloudSyncEnabled: Bool = false
     var lastSyncDate: Date?
 
     // Physical attributes
-    var age: Int
-    var genderRaw: String  // Store as String for SwiftData compatibility
-    var heightCm: Double
-    var weightKg: Double
-    var activityLevelRaw: String
+    var age: Int = 30
+    var genderRaw: String = "Other"  // Store as String for SwiftData compatibility
+    var heightCm: Double = 170.0
+    var weightKg: Double = 70.0
+    var activityLevelRaw: String = "Moderately Active"
 
     // Goals
-    var weightGoalRaw: String
+    var weightGoalRaw: String = "Maintain Weight"
     var targetWeightKg: Double?
-    var dailyCalorieTarget: Int
-    var proteinGrams: Int
-    var carbsGrams: Int
-    var fatGrams: Int
+    var dailyCalorieTarget: Int = 2000
+    var proteinGrams: Int = 150
+    var carbsGrams: Int = 200
+    var fatGrams: Int = 65
 
     // Preferences - stored as JSON Data for SwiftData compatibility
     var dietaryRestrictionsData: Data?
@@ -34,21 +35,21 @@ final class UserProfile {
     var preferredCuisinesData: Data?
     var customDietaryRestrictions: String?  // Comma-separated custom diets
     var customAllergies: String?            // Comma-separated custom allergies
-    var cookingSkillRaw: String
-    var maxCookingTimeRaw: String
+    var cookingSkillRaw: String = "Intermediate"
+    var maxCookingTimeRaw: String = "30-45 minutes"
 
     // Meal settings
-    var mealsPerDay: Int
-    var includeSnacks: Bool
-    var simpleModeEnabled: Bool
+    var mealsPerDay: Int = 3
+    var includeSnacks: Bool = true
+    var simpleModeEnabled: Bool = false
 
     // Onboarding
-    var hasCompletedOnboarding: Bool
+    var hasCompletedOnboarding: Bool = false
 
     // HealthKit preferences
-    var healthKitEnabled: Bool
-    var syncNutritionToHealth: Bool
-    var readWeightFromHealth: Bool
+    var healthKitEnabled: Bool = false
+    var syncNutritionToHealth: Bool = true
+    var readWeightFromHealth: Bool = false
     var lastHealthKitSync: Date?
 
     // Relationships

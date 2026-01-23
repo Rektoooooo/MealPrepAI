@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 final class RecipeIngredient {
-    var id: UUID
-    var quantity: Double
-    var unitRaw: String
+    var id: UUID = UUID()
+    var quantity: Double = 1
+    var unitRaw: String = "piece"
     var notes: String?
-    var isOptional: Bool
+    var isOptional: Bool = false
 
     // For display: "2 cups" or "200g"
     var quantityGrams: Double?

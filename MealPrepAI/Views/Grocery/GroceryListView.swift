@@ -98,7 +98,7 @@ struct GroceryListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingAddItem = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 22))
+                            .font(.system(size: 18))
                             .foregroundStyle(Color.accentPurple)
                     }
                 }

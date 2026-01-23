@@ -3,9 +3,9 @@ import SwiftData
 
 @Model
 final class GroceryList {
-    var id: UUID
-    var createdAt: Date
-    var lastModified: Date
+    var id: UUID = UUID()
+    var createdAt: Date = Date()
+    var lastModified: Date = Date()
 
     // Relationship to meal plan
     var mealPlan: MealPlan?

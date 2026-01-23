@@ -1,6 +1,83 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Recipe Async Image with Fallback
+/// Smart image loader that tries high-res first, falls back to original, then placeholder
+struct RecipeAsyncImage: View {
+    let recipe: Recipe
+    let height: CGFloat
+    let cornerRadius: CGFloat
+
+    @State private var useOriginalURL = false
+    @State private var loadFailed = false
+
+    private var currentURL: URL? {
+        if loadFailed {
+            return nil
+        }
+
+        let urlString: String?
+        if useOriginalURL {
+            urlString = recipe.imageURL
+        } else {
+            urlString = recipe.highResImageURL ?? recipe.imageURL
+        }
+
+        guard let str = urlString, str.hasPrefix("http") else { return nil }
+        return URL(string: str)
+    }
+
+    var body: some View {
+        Group {
+            if let url = currentURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        ZStack {
+                            placeholderView
+                            ProgressView()
+                        }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: height)
+                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    case .failure:
+                        // Try fallback to original URL if high-res failed
+                        if !useOriginalURL && recipe.highResImageURL != recipe.imageURL {
+                            Color.clear
+                                .onAppear {
+                                    useOriginalURL = true
+                                }
+                        } else {
+                            placeholderView
+                                .onAppear {
+                                    loadFailed = true
+                                }
+                        }
+                    @unknown default:
+                        placeholderView
+                    }
+                }
+            } else {
+                placeholderView
+            }
+        }
+        .frame(height: height)
+    }
+
+    private var placeholderView: some View {
+        FoodImagePlaceholder(
+            style: recipe.cuisineType?.foodStyle ?? .random,
+            height: height,
+            cornerRadius: cornerRadius,
+            showIcon: true,
+            iconSize: height * 0.3
+        )
+    }
+}
+
 // MARK: - Food Image Placeholder
 // Creates colorful gradient backgrounds that simulate food photography
 struct FoodImagePlaceholder: View {
@@ -71,47 +148,79 @@ struct FoodImagePlaceholder: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if let imageName = imageName, let uiImage = UIImage(named: imageName) {
-                    // Real image - constrained to geometry width
+                // Check if it's a remote URL
+                if let imageName = imageName,
+                   imageName.hasPrefix("http"),
+                   let url = URL(string: imageName) {
+                    // Remote image from URL
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            // Loading state - show gradient placeholder
+                            gradientPlaceholder
+                        case .success(let image):
+                            // Loaded successfully
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: geometry.size.width, height: height)
+                                .clipped()
+                        case .failure:
+                            // Failed to load - show gradient placeholder
+                            gradientPlaceholder
+                        @unknown default:
+                            gradientPlaceholder
+                        }
+                    }
+                } else if let imageName = imageName, let uiImage = UIImage(named: imageName) {
+                    // Local image from asset catalog
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geometry.size.width, height: height)
                         .clipped()
                 } else {
-                    // Gradient background
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: style.gradient,
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(height: height)
-
-                    // Decorative circles for depth
-                    Circle()
-                        .fill(.white.opacity(0.1))
-                        .frame(width: height * 0.8)
-                        .offset(x: height * 0.3, y: -height * 0.2)
-
-                    Circle()
-                        .fill(.white.opacity(0.08))
-                        .frame(width: height * 0.5)
-                        .offset(x: -height * 0.4, y: height * 0.15)
-
-                    // Icon
-                    if showIcon {
-                        Image(systemName: style.icon)
-                            .font(.system(size: iconSize))
-                            .foregroundStyle(.white.opacity(0.5))
-                    }
+                    // No image - show gradient placeholder
+                    gradientPlaceholder
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         }
         .frame(height: height)
+    }
+
+    // Extracted gradient placeholder view
+    private var gradientPlaceholder: some View {
+        ZStack {
+            // Gradient background
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(
+                    LinearGradient(
+                        colors: style.gradient,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(height: height)
+
+            // Decorative circles for depth
+            Circle()
+                .fill(.white.opacity(0.1))
+                .frame(width: height * 0.8)
+                .offset(x: height * 0.3, y: -height * 0.2)
+
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: height * 0.5)
+                .offset(x: -height * 0.4, y: height * 0.15)
+
+            // Icon
+            if showIcon {
+                Image(systemName: style.icon)
+                    .font(.system(size: iconSize))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
     }
 }
 
@@ -229,56 +338,60 @@ struct RoundedSearchBar: View {
 // MARK: - Food Category
 enum FoodCategory: String, CaseIterable, Identifiable {
     case all = "All"
+    case chicken = "Chicken"
+    case pasta = "Pasta"
     case salad = "Salad"
-    case pizza = "Pizza"
-    case burger = "Burger"
-    case steak = "Steak"
+    case soup = "Soup"
+    case asian = "Asian"
+    case mexican = "Mexican"
     case seafood = "Seafood"
-    case breakfast = "Breakfast"
-    case healthy = "Healthy"
-    case dessert = "Dessert"
+    case vegetarian = "Vegetarian"
+    case quick = "Quick"
 
     var id: String { rawValue }
 
     var imageName: String? {
         switch self {
         case .all: return nil // Use icon for "All"
+        case .chicken: return "CategoryChicken"
+        case .pasta: return "CategoryPasta"
         case .salad: return "CategorySalad"
-        case .pizza: return "CategoryPizza"
-        case .burger: return "CategoryBurger"
-        case .steak: return "CategorySteak"
+        case .soup: return "CategorySoup"
+        case .asian: return "CategoryAsian"
+        case .mexican: return "CategoryMexican"
         case .seafood: return "CategorySeafood"
-        case .breakfast: return "CategoryBreakfast"
-        case .healthy: return "CategoryHealthy"
-        case .dessert: return "CategoryDessert"
+        case .vegetarian: return "CategoryVegetarian"
+        case .quick: return nil // Use SF Symbol
         }
     }
 
     var icon: String {
         switch self {
         case .all: return "square.grid.2x2"
+        case .chicken: return "bird"
+        case .pasta: return "fork.knife"
         case .salad: return "leaf"
-        case .pizza: return "circle.grid.2x2"
-        case .burger: return "circle.fill"
-        case .steak: return "flame"
+        case .soup: return "cup.and.saucer"
+        case .asian: return "takeoutbag.and.cup.and.straw"
+        case .mexican: return "flame"
         case .seafood: return "fish"
-        case .breakfast: return "sun.horizon"
-        case .healthy: return "heart"
-        case .dessert: return "birthday.cake"
+        case .vegetarian: return "leaf.circle"
+        case .quick: return "bolt.fill"
         }
     }
 
     var color: Color {
         switch self {
         case .all: return .accentPurple
+        case .chicken: return .accentOrange
+        case .pasta: return .accentYellow
         case .salad: return .mintVibrant
-        case .pizza: return .accentOrange
-        case .burger: return .accentYellow
-        case .steak: return .accentPink
+        case .soup: return .accentPink
+        case .asian: return .accentBlue
+        case .mexican: return .accentOrange
         case .seafood: return .accentBlue
-        case .breakfast: return .breakfastGradientEnd
-        case .healthy: return .mintVibrant
-        case .dessert: return .accentPink
+        case .vegetarian: return .mintVibrant
+        case .quick: return .accentPurple
         }
     }
 }
@@ -379,7 +492,7 @@ struct FeaturedRecipeCard: View {
                         cornerRadius: Design.Radius.featured,
                         showIcon: recipe.imageURL == nil,
                         iconSize: 60,
-                        imageName: recipe.imageURL
+                        imageName: recipe.highResImageURL ?? recipe.imageURL
                     )
 
                     // Purple overlay gradient for text readability
@@ -421,11 +534,11 @@ struct FeaturedRecipeCard: View {
                             }
                             .foregroundStyle(.white.opacity(0.9))
 
-                            // Calories
+                            // Calories per serving
                             HStack(spacing: Design.Spacing.xs) {
                                 Image(systemName: "flame.fill")
                                     .font(.caption)
-                                Text("\(recipe.calories) cal")
+                                Text("\(recipe.caloriesPerServing) cal/serving")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                             }
@@ -478,66 +591,164 @@ struct StackedRecipeCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 0) {
-                // Image area with real image or colorful gradient
-                ZStack(alignment: .topTrailing) {
+                // Image area with badges overlay
+                ZStack {
                     FoodImagePlaceholder(
                         style: recipe.cuisineType?.foodStyle ?? .random,
-                        height: 130,
-                        cornerRadius: Design.Radius.lg,
+                        height: 140,
+                        cornerRadius: 0,
                         showIcon: recipe.imageURL == nil,
                         iconSize: 36,
-                        imageName: recipe.imageURL
+                        imageName: recipe.highResImageURL ?? recipe.imageURL
+                    )
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: Design.Radius.card,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: Design.Radius.card
+                        )
                     )
 
-                    // Add button - positioned in top right corner
-                    if let onAdd = onAdd {
-                        Button(action: onAdd) {
-                            ZStack {
-                                Circle()
-                                    .fill(LinearGradient.purpleButtonGradient)
-                                    .frame(width: 36, height: 36)
+                    // Gradient overlay for badges
+                    VStack {
+                        Spacer()
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.5)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 50)
+                    }
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: Design.Radius.card,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: Design.Radius.card
+                        )
+                    )
 
-                                Image(systemName: "plus")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(.white)
+                    // Badges layer
+                    VStack {
+                        // Top row: Add button
+                        HStack {
+                            Spacer()
+                            if let onAdd = onAdd {
+                                Button(action: onAdd) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(.ultraThinMaterial)
+                                            .frame(width: 34, height: 34)
+
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(Color.accentPurple)
+                                    }
+                                }
                             }
                         }
                         .padding(Design.Spacing.sm)
+
+                        Spacer()
+
+                        // Bottom row: Time & Cuisine badges
+                        HStack {
+                            // Time badge
+                            HStack(spacing: 3) {
+                                Image(systemName: "clock.fill")
+                                    .font(.system(size: 9))
+                                Text("\(recipe.totalTimeMinutes)m")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(.black.opacity(0.5))
+                            )
+
+                            Spacer()
+
+                            // Cuisine badge (if available)
+                            if let cuisine = recipe.cuisineType {
+                                Text(cuisine.rawValue)
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Capsule()
+                                            .fill(Color.accentPurple.opacity(0.8))
+                                    )
+                            }
+                        }
+                        .padding(.horizontal, Design.Spacing.sm)
+                        .padding(.bottom, Design.Spacing.sm)
                     }
                 }
+                .frame(height: 140)
 
-                // Info
-                VStack(alignment: .leading, spacing: Design.Spacing.xs) {
+                // Info section
+                VStack(alignment: .leading, spacing: 6) {
                     Text(recipe.name)
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundStyle(.primary)
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
-                        .frame(height: 40, alignment: .top)
+                        .frame(height: 38, alignment: .top)
 
-                    HStack {
-                        Image(systemName: "clock")
+                    // Stats row
+                    HStack(spacing: 0) {
+                        // Calories
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.accentOrange)
+                            Text("\(recipe.caloriesPerServing)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Text(" kcal")
                             .font(.caption2)
-                        Text("\(recipe.totalTimeMinutes) min")
-                            .font(.caption)
+                            .foregroundStyle(.tertiary)
 
                         Spacer()
 
+                        // Servings
+                        HStack(spacing: 3) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Color.mintVibrant)
+                            Text("\(recipe.servings)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        // Favorite
                         Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                            .font(.caption)
-                            .foregroundStyle(recipe.isFavorite ? .red : .secondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(recipe.isFavorite ? .red : .secondary.opacity(0.5))
                     }
-                    .foregroundStyle(.secondary)
                 }
-                .padding(Design.Spacing.sm)
-                .frame(height: 70)
+                .padding(.horizontal, Design.Spacing.sm)
+                .padding(.vertical, Design.Spacing.sm)
+                .frame(height: 75)
             }
-            .frame(height: 200)
+            .frame(height: 215)
             .background(Color.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
             .shadow(
-                color: Design.Shadow.card.color,
+                color: Design.Shadow.card.color.opacity(0.8),
                 radius: Design.Shadow.card.radius,
                 y: Design.Shadow.card.y
             )
@@ -679,7 +890,7 @@ struct HorizontalMealCard: View {
                         cornerRadius: Design.Radius.lg,
                         showIcon: recipe.imageURL == nil,
                         iconSize: 32,
-                        imageName: recipe.imageURL
+                        imageName: recipe.highResImageURL ?? recipe.imageURL
                     )
                     .frame(width: 140)
 
@@ -724,7 +935,7 @@ struct HorizontalMealCard: View {
                         .foregroundStyle(.primary)
                         .lineLimit(2)
 
-                    Text("\(recipe.calories) cal")
+                    Text("\(recipe.caloriesPerServing) cal/serv")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -765,7 +976,7 @@ struct WideMealCard: View {
                             cornerRadius: Design.Radius.lg,
                             showIcon: recipe.imageURL == nil,
                             iconSize: 32,
-                            imageName: recipe.imageURL
+                            imageName: recipe.highResImageURL ?? recipe.imageURL
                         )
                         .frame(width: 100)
 
@@ -804,7 +1015,7 @@ struct WideMealCard: View {
                             .lineLimit(2)
 
                         HStack(spacing: Design.Spacing.md) {
-                            Label("\(recipe.calories) cal", systemImage: "flame.fill")
+                            Label("\(recipe.caloriesPerServing) cal", systemImage: "flame.fill")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 

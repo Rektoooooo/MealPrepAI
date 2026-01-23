@@ -3,11 +3,11 @@ import SwiftData
 
 @Model
 final class Meal {
-    var id: UUID
-    var mealTypeRaw: String
-    var isEaten: Bool
+    var id: UUID = UUID()
+    var mealTypeRaw: String = "Breakfast"
+    var isEaten: Bool = false
     var eatenAt: Date?
-    var isLocked: Bool
+    var isLocked: Bool = false
 
     // HealthKit integration - stored as JSON Data
     var healthKitSampleIDsData: Data?

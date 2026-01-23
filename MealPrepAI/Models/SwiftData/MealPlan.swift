@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 final class MealPlan {
-    var id: UUID
-    var weekStartDate: Date
-    var createdAt: Date
-    var isActive: Bool
+    var id: UUID = UUID()
+    var weekStartDate: Date = Date()
+    var createdAt: Date = Date()
+    var isActive: Bool = true
 
     // Relationship to user
     var userProfile: UserProfile?

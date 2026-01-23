@@ -7,8 +7,20 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseCore
 
-// Create ModelContainer without CloudKit sync (CloudKit requires all attributes optional)
+// MARK: - App Delegate
+/// Handles app lifecycle events
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // Firebase is configured in MealPrepAIApp.init() before this runs
+        print("🔥 [AppDelegate] didFinishLaunchingWithOptions")
+        return true
+    }
+}
+
+// Create ModelContainer with CloudKit sync for user data
 let sharedModelContainer: ModelContainer = {
     let schema = Schema([
         UserProfile.self,
@@ -22,10 +34,11 @@ let sharedModelContainer: ModelContainer = {
         GroceryItem.self
     ])
 
+    // Enable CloudKit sync with the iCloud container
     let modelConfiguration = ModelConfiguration(
         schema: schema,
         isStoredInMemoryOnly: false,
-        cloudKitDatabase: .none  // Disable CloudKit - enable later when models are CloudKit-compatible
+        cloudKitDatabase: .private("iCloud.com.mealprepai.MealPrepAI")
     )
 
     do {
@@ -37,10 +50,28 @@ let sharedModelContainer: ModelContainer = {
 
 @main
 struct MealPrepAIApp: App {
+    // Firebase App Delegate
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
+    // MARK: - State Managers
     @State private var authManager = AuthenticationManager()
     @State private var syncManager = CloudKitSyncManager()
     @State private var healthKitManager = HealthKitManager()
     @State private var notificationManager = NotificationManager()
+
+    // Firebase Recipe Services - initialized after Firebase is configured
+    @State private var firebaseRecipeService: FirebaseRecipeService
+
+    init() {
+        // Configure Firebase FIRST, before any Firebase services are created
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+            print("🔥 [App] Firebase configured in init")
+        }
+
+        // Now safe to create Firebase services
+        _firebaseRecipeService = State(initialValue: FirebaseRecipeService())
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -59,6 +90,7 @@ struct MealPrepAIApp: App {
                         .environment(syncManager)
                         .environment(healthKitManager)
                         .environment(notificationManager)
+                        .environment(firebaseRecipeService)
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.authState)
