@@ -1,0 +1,959 @@
+import SwiftUI
+import SwiftData
+
+struct TodayView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(HealthKitManager.self) var healthKitManager
+    @Environment(NotificationManager.self) var notificationManager
+    @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
+    private var mealPlans: [MealPlan]
+    @Query private var userProfiles: [UserProfile]
+
+    @State private var selectedDate = Date()
+    @State private var showingMealDetail = false
+    @State private var animateCards = false
+    @State private var showingGenerateSheet = false
+    @State private var showingSwapSheet = false
+    @State private var showingAddMealSheet = false
+    @State private var showingNotifications = false
+    @State private var selectedRecipe: Recipe?
+    @State private var generator = MealPlanGenerator()
+
+    private var currentMealPlan: MealPlan? {
+        mealPlans.first
+    }
+
+    private var userProfile: UserProfile? {
+        userProfiles.first
+    }
+
+    private var todaysMeals: [Meal] {
+        guard let plan = currentMealPlan else { return [] }
+        let calendar = Calendar.current
+
+        // Find the day that matches selected date
+        if let day = plan.sortedDays.first(where: { calendar.isDate($0.date, inSameDayAs: selectedDate) }) {
+            return day.sortedMeals
+        }
+        return []
+    }
+
+    private var todaysDay: Day? {
+        guard let plan = currentMealPlan else { return nil }
+        let calendar = Calendar.current
+        return plan.sortedDays.first(where: { calendar.isDate($0.date, inSameDayAs: selectedDate) })
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Design.Spacing.lg) {
+                    // Greeting Header
+                    GreetingHeader(userName: userProfile?.name ?? "Chef")
+                        .opacity(animateCards ? 1 : 0)
+                        .offset(y: animateCards ? 0 : 20)
+
+                    if currentMealPlan == nil {
+                        // No meal plan - show generate prompt
+                        emptyStateView
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+                    } else {
+                        // Progress Hero Card
+                        progressHeroCard
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Date Selector
+                        dateSelector
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Nutrition Progress
+                        if let day = todaysDay, let profile = userProfile {
+                            NutritionSummaryCard(
+                                consumed: day.totalCalories,
+                                target: profile.dailyCalorieTarget,
+                                protein: day.totalProtein,
+                                proteinTarget: profile.proteinGrams,
+                                carbs: day.totalCarbs,
+                                carbsTarget: profile.carbsGrams,
+                                fat: day.totalFat,
+                                fatTarget: profile.fatGrams
+                            )
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+                        }
+
+                        // Today's Meals
+                        mealsSection
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Quick Actions
+                        quickActions
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+                    }
+                }
+                .padding(.horizontal, Design.Spacing.md)
+                .padding(.bottom, Design.Spacing.xxl)
+            }
+            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: { showingNotifications = true }) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "bell")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(Color.textPrimary)
+
+                            if notificationManager.hasUnread {
+                                Circle()
+                                    .fill(Color.accentPurple)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 2, y: -2)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationDestination(isPresented: $showingNotifications) {
+                NotificationsView()
+            }
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                    animateCards = true
+                }
+            }
+            .sheet(isPresented: $showingGenerateSheet) {
+                GenerateMealPlanSheet(generator: generator)
+            }
+            .sheet(isPresented: $showingSwapSheet) {
+                SwapMealSheet(
+                    meals: todaysMeals,
+                    generator: generator,
+                    userProfile: userProfile
+                )
+            }
+            .sheet(isPresented: $showingAddMealSheet) {
+                AddMealToTodaySheet(
+                    day: todaysDay,
+                    generator: generator,
+                    userProfile: userProfile
+                )
+            }
+            .sheet(item: $selectedRecipe) { recipe in
+                RecipeDetailSheet(recipe: recipe)
+            }
+        }
+    }
+
+    // MARK: - Empty State
+    private var emptyStateView: some View {
+        NewEmptyStateView(
+            icon: "fork.knife.circle.fill",
+            title: "No Meal Plan Yet",
+            message: "Generate your personalized meal plan based on your preferences and nutritional goals.",
+            buttonTitle: "Generate Meal Plan",
+            buttonIcon: "sparkles",
+            buttonStyle: .purple,
+            onButtonTap: { showingGenerateSheet = true }
+        )
+        .frame(height: 400)
+    }
+
+    // MARK: - Progress Hero Card
+    private var progressHeroCard: some View {
+        VStack(spacing: Design.Spacing.md) {
+            HStack(spacing: Design.Spacing.md) {
+                VStack(alignment: .leading, spacing: Design.Spacing.xs) {
+                    Text(greeting)
+                        .font(Design.Typography.title)
+                        .foregroundStyle(.white)
+
+                    Text("You've eaten \(mealsEaten) of \(todaysMeals.count) meals")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Spacer()
+
+                // Circular Progress
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 5)
+                        .frame(width: 64, height: 64)
+
+                    Circle()
+                        .trim(from: 0, to: todaysMeals.isEmpty ? 0 : CGFloat(mealsEaten) / CGFloat(todaysMeals.count))
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .frame(width: 64, height: 64)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: mealsEaten)
+
+                    Text(todaysMeals.isEmpty ? "0%" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))%")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .padding(Design.Spacing.xl)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.featured)
+                .fill(LinearGradient.purpleButtonGradient)
+                .shadow(color: Color.accentPurple.opacity(0.4), radius: 20, y: 10)
+        )
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good morning!"
+        case 12..<17: return "Good afternoon!"
+        case 17..<21: return "Good evening!"
+        default: return "Good night!"
+        }
+    }
+
+    private var mealsEaten: Int {
+        todaysMeals.filter { $0.isEaten }.count
+    }
+
+    // MARK: - Date Selector
+    private var dateSelector: some View {
+        HStack {
+            Button(action: { moveDate(by: -1) }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.accentPurple)
+                    .padding(Design.Spacing.sm)
+                    .background(
+                        Circle()
+                            .fill(Color.accentPurple.opacity(0.1))
+                    )
+            }
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                Text(selectedDate.formatted(.dateTime.weekday(.wide)))
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text(selectedDate.formatted(.dateTime.month(.wide).day()))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            Button(action: { moveDate(by: 1) }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.accentPurple)
+                    .padding(Design.Spacing.sm)
+                    .background(
+                        Circle()
+                            .fill(Color.accentPurple.opacity(0.1))
+                    )
+            }
+        }
+        .padding(.vertical, Design.Spacing.sm)
+        .padding(.horizontal, Design.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
+        )
+    }
+
+    // MARK: - Meals Section
+    private var mealsSection: some View {
+        VStack(spacing: Design.Spacing.md) {
+            NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color.accentPurple, showSeeAll: true)
+
+            if todaysMeals.isEmpty {
+                Text("No meals planned for this day")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Design.Spacing.xl)
+                    .background(
+                        RoundedRectangle(cornerRadius: Design.Radius.card)
+                            .fill(Color.cardBackground)
+                    )
+            } else {
+                ForEach(Array(todaysMeals.enumerated()), id: \.element.id) { index, meal in
+                    TodayMealCard(
+                        meal: meal,
+                        onTap: {
+                            if let recipe = meal.recipe {
+                                selectedRecipe = recipe
+                            }
+                        },
+                        onToggleEaten: {
+                            toggleMealEaten(meal)
+                        }
+                    )
+                    .animation(.easeOut(duration: 0.4).delay(Double(index) * 0.1), value: animateCards)
+                }
+            }
+        }
+    }
+
+    // MARK: - Quick Actions
+    private var quickActions: some View {
+        VStack(spacing: Design.Spacing.md) {
+            NewSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: Color.accentYellow)
+
+            HStack(spacing: Design.Spacing.sm) {
+                QuickActionCard(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: "Swap",
+                    color: Color.accentPurple,
+                    action: { showingSwapSheet = true }
+                )
+
+                QuickActionCard(
+                    icon: "cart.badge.plus",
+                    title: "Add",
+                    color: Color.mintVibrant,
+                    action: { showingAddMealSheet = true }
+                )
+
+                QuickActionCard(
+                    icon: "sparkles",
+                    title: "New Plan",
+                    color: Color.accentYellow,
+                    action: { showingGenerateSheet = true }
+                )
+            }
+        }
+    }
+
+    private func moveDate(by days: Int) {
+        withAnimation(Design.Animation.smooth) {
+            if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) {
+                selectedDate = newDate
+            }
+        }
+    }
+
+    private func toggleMealEaten(_ meal: Meal) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            meal.isEaten.toggle()
+
+            if meal.isEaten {
+                meal.eatenAt = Date()
+
+                // Sync to HealthKit if enabled
+                if userProfile?.healthKitEnabled == true && userProfile?.syncNutritionToHealth == true {
+                    Task {
+                        do {
+                            let sampleIDs = try await healthKitManager.logMealNutrition(meal: meal)
+                            meal.healthKitSampleIDs = sampleIDs
+                            userProfile?.lastHealthKitSync = Date()
+                        } catch {
+                            print("Failed to sync meal to HealthKit: \(error)")
+                        }
+                    }
+                }
+            } else {
+                meal.eatenAt = nil
+
+                // Remove from HealthKit if enabled
+                if userProfile?.healthKitEnabled == true,
+                   let sampleIDs = meal.healthKitSampleIDs {
+                    Task {
+                        do {
+                            try await healthKitManager.deleteMealNutrition(sampleIDs: sampleIDs)
+                            meal.healthKitSampleIDs = nil
+                        } catch {
+                            print("Failed to remove meal from HealthKit: \(error)")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Today Meal Card
+struct TodayMealCard: View {
+    let meal: Meal
+    let onTap: () -> Void
+    let onToggleEaten: () -> Void
+
+    private var mealTypeIcon: String {
+        switch meal.mealType {
+        case .breakfast: return "sunrise.fill"
+        case .lunch: return "sun.max.fill"
+        case .dinner: return "moon.stars.fill"
+        case .snack: return "leaf.fill"
+        }
+    }
+
+    private var mealTypeColor: Color {
+        switch meal.mealType {
+        case .breakfast: return Color.accentYellow
+        case .lunch: return Color.mintVibrant
+        case .dinner: return Color.accentPurple
+        case .snack: return Color(hex: "FF6B9D")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: Design.Spacing.md) {
+            // Tappable content area
+            Button(action: onTap) {
+                HStack(spacing: Design.Spacing.md) {
+                    // Meal Type Icon
+                    ZStack {
+                        Circle()
+                            .fill(mealTypeColor.opacity(0.15))
+                            .frame(width: 50, height: 50)
+
+                        Image(systemName: mealTypeIcon)
+                            .font(.system(size: 22))
+                            .foregroundStyle(mealTypeColor)
+                    }
+
+                    // Meal Info
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(meal.mealType.rawValue)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(mealTypeColor)
+
+                        Text(meal.recipe?.name ?? "Unknown Recipe")
+                            .font(.headline)
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(1)
+
+                        HStack(spacing: Design.Spacing.sm) {
+                            Label("\(meal.recipe?.calories ?? 0) kcal", systemImage: "flame.fill")
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+
+                            if let time = meal.recipe?.cookTimeMinutes {
+                                Label("\(time) min", systemImage: "clock")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Completion Button (separate from main tap area)
+            Button(action: onToggleEaten) {
+                ZStack {
+                    Circle()
+                        .fill(meal.isEaten ? Color.mintVibrant : Color.clear)
+                        .frame(width: 36, height: 36)
+
+                    Circle()
+                        .strokeBorder(meal.isEaten ? Color.mintVibrant : Color.textSecondary.opacity(0.3), lineWidth: 2)
+                        .frame(width: 36, height: 36)
+
+                    if meal.isEaten {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+        }
+        .padding(Design.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
+        )
+        .opacity(meal.isEaten ? 0.8 : 1)
+    }
+}
+
+// MARK: - Generate Meal Plan Sheet
+struct GenerateMealPlanSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query private var userProfiles: [UserProfile]
+    @Bindable var generator: MealPlanGenerator
+
+    private var userProfile: UserProfile? {
+        userProfiles.first
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Design.Spacing.xl) {
+                if generator.isGenerating {
+                    // Loading state
+                    Spacer()
+
+                    VStack(spacing: Design.Spacing.lg) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.accentPurple.opacity(0.1))
+                                .frame(width: 80, height: 80)
+
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(Color.accentPurple)
+                        }
+
+                        Text(generator.progress)
+                            .font(.headline)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    Spacer()
+                } else {
+                    // Ready state
+                    Spacer()
+
+                    ZStack {
+                        Circle()
+                            .fill(Color.accentPurple.opacity(0.1))
+                            .frame(width: 100, height: 100)
+
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 44))
+                            .foregroundStyle(Color.accentPurple)
+                    }
+
+                    VStack(spacing: Design.Spacing.sm) {
+                        Text("Generate Your Meal Plan")
+                            .font(Design.Typography.title)
+
+                        Text("We'll create a personalized 7-day meal plan based on your dietary preferences, restrictions, and nutritional goals.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+
+                    if let profile = userProfile {
+                        VStack(spacing: Design.Spacing.xs) {
+                            profileInfoRow(label: "Daily Calories", value: "\(profile.dailyCalorieTarget) kcal")
+                            profileInfoRow(label: "Protein Target", value: "\(profile.proteinGrams)g")
+                            profileInfoRow(label: "Meals per Day", value: "\(profile.mealsPerDay)\(profile.includeSnacks ? " + snacks" : "")")
+                        }
+                        .padding(Design.Spacing.md)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.Radius.md)
+                                .fill(Color.mintLight)
+                        )
+                        .padding(.horizontal)
+                    }
+
+                    Spacer()
+
+                    Button(action: generatePlan) {
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "sparkles")
+                            Text("Generate Now")
+                        }
+                    }
+                    .purpleButton()
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
+            }
+            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .navigationTitle("New Meal Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.accentPurple)
+                        .disabled(generator.isGenerating)
+                }
+            }
+            .interactiveDismissDisabled(generator.isGenerating)
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func profileInfoRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(Color.textSecondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.textPrimary)
+        }
+        .font(.subheadline)
+    }
+
+    private func generatePlan() {
+        guard let profile = userProfile else { return }
+
+        Task {
+            do {
+                _ = try await generator.generateMealPlan(
+                    for: profile,
+                    startDate: Date(),
+                    modelContext: modelContext
+                )
+                dismiss()
+            } catch {
+                print("Failed to generate meal plan: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Swap Meal Sheet
+struct SwapMealSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let meals: [Meal]
+    @Bindable var generator: MealPlanGenerator
+    let userProfile: UserProfile?
+
+    @State private var selectedMeal: Meal?
+    @State private var isSwapping = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Design.Spacing.lg) {
+                if generator.isGenerating {
+                    Spacer()
+                    VStack(spacing: Design.Spacing.md) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(Color.accentPurple)
+
+                        Text(generator.progress)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    Spacer()
+                } else if meals.isEmpty {
+                    Spacer()
+                    VStack(spacing: Design.Spacing.md) {
+                        Image(systemName: "fork.knife.circle")
+                            .font(.system(size: 50))
+                            .foregroundStyle(Color.textSecondary)
+
+                        Text("No meals to swap")
+                            .font(.headline)
+
+                        Text("Add meals to your plan first")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    Spacer()
+                } else {
+                    Text("Select a meal to swap for a new recipe")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(.top)
+
+                    ScrollView {
+                        VStack(spacing: Design.Spacing.sm) {
+                            ForEach(meals) { meal in
+                                SwapMealRow(
+                                    meal: meal,
+                                    isSelected: selectedMeal?.id == meal.id,
+                                    onSelect: { selectedMeal = meal }
+                                )
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    if selectedMeal != nil {
+                        Button(action: swapSelectedMeal) {
+                            HStack {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                Text("Swap Meal")
+                            }
+                        }
+                        .purpleButton()
+                        .padding(.horizontal)
+                        .padding(.bottom)
+                    }
+                }
+            }
+            .background(Color.backgroundPrimary)
+            .navigationTitle("Swap Meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.accentPurple)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func swapSelectedMeal() {
+        guard let meal = selectedMeal, let profile = userProfile else { return }
+
+        Task {
+            do {
+                let existingRecipeNames = meals.compactMap { $0.recipe?.name }
+                let result = try await generator.generateReplacementMeal(
+                    for: meal.mealType,
+                    profile: profile,
+                    excludeRecipes: existingRecipeNames,
+                    modelContext: modelContext
+                )
+
+                // Update the meal with new recipe
+                meal.recipe = result.recipe
+                try modelContext.save()
+
+                dismiss()
+            } catch {
+                print("Failed to swap meal: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Swap Meal Row
+struct SwapMealRow: View {
+    let meal: Meal
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: Design.Spacing.md) {
+                // Meal type icon
+                ZStack {
+                    Circle()
+                        .fill(mealTypeColor.opacity(0.15))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: meal.mealType.icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(mealTypeColor)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(meal.mealType.rawValue)
+                        .font(.caption)
+                        .foregroundStyle(mealTypeColor)
+
+                    Text(meal.recipe?.name ?? "Unknown")
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .strokeBorder(isSelected ? Color.accentPurple : Color.gray.opacity(0.3), lineWidth: 2)
+                        .frame(width: 24, height: 24)
+
+                    if isSelected {
+                        Circle()
+                            .fill(Color.accentPurple)
+                            .frame(width: 14, height: 14)
+                    }
+                }
+            }
+            .padding(Design.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.md)
+                    .fill(isSelected ? Color.accentPurple.opacity(0.08) : Color.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Design.Radius.md)
+                            .strokeBorder(isSelected ? Color.accentPurple : Color.clear, lineWidth: 1.5)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var mealTypeColor: Color {
+        switch meal.mealType {
+        case .breakfast: return Color.accentYellow
+        case .lunch: return Color.mintVibrant
+        case .dinner: return Color.accentPurple
+        case .snack: return Color(hex: "FF6B9D")
+        }
+    }
+}
+
+// MARK: - Add Meal To Today Sheet
+struct AddMealToTodaySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let day: Day?
+    @Bindable var generator: MealPlanGenerator
+    let userProfile: UserProfile?
+
+    @State private var selectedMealType: MealType = .lunch
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Design.Spacing.xl) {
+                if generator.isGenerating {
+                    Spacer()
+                    VStack(spacing: Design.Spacing.md) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(Color.accentPurple)
+
+                        Text(generator.progress)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    Spacer()
+                } else {
+                    Spacer()
+
+                    ZStack {
+                        Circle()
+                            .fill(Color.mintVibrant.opacity(0.1))
+                            .frame(width: 100, height: 100)
+
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundStyle(Color.mintVibrant)
+                    }
+
+                    VStack(spacing: Design.Spacing.sm) {
+                        Text("Add a Meal")
+                            .font(Design.Typography.title)
+
+                        Text("Generate a new meal for today")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    // Meal type picker
+                    VStack(alignment: .leading, spacing: Design.Spacing.sm) {
+                        Text("Meal Type")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.textSecondary)
+
+                        HStack(spacing: Design.Spacing.sm) {
+                            ForEach(MealType.allCases) { type in
+                                MealTypeButton(
+                                    type: type,
+                                    isSelected: selectedMealType == type,
+                                    onSelect: { selectedMealType = type }
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    Spacer()
+
+                    Button(action: addMeal) {
+                        HStack {
+                            Image(systemName: "sparkles")
+                            Text("Generate \(selectedMealType.rawValue)")
+                        }
+                    }
+                    .purpleButton()
+                    .padding(.horizontal)
+                    .padding(.bottom)
+                }
+            }
+            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .navigationTitle("Add Meal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.accentPurple)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func addMeal() {
+        guard let day = day, let profile = userProfile else { return }
+
+        Task {
+            do {
+                let existingRecipeNames = day.sortedMeals.compactMap { $0.recipe?.name }
+                let result = try await generator.generateReplacementMeal(
+                    for: selectedMealType,
+                    profile: profile,
+                    excludeRecipes: existingRecipeNames,
+                    modelContext: modelContext
+                )
+
+                // Create a new meal with the generated recipe
+                let newMeal = Meal(mealType: selectedMealType)
+                newMeal.recipe = result.recipe
+                newMeal.day = day
+                day.meals?.append(newMeal)
+
+                modelContext.insert(newMeal)
+                try modelContext.save()
+
+                dismiss()
+            } catch {
+                print("Failed to add meal: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Meal Type Button
+struct MealTypeButton: View {
+    let type: MealType
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 4) {
+                Image(systemName: type.icon)
+                    .font(.system(size: 20))
+
+                Text(type.rawValue)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Design.Spacing.sm)
+            .foregroundStyle(isSelected ? .white : Color.textPrimary)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.md)
+                    .fill(isSelected ? Color.accentPurple : Color.cardBackground)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview {
+    TodayView()
+        .modelContainer(for: [MealPlan.self, UserProfile.self], inMemory: true)
+}
