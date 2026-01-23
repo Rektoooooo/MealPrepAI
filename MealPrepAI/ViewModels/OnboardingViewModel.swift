@@ -5,6 +5,10 @@ import SwiftData
 @MainActor
 @Observable
 class OnboardingViewModel {
+    // MARK: - Save State
+    var saveError: Error?
+    var didSaveSuccessfully: Bool = false
+
     // MARK: - Step 2: Personal Info
     var name: String = ""
     var age: Int = 30
@@ -84,7 +88,16 @@ class OnboardingViewModel {
     }
 
     // MARK: - Save to SwiftData
-    func saveProfile(modelContext: ModelContext) {
+
+    /// Saves the profile to SwiftData. Returns true if successful, false otherwise.
+    /// Check `saveError` for details if save fails.
+    @discardableResult
+    func saveProfile(modelContext: ModelContext) -> Bool {
+        // Reset state
+        saveError = nil
+        didSaveSuccessfully = false
+
+        // Create profile with hasCompletedOnboarding = false initially
         let profile = UserProfile(
             name: name,
             age: age,
@@ -106,7 +119,7 @@ class OnboardingViewModel {
             mealsPerDay: mealsPerDay,
             includeSnacks: includeSnacks,
             simpleModeEnabled: simpleModeEnabled,
-            hasCompletedOnboarding: true
+            hasCompletedOnboarding: false  // Set to false initially
         )
 
         // Set custom fields
@@ -117,8 +130,17 @@ class OnboardingViewModel {
 
         do {
             try modelContext.save()
+            // Only mark as completed after successful save
+            profile.hasCompletedOnboarding = true
+            try modelContext.save()
+            didSaveSuccessfully = true
+            return true
         } catch {
+            saveError = error
             print("Failed to save profile: \(error)")
+            // Remove the profile from context since save failed
+            modelContext.delete(profile)
+            return false
         }
     }
 }

@@ -5,6 +5,7 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = OnboardingViewModel()
     @State private var currentStep = 0
+    @State private var showSaveErrorAlert = false
 
     var onComplete: (() -> Void)?
 
@@ -63,6 +64,17 @@ struct OnboardingView: View {
             navigationButtons
         }
         .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+        .alert("Unable to Save", isPresented: $showSaveErrorAlert) {
+            Button("Try Again") {
+                let success = viewModel.saveProfile(modelContext: modelContext)
+                if success {
+                    onComplete?()
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("We couldn't save your profile. Please try again.")
+        }
     }
 
     // MARK: - Segmented Pills Progress Bar
@@ -132,8 +144,12 @@ struct OnboardingView: View {
                     }
                 } else {
                     // Save profile and complete onboarding
-                    viewModel.saveProfile(modelContext: modelContext)
-                    onComplete?()
+                    let success = viewModel.saveProfile(modelContext: modelContext)
+                    if success {
+                        onComplete?()
+                    } else {
+                        showSaveErrorAlert = true
+                    }
                 }
             }) {
                 HStack(spacing: Design.Spacing.xs) {

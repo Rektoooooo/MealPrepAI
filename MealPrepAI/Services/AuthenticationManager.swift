@@ -148,6 +148,7 @@ final class AuthenticationManager {
 
 // MARK: - Sign in with Apple Coordinator
 
+@MainActor
 class SignInWithAppleCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
 
     private var completion: ((Result<ASAuthorizationAppleIDCredential, Error>) -> Void)?
@@ -166,31 +167,42 @@ class SignInWithAppleCoordinator: NSObject, ASAuthorizationControllerDelegate, A
 
     // MARK: - ASAuthorizationControllerDelegate
 
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
+    nonisolated func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
-            completion?(.success(credential))
+            Task { @MainActor in
+                completion?(.success(credential))
+                completion = nil  // Clear to prevent retain cycles
+            }
         }
     }
 
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        completion?(.failure(error))
+    nonisolated func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+        Task { @MainActor in
+            completion?(.failure(error))
+            completion = nil  // Clear to prevent retain cycles
+        }
     }
 
     // MARK: - ASAuthorizationControllerPresentationContextProviding
 
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        // Find the first available window from connected scenes
-        for scene in UIApplication.shared.connectedScenes {
-            if let windowScene = scene as? UIWindowScene {
-                if let window = windowScene.windows.first {
-                    return window
+    nonisolated func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        // Must access UI on main thread
+        return MainActor.assumeIsolated {
+            // Find the first available window from connected scenes
+            for scene in UIApplication.shared.connectedScenes {
+                if let windowScene = scene as? UIWindowScene {
+                    if let window = windowScene.windows.first {
+                        return window
+                    }
+                    // No windows yet, create one for this scene
+                    return UIWindow(windowScene: windowScene)
                 }
-                // No windows yet, create one for this scene
-                return UIWindow(windowScene: windowScene)
             }
-        }
 
-        // This should never happen in a running iOS app - there's always at least one scene
-        fatalError("No window scene available for Sign in with Apple presentation")
+            // Fallback: create a new window if no scene found (should not happen but safer than fatalError)
+            let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
+            fallbackWindow.makeKeyAndVisible()
+            return fallbackWindow
+        }
     }
 }
