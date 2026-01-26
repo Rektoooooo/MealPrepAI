@@ -28,6 +28,7 @@ enum OnboardingStep: Int, CaseIterable {
     case ageInput
     case sexInput
     case heightInput
+    case activityLevel
 
     // Culinary
     case cuisinePreferences
@@ -69,6 +70,7 @@ enum OnboardingStep: Int, CaseIterable {
         case .ageInput: return "Age"
         case .sexInput: return "Sex"
         case .heightInput: return "Height"
+        case .activityLevel: return "Activity"
         case .cuisinePreferences: return "Cuisine"
         case .cookingSkills: return "Skills"
         case .pantry: return "Pantry"
@@ -169,9 +171,10 @@ struct NewOnboardingView: View {
 
                 // Content
                 currentStepView
+                    .id(currentStep)
                     .transition(.asymmetric(
-                        insertion: .move(edge: isNavigatingBack ? .leading : .trailing).combined(with: .opacity),
-                        removal: .move(edge: isNavigatingBack ? .trailing : .leading).combined(with: .opacity)
+                        insertion: .opacity.combined(with: .offset(x: isNavigatingBack ? -50 : 50)),
+                        removal: .opacity.combined(with: .offset(x: isNavigatingBack ? 50 : -50))
                     ))
             }
         }
@@ -286,6 +289,12 @@ struct NewOnboardingView: View {
                 onContinue: { goToNext() }
             )
 
+        case .activityLevel:
+            ActivityLevelStepView(
+                activityLevel: $viewModel.activityLevel,
+                onContinue: { goToNext() }
+            )
+
         case .cuisinePreferences:
             CuisinePreferencesStepView(
                 cuisinePreferences: $viewModel.cuisinePreferences,
@@ -382,7 +391,7 @@ struct NewOnboardingView: View {
         if let currentIndex = allSteps.firstIndex(of: currentStep),
            currentIndex < allSteps.count - 1 {
             isNavigatingBack = false
-            withAnimation(OnboardingDesign.Animation.smooth) {
+            withAnimation(OnboardingDesign.Animation.stepTransition) {
                 currentStep = allSteps[currentIndex + 1]
             }
         }
@@ -393,7 +402,7 @@ struct NewOnboardingView: View {
         if let currentIndex = allSteps.firstIndex(of: currentStep),
            currentIndex > 0 {
             isNavigatingBack = true
-            withAnimation(OnboardingDesign.Animation.smooth) {
+            withAnimation(OnboardingDesign.Animation.stepTransition) {
                 currentStep = allSteps[currentIndex - 1]
             }
         }

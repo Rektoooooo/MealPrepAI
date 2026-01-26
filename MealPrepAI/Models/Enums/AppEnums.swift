@@ -30,6 +30,7 @@ enum DietaryRestriction: String, Codable, CaseIterable, Identifiable, Sendable {
     case paleo = "Paleo"
     case glutenFree = "Gluten-Free"
     case dairyFree = "Dairy-Free"
+    case lactoseFree = "Lactose-Free"
     case halal = "Halal"
     case kosher = "Kosher"
     case lowCarb = "Low Carb"
@@ -47,6 +48,7 @@ enum DietaryRestriction: String, Codable, CaseIterable, Identifiable, Sendable {
         case .paleo: return "hare.fill"
         case .glutenFree: return "xmark.circle"
         case .dairyFree: return "drop.circle"
+        case .lactoseFree: return "drop.fill"
         case .halal: return "moon.stars.fill"
         case .kosher: return "star.circle.fill"
         case .lowCarb: return "chart.bar.fill"
@@ -695,19 +697,24 @@ enum GoalPace: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var dailyCalorieAdjustment: Double {
+        // 1 lb = 3500 calories, divide by 7 days
+        return weeklyLossLbs * 3500 / 7
+    }
+
     var description: String {
         switch self {
-        case .gradual: return "Slow & sustainable"
-        case .moderate: return "Balanced approach"
-        case .aggressive: return "Fast results"
+        case .gradual: return "Slow & sustainable (0.5 lb/week)"
+        case .moderate: return "Balanced approach (1 lb/week)"
+        case .aggressive: return "Fast results (1.5 lb/week)"
         }
     }
 
     var icon: String {
         switch self {
         case .gradual: return "tortoise.fill"
-        case .moderate: return "figure.walk"
-        case .aggressive: return "hare.fill"
+        case .moderate: return "hare.fill"
+        case .aggressive: return "bolt.fill"
         }
     }
 

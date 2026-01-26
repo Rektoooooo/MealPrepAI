@@ -75,32 +75,101 @@ class NewOnboardingViewModel {
 
         let tdee = bmr * activityLevel.multiplier
 
-        // Adjust based on weight goal
+        // Adjust based on weight goal and pace
         switch weightGoal {
         case .lose:
-            return Int(tdee - 500) // 500 cal deficit
+            // Calculate safe deficit based on amount to lose
+            let amountToLoseLbs = abs(weightDifferenceKg) * 2.20462
+
+            // Determine maximum safe deficit based on amount to lose
+            let maxSafeDeficit: Double
+            if amountToLoseLbs < 10 {
+                // < 10 lbs: Force gradual pace for safety
+                maxSafeDeficit = 350
+            } else if amountToLoseLbs < 25 {
+                // 10-25 lbs: Allow gradual or moderate
+                maxSafeDeficit = 500
+            } else {
+                // 25+ lbs: Allow any pace
+                maxSafeDeficit = 750
+            }
+
+            // Apply requested deficit, capped at safe maximum
+            let requestedDeficit = goalPace.dailyCalorieAdjustment
+            let safeDeficit = min(requestedDeficit, maxSafeDeficit)
+
+            return Int(tdee - safeDeficit)
+
         case .maintain:
             return Int(tdee)
+
         case .gain:
-            return Int(tdee + 300) // 300 cal surplus
+            // For gaining, pace matters less for safety
+            let dailySurplus = goalPace.dailyCalorieAdjustment
+            return Int(tdee + dailySurplus)
+
         case .recomp:
-            return Int(tdee - 100) // Slight deficit
+            // Body recomp always uses gradual pace (0.5 lb/week = 250 cal deficit)
+            return Int(tdee - 250)
         }
     }
 
-    /// Protein grams (~30% of calories)
+    // MARK: - Macro Percentages (Optimized based on goals)
+
+    /// Protein percentage optimized for user's weight goal
+    private var proteinPercentage: Double {
+        switch weightGoal {
+        case .lose:
+            // Higher protein (35%) to preserve muscle during calorie deficit
+            return 0.35
+        case .maintain:
+            // Balanced protein (30%) for maintenance
+            return 0.30
+        case .gain:
+            // Higher protein (35%) to build muscle
+            return 0.35
+        case .recomp:
+            // Very high protein (40%) for body recomposition
+            return 0.40
+        }
+    }
+
+    /// Carbs percentage optimized for activity and goal
+    private var carbsPercentage: Double {
+        switch weightGoal {
+        case .lose:
+            // Lower carbs (30%) to encourage fat burning
+            return 0.30
+        case .maintain:
+            // Balanced carbs (40%) for maintenance
+            return 0.40
+        case .gain:
+            // Higher carbs (45%) for energy and muscle gain
+            return 0.45
+        case .recomp:
+            // Moderate carbs (35%) for energy while losing fat
+            return 0.35
+        }
+    }
+
+    /// Fat percentage (calculated to reach 100%)
+    private var fatPercentage: Double {
+        return 1.0 - proteinPercentage - carbsPercentage
+    }
+
+    /// Protein grams (optimized based on goals)
     var proteinGrams: Int {
-        return Int(Double(recommendedCalories) * 0.30 / 4)
+        return Int(Double(recommendedCalories) * proteinPercentage / 4)
     }
 
-    /// Carbs grams (~40% of calories)
+    /// Carbs grams (optimized based on goals)
     var carbsGrams: Int {
-        return Int(Double(recommendedCalories) * 0.40 / 4)
+        return Int(Double(recommendedCalories) * carbsPercentage / 4)
     }
 
-    /// Fat grams (~30% of calories)
+    /// Fat grams (optimized based on goals)
     var fatGrams: Int {
-        return Int(Double(recommendedCalories) * 0.30 / 9)
+        return Int(Double(recommendedCalories) * fatPercentage / 9)
     }
 
     /// Convert liked cuisines to preferred cuisines array

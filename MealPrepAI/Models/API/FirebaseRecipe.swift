@@ -59,6 +59,10 @@ struct FirebaseRecipe: Codable, Identifiable, Sendable {
     /// Server timestamp when recipe was added to Firestore
     let createdAt: Date?
 
+    /// Flag to indicate if this is a custom curated recipe (not from Spoonacular)
+    /// This is set locally, not stored in Firebase
+    var isCustomRecipe: Bool = false
+
     // MARK: - Coding Keys
     enum CodingKeys: String, CodingKey {
         case id
@@ -81,6 +85,7 @@ struct FirebaseRecipe: Codable, Identifiable, Sendable {
         case creditsText
         case ingredients
         case createdAt
+        // Note: isCustomRecipe is not in Firestore, set programmatically
     }
 }
 

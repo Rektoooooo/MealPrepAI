@@ -1,28 +1,17 @@
 import SwiftUI
 
-struct FoodPreferencesStepView: View {
-    @Binding var dietaryRestriction: DietaryRestriction
+struct ActivityLevelStepView: View {
+    @Binding var activityLevel: ActivityLevel
     let onContinue: () -> Void
 
     @State private var appeared = false
-
-    // Subset of dietary restrictions for onboarding (simplified)
-    private let options: [(DietaryRestriction, String)] = [
-        (.none, "Meat, veg, seafood, everything!"),
-        (.vegetarian, "No meat or seafood"),
-        (.vegan, "No animal products"),
-        (.pescatarian, "Seafood but no meat"),
-        (.keto, "Low carb, high fat"),
-        (.glutenFree, "No wheat or gluten"),
-        (.lactoseFree, "No lactose (milk products okay)")
-    ]
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             OnboardingStepHeader(
-                "Food preferences",
-                subtitle: "Any food preferences?"
+                "Activity level",
+                subtitle: "How often do you exercise?"
             )
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 20)
@@ -33,14 +22,14 @@ struct FoodPreferencesStepView: View {
 
             // Options
             VStack(spacing: OnboardingDesign.Spacing.sm) {
-                ForEach(options, id: \.0) { option, description in
-                    let title = option == .none ? "Flexible" : option.rawValue
+                ForEach(ActivityLevel.allCases) { level in
                     OnboardingSelectionCard(
-                        title: title,
-                        description: description,
-                        isSelected: dietaryRestriction == option
+                        title: level.rawValue,
+                        description: level.description,
+                        icon: level.icon,
+                        isSelected: activityLevel == level
                     ) {
-                        dietaryRestriction = option
+                        activityLevel = level
                     }
                 }
             }
@@ -67,8 +56,8 @@ struct FoodPreferencesStepView: View {
 }
 
 #Preview {
-    FoodPreferencesStepView(
-        dietaryRestriction: .constant(.none),
+    ActivityLevelStepView(
+        activityLevel: .constant(.moderate),
         onContinue: {}
     )
 }

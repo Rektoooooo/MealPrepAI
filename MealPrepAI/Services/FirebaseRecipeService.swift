@@ -25,7 +25,8 @@ final class FirebaseRecipeService {
     var isAuthenticated: Bool { Auth.auth().currentUser != nil }
 
     // MARK: - Constants
-    private let recipesCollection = "recipes"
+    private let recipesCollection = "recipes" // Spoonacular recipes
+    private let customRecipesCollection = "custom_recipes" // Custom curated recipes
     private let defaultLimit = 50
     private let searchLimit = 50
     private let pageSize = 20
@@ -75,7 +76,7 @@ final class FirebaseRecipeService {
 
     // MARK: - Fetch Methods
 
-    /// Fetch all recipes with pagination
+    /// Fetch all recipes with pagination from both Spoonacular and custom collections
     func fetchRecipes(limit: Int = 100) async throws -> [FirebaseRecipe] {
         print("📥 [Firestore] Fetching recipes (limit: \(limit))...")
         isLoading = true
@@ -85,14 +86,42 @@ final class FirebaseRecipeService {
         // Ensure authenticated before fetching
         await ensureAuthenticated()
 
-        print("📥 [Firestore] Querying collection: \(recipesCollection)")
-        let snapshot = try await db.collection(recipesCollection)
+        // Fetch from both collections in parallel
+        async let spoonacularRecipes = fetchRecipesFromCollection(recipesCollection, limit: limit / 2)
+        async let customRecipes = fetchRecipesFromCollection(customRecipesCollection, limit: limit / 2)
+
+        let (spoonacular, custom) = try await (spoonacularRecipes, customRecipes)
+
+        // Combine and deduplicate (prioritize custom recipes)
+        var recipeDict: [String: FirebaseRecipe] = [:]
+
+        // Add Spoonacular recipes first
+        for recipe in spoonacular {
+            recipeDict[recipe.title] = recipe
+        }
+
+        // Add custom recipes (will override Spoonacular if same title)
+        for var recipe in custom {
+            recipe.isCustomRecipe = true // Mark as custom
+            recipeDict[recipe.title] = recipe
+        }
+
+        let allRecipes = Array(recipeDict.values)
+        print("✅ [Firestore] Combined: \(spoonacular.count) Spoonacular + \(custom.count) custom = \(allRecipes.count) total recipes")
+        lastFetchTime = Date()
+
+        return allRecipes
+    }
+
+    /// Helper: Fetch recipes from a specific collection
+    private func fetchRecipesFromCollection(_ collection: String, limit: Int) async throws -> [FirebaseRecipe] {
+        print("📥 [Firestore] Querying collection: \(collection)")
+        let snapshot = try await db.collection(collection)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
             .getDocuments()
 
-        print("📥 [Firestore] Got \(snapshot.documents.count) documents")
-        lastFetchTime = Date()
+        print("📥 [Firestore] Got \(snapshot.documents.count) documents from \(collection)")
 
         var successCount = 0
         var failCount = 0
@@ -110,7 +139,7 @@ final class FirebaseRecipeService {
             }
         }
 
-        print("✅ [Firestore] Decoded \(successCount) recipes, \(failCount) failed")
+        print("✅ [Firestore] Decoded \(successCount) recipes from \(collection), \(failCount) failed")
         return recipes
     }
 
@@ -325,7 +354,7 @@ final class FirebaseRecipeService {
         print("🔄 [Firestore] Pagination reset")
     }
 
-    /// Fetch initial page of recipes
+    /// Fetch initial page of recipes from both collections
     func fetchInitialRecipes() async throws -> [FirebaseRecipe] {
         print("📥 [Firestore] Fetching initial page...")
         resetPagination()
@@ -336,23 +365,35 @@ final class FirebaseRecipeService {
 
         await ensureAuthenticated()
 
-        // Get total count
-        let countSnapshot = try await db.collection(recipesCollection).count.getAggregation(source: .server)
-        totalRecipesCount = Int(truncating: countSnapshot.count)
-        print("📊 [Firestore] Total recipes in database: \(totalRecipesCount)")
+        // Get total count from both collections
+        async let spoonacularCount = db.collection(recipesCollection).count.getAggregation(source: .server)
+        async let customCount = db.collection(customRecipesCollection).count.getAggregation(source: .server)
 
-        let snapshot = try await db.collection(recipesCollection)
+        let (spoonCount, custCount) = try await (spoonacularCount, customCount)
+        totalRecipesCount = Int(truncating: spoonCount.count) + Int(truncating: custCount.count)
+        print("📊 [Firestore] Total: \(Int(truncating: spoonCount.count)) Spoonacular + \(Int(truncating: custCount.count)) custom = \(totalRecipesCount) recipes")
+
+        // Fetch from both collections
+        async let spoonacularRecipes = db.collection(recipesCollection)
             .order(by: "createdAt", descending: true)
-            .limit(to: pageSize)
+            .limit(to: pageSize / 2)
             .getDocuments()
 
-        // Store last document for pagination
-        lastDocument = snapshot.documents.last
-        hasMoreRecipes = snapshot.documents.count == pageSize
+        async let customRecipes = db.collection(customRecipesCollection)
+            .order(by: "createdAt", descending: true)
+            .limit(to: pageSize / 2)
+            .getDocuments()
+
+        let (spoonSnapshot, customSnapshot) = try await (spoonacularRecipes, customRecipes)
+
+        // Store last document for pagination (use Spoonacular for now)
+        lastDocument = spoonSnapshot.documents.last
+        hasMoreRecipes = spoonSnapshot.documents.count + customSnapshot.documents.count >= pageSize
 
         lastFetchTime = Date()
 
-        let recipes = snapshot.documents.compactMap { document -> FirebaseRecipe? in
+        // Parse Spoonacular recipes
+        let spoonRecipes = spoonSnapshot.documents.compactMap { document -> FirebaseRecipe? in
             do {
                 var recipe = try document.data(as: FirebaseRecipe.self)
                 recipe.id = document.documentID
@@ -363,8 +404,22 @@ final class FirebaseRecipeService {
             }
         }
 
-        print("✅ [Firestore] Fetched \(recipes.count) recipes (hasMore: \(hasMoreRecipes))")
-        return recipes
+        // Parse custom recipes and mark them
+        let custRecipes = customSnapshot.documents.compactMap { document -> FirebaseRecipe? in
+            do {
+                var recipe = try document.data(as: FirebaseRecipe.self)
+                recipe.id = document.documentID
+                recipe.isCustomRecipe = true
+                return recipe
+            } catch {
+                print("⚠️ [Firestore] Error decoding custom: \(error)")
+                return nil
+            }
+        }
+
+        let allRecipes = spoonRecipes + custRecipes
+        print("✅ [Firestore] Fetched \(spoonRecipes.count) Spoonacular + \(custRecipes.count) custom = \(allRecipes.count) recipes (hasMore: \(hasMoreRecipes))")
+        return allRecipes
     }
 
     /// Fetch next page of recipes

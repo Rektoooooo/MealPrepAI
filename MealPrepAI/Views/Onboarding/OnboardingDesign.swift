@@ -113,9 +113,12 @@ struct OnboardingDesign {
     struct Animation {
         static let quick = SwiftUI.Animation.easeOut(duration: 0.2)
         static let standard = SwiftUI.Animation.easeInOut(duration: 0.3)
-        static let smooth = SwiftUI.Animation.spring(response: 0.4, dampingFraction: 0.8)
+        // Smooth transition for onboarding steps - no bounce, just clean slide
+        static let smooth = SwiftUI.Animation.easeInOut(duration: 0.35)
         static let bouncy = SwiftUI.Animation.spring(response: 0.5, dampingFraction: 0.65)
         static let gentle = SwiftUI.Animation.spring(response: 0.6, dampingFraction: 0.85)
+        // Specifically for step transitions - critically damped (no overshoot)
+        static let stepTransition = SwiftUI.Animation.spring(response: 0.45, dampingFraction: 1.0)
     }
 
     // MARK: - Shadows
