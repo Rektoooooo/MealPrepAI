@@ -1,0 +1,251 @@
+import Foundation
+import SwiftUI
+import SwiftData
+
+// MARK: - Meal Prep Setup Steps
+enum MealPrepSetupStep: Int, CaseIterable {
+    case welcome = 0
+    case weeklyFocus = 1
+    case temporaryExclusions = 2
+    case cookingAvailability = 3
+    case review = 4
+
+    var title: String {
+        switch self {
+        case .welcome: return "Welcome"
+        case .weeklyFocus: return "Weekly Focus"
+        case .temporaryExclusions: return "Exclusions"
+        case .cookingAvailability: return "Availability"
+        case .review: return "Review"
+        }
+    }
+
+    /// Progress bar excludes welcome step
+    static var progressSteps: Int { 4 }
+}
+
+// MARK: - Meal Prep Setup View Model
+@MainActor
+@Observable
+final class MealPrepSetupViewModel {
+    // MARK: - Step State
+    var currentStep: MealPrepSetupStep = .welcome
+
+    // MARK: - Preferences Being Edited
+    var preferences: MealPrepPreferences
+
+    // MARK: - One-time Request (not saved)
+    var specialRequest: String = ""
+
+    // MARK: - Save Toggle
+    var saveAsDefault: Bool = true
+
+    // MARK: - Quick Start Mode
+    var useQuickStart: Bool = false
+
+    // MARK: - Generation State
+    var isGenerating: Bool = false
+    var generationProgress: String = ""
+    var generationError: Error?
+
+    // MARK: - Dependencies
+    private let preferencesStore: MealPrepPreferencesStore
+
+    // MARK: - Computed Properties
+
+    /// Whether to show the quick start option (returning user with saved prefs)
+    var showQuickStartOption: Bool {
+        preferencesStore.hasExistingPreferences
+    }
+
+    /// Progress for the progress bar (0 to 1)
+    var progress: CGFloat {
+        guard currentStep.rawValue > 0 else { return 0 }
+        return CGFloat(currentStep.rawValue) / CGFloat(MealPrepSetupStep.progressSteps)
+    }
+
+    /// Whether the back button should be shown
+    var showBackButton: Bool {
+        currentStep != .welcome
+    }
+
+    /// Can proceed to next step
+    var canProceed: Bool {
+        switch currentStep {
+        case .welcome:
+            return true
+        case .weeklyFocus:
+            // At least one focus selected
+            return !preferences.weeklyFocus.isEmpty
+        case .temporaryExclusions:
+            // Always can proceed (optional step)
+            return true
+        case .cookingAvailability:
+            // Always has a selection (default is .normal)
+            return true
+        case .review:
+            return true
+        }
+    }
+
+    /// CTA button title for current step
+    var ctaButtonTitle: String {
+        switch currentStep {
+        case .welcome:
+            return showQuickStartOption ? "Customize This Week" : "Let's Go"
+        case .weeklyFocus, .temporaryExclusions, .cookingAvailability:
+            return "Continue"
+        case .review:
+            return "Generate My Meal Plan"
+        }
+    }
+
+    // MARK: - Initialization
+
+    init(preferencesStore: MealPrepPreferencesStore = .shared) {
+        self.preferencesStore = preferencesStore
+        // Start with a copy of saved preferences
+        self.preferences = preferencesStore.preferences
+    }
+
+    // MARK: - Navigation
+
+    func goToNextStep() {
+        guard let nextStep = MealPrepSetupStep(rawValue: currentStep.rawValue + 1) else {
+            return
+        }
+        withAnimation(OnboardingDesign.Animation.stepTransition) {
+            currentStep = nextStep
+        }
+    }
+
+    func goToPreviousStep() {
+        guard let previousStep = MealPrepSetupStep(rawValue: currentStep.rawValue - 1) else {
+            return
+        }
+        withAnimation(OnboardingDesign.Animation.stepTransition) {
+            currentStep = previousStep
+        }
+    }
+
+    func skipToReview() {
+        withAnimation(OnboardingDesign.Animation.stepTransition) {
+            currentStep = .review
+            useQuickStart = true
+        }
+    }
+
+    // MARK: - Preference Actions
+
+    func toggleFocus(_ focus: WeeklyFocus) {
+        preferences.toggleFocus(focus)
+    }
+
+    func toggleExclusion(_ food: FoodDislike) {
+        preferences.toggleExclusion(food)
+    }
+
+    func setBusyness(_ busyness: WeeklyBusyness) {
+        preferences.weeklyBusyness = busyness
+    }
+
+    // MARK: - Generation
+
+    func generateMealPlan(
+        for profile: UserProfile,
+        generator: MealPlanGenerator,
+        modelContext: ModelContext,
+        onComplete: @escaping () -> Void
+    ) {
+        isGenerating = true
+        generationProgress = "Preparing your preferences..."
+        generationError = nil
+
+        Task {
+            do {
+                // Save preferences if toggle is on
+                if saveAsDefault {
+                    preferencesStore.update(preferences)
+                }
+                preferencesStore.incrementUsage()
+
+                // Build the weekly preferences string for the API
+                let weeklyPrefsString = buildWeeklyPreferencesString()
+
+                generationProgress = "Generating your personalized meal plan..."
+
+                _ = try await generator.generateMealPlan(
+                    for: profile,
+                    startDate: Date(),
+                    weeklyPreferences: weeklyPrefsString,
+                    modelContext: modelContext
+                )
+
+                isGenerating = false
+                generationProgress = ""
+                onComplete()
+
+            } catch {
+                isGenerating = false
+                generationProgress = ""
+                generationError = error
+                print("Failed to generate meal plan: \(error)")
+            }
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    private func buildWeeklyPreferencesString() -> String? {
+        var parts: [String] = []
+
+        // Weekly Focus
+        if !preferences.weeklyFocus.isEmpty {
+            let focusList = preferences.weeklyFocus.map { focus -> String in
+                switch focus {
+                case .budgetFriendly:
+                    return "Budget-Friendly: Use economical ingredients, minimize expensive items"
+                case .quickEasy:
+                    return "Quick & Easy: All meals should be 30 minutes or less"
+                case .highProtein:
+                    return "High Protein: Maximize protein in every meal"
+                case .tryNewCuisines:
+                    return "Try New Cuisines: Include diverse international flavors"
+                case .comfortFood:
+                    return "Comfort Food: Warm, hearty, satisfying meals"
+                case .mealPrepFriendly:
+                    return "Meal Prep Friendly: Recipes that store well and can be batch cooked"
+                case .familyFavorites:
+                    return "Family Favorites: Kid-friendly, crowd-pleasing recipes"
+                case .lightFresh:
+                    return "Light & Fresh: Lighter, vegetable-forward meals"
+                }
+            }
+            parts.append("THIS WEEK'S PRIORITIES:\n- " + focusList.joined(separator: "\n- "))
+        }
+
+        // Temporary Exclusions
+        let exclusions = preferences.temporaryExclusionsForAPI
+        if !exclusions.isEmpty {
+            parts.append("AVOID THESE INGREDIENTS THIS WEEK (temporary exclusions):\n- " + exclusions.joined(separator: "\n- "))
+        }
+
+        // Busyness Level
+        switch preferences.weeklyBusyness {
+        case .superBusy:
+            parts.append("COOKING TIME THIS WEEK: Maximum 15-20 minutes per meal - user is super busy")
+        case .normal:
+            break // Use profile default
+        case .relaxed:
+            parts.append("COOKING TIME THIS WEEK: User has extra time - can include longer recipes up to 60 minutes")
+        }
+
+        // One-time Special Request
+        let trimmedRequest = specialRequest.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedRequest.isEmpty {
+            parts.append("SPECIAL REQUEST: \(trimmedRequest)")
+        }
+
+        return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
+    }
+}

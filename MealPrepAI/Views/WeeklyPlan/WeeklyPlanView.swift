@@ -145,8 +145,8 @@ struct WeeklyPlanView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingGenerateSheet) {
-                GenerateMealPlanSheet(generator: generator)
+            .fullScreenCover(isPresented: $showingGenerateSheet) {
+                MealPrepSetupView(generator: generator)
             }
             .sheet(isPresented: $showingEditProfile) {
                 if let profile = userProfile {

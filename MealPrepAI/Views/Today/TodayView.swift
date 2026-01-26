@@ -108,7 +108,7 @@ struct TodayView: View {
                             Image(systemName: "bell")
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color.textPrimary)
-
+                            
                             if notificationManager.hasUnread {
                                 Circle()
                                     .fill(Color.accentPurple)
@@ -127,8 +127,8 @@ struct TodayView: View {
                     animateCards = true
                 }
             }
-            .sheet(isPresented: $showingGenerateSheet) {
-                GenerateMealPlanSheet(generator: generator)
+            .fullScreenCover(isPresented: $showingGenerateSheet) {
+                MealPrepSetupView(generator: generator)
             }
             .sheet(isPresented: $showingSwapSheet) {
                 SwapMealSheet(
@@ -166,45 +166,50 @@ struct TodayView: View {
 
     // MARK: - Progress Hero Card
     private var progressHeroCard: some View {
-        VStack(spacing: Design.Spacing.md) {
-            HStack(spacing: Design.Spacing.md) {
-                VStack(alignment: .leading, spacing: Design.Spacing.xs) {
-                    Text(greeting)
-                        .font(Design.Typography.title)
-                        .foregroundStyle(.white)
+        HStack(spacing: Design.Spacing.md) {
+            VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
+                Text(greeting)
+                    .font(Design.Typography.title3)
+                    .foregroundStyle(.white)
 
-                    Text("You've eaten \(mealsEaten) of \(todaysMeals.count) meals")
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.85))
-                }
+                Text("You've eaten \(mealsEaten) of \(todaysMeals.count) meals")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.85))
+            }
 
-                Spacer()
+            Spacer()
 
-                // Circular Progress
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 5)
-                        .frame(width: 64, height: 64)
+            // Compact Circular Progress
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 4)
+                    .frame(width: 44, height: 44)
 
-                    Circle()
-                        .trim(from: 0, to: todaysMeals.isEmpty ? 0 : CGFloat(mealsEaten) / CGFloat(todaysMeals.count))
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                        .frame(width: 64, height: 64)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: mealsEaten)
+                Circle()
+                    .trim(from: 0, to: todaysMeals.isEmpty ? 0 : CGFloat(mealsEaten) / CGFloat(todaysMeals.count))
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 44, height: 44)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: mealsEaten)
 
-                    Text(todaysMeals.isEmpty ? "0%" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))%")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                }
+                Text(todaysMeals.isEmpty ? "0%" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))%")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
             }
         }
-        .padding(Design.Spacing.xl)
+        .padding(.horizontal, Design.Spacing.lg)
+        .padding(.vertical, Design.Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: Design.Radius.featured)
-                .fill(LinearGradient.purpleButtonGradient)
-                .shadow(color: Color.accentPurple.opacity(0.4), radius: 20, y: 10)
+            RoundedRectangle(cornerRadius: Design.Radius.lg)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "34C759"), Color(hex: "30D158")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: Color(hex: "34C759").opacity(0.4), radius: 12, y: 6)
         )
     }
 
@@ -228,11 +233,11 @@ struct TodayView: View {
             Button(action: { moveDate(by: -1) }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.accentPurple)
+                    .foregroundStyle(Color(hex: "212121"))
                     .padding(Design.Spacing.sm)
                     .background(
                         Circle()
-                            .fill(Color.accentPurple.opacity(0.1))
+                            .fill(Color(hex: "212121").opacity(0.1))
                     )
             }
 
@@ -253,11 +258,11 @@ struct TodayView: View {
             Button(action: { moveDate(by: 1) }) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.accentPurple)
+                    .foregroundStyle(Color(hex: "212121"))
                     .padding(Design.Spacing.sm)
                     .background(
                         Circle()
-                            .fill(Color.accentPurple.opacity(0.1))
+                            .fill(Color(hex: "212121").opacity(0.1))
                     )
             }
         }
@@ -277,7 +282,7 @@ struct TodayView: View {
     // MARK: - Meals Section
     private var mealsSection: some View {
         VStack(spacing: Design.Spacing.md) {
-            NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color.accentPurple, showSeeAll: true)
+            NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color(hex: "212121"), showSeeAll: true)
 
             if todaysMeals.isEmpty {
                 Text("No meals planned for this day")
@@ -311,27 +316,27 @@ struct TodayView: View {
     // MARK: - Quick Actions
     private var quickActions: some View {
         VStack(spacing: Design.Spacing.md) {
-            NewSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: Color.accentYellow)
+            NewSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: Color(hex: "212121"))
 
             HStack(spacing: Design.Spacing.sm) {
                 QuickActionCard(
                     icon: "arrow.triangle.2.circlepath",
                     title: "Swap",
-                    color: Color.accentPurple,
+                    color: Color(hex: "667EEA"),  // Purple-blue
                     action: { showingSwapSheet = true }
                 )
 
                 QuickActionCard(
                     icon: "cart.badge.plus",
                     title: "Add",
-                    color: Color.mintVibrant,
+                    color: Color(hex: "34C759"),  // Green
                     action: { showingAddMealSheet = true }
                 )
 
                 QuickActionCard(
                     icon: "sparkles",
                     title: "New Plan",
-                    color: Color.accentYellow,
+                    color: Color(hex: "FF6B6B"),  // Coral red
                     action: { showingGenerateSheet = true }
                 )
             }
@@ -400,12 +405,13 @@ struct TodayMealCard: View {
         }
     }
 
-    private var mealTypeColor: Color {
+    // Colorful icons for meal types
+    private var mealTypeIconColor: Color {
         switch meal.mealType {
-        case .breakfast: return Color.accentYellow
-        case .lunch: return Color.mintVibrant
-        case .dinner: return Color.accentPurple
-        case .snack: return Color(hex: "FF6B9D")
+        case .breakfast: return Color(hex: "FF9500")  // Orange sunrise
+        case .lunch: return Color(hex: "FFCC00")      // Yellow sun
+        case .dinner: return Color(hex: "5856D6")     // Purple night
+        case .snack: return Color(hex: "FF2D55")      // Pink
         }
     }
 
@@ -414,15 +420,15 @@ struct TodayMealCard: View {
             // Tappable content area
             Button(action: onTap) {
                 HStack(spacing: Design.Spacing.md) {
-                    // Meal Type Icon
+                    // Meal Type Icon - Colorful
                     ZStack {
                         Circle()
-                            .fill(mealTypeColor.opacity(0.15))
+                            .fill(mealTypeIconColor.opacity(0.15))
                             .frame(width: 50, height: 50)
 
                         Image(systemName: mealTypeIcon)
                             .font(.system(size: 22))
-                            .foregroundStyle(mealTypeColor)
+                            .foregroundStyle(mealTypeIconColor)
                     }
 
                     // Meal Info
@@ -430,7 +436,7 @@ struct TodayMealCard: View {
                         Text(meal.mealType.rawValue)
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundStyle(mealTypeColor)
+                            .foregroundStyle(Color.textSecondary)
 
                         Text(meal.recipe?.name ?? "Unknown Recipe")
                             .font(.headline)
@@ -438,11 +444,13 @@ struct TodayMealCard: View {
                             .lineLimit(1)
 
                         HStack(spacing: Design.Spacing.sm) {
+                            // Orange kcal
                             Label("\(meal.recipe?.calories ?? 0) kcal", systemImage: "flame.fill")
                                 .font(.caption)
-                                .foregroundStyle(Color.textSecondary)
+                                .foregroundStyle(Color(hex: "FF9500"))
 
                             if let time = meal.recipe?.cookTimeMinutes {
+                                // Gray time
                                 Label("\(time) min", systemImage: "clock")
                                     .font(.caption)
                                     .foregroundStyle(Color.textSecondary)
@@ -455,15 +463,15 @@ struct TodayMealCard: View {
             }
             .buttonStyle(.plain)
 
-            // Completion Button (separate from main tap area)
+            // Completion Button - Green checkmark
             Button(action: onToggleEaten) {
                 ZStack {
                     Circle()
-                        .fill(meal.isEaten ? Color.mintVibrant : Color.clear)
+                        .fill(meal.isEaten ? Color(hex: "34C759") : Color.clear)
                         .frame(width: 36, height: 36)
 
                     Circle()
-                        .strokeBorder(meal.isEaten ? Color.mintVibrant : Color.textSecondary.opacity(0.3), lineWidth: 2)
+                        .strokeBorder(meal.isEaten ? Color(hex: "34C759") : Color.textSecondary.opacity(0.3), lineWidth: 2)
                         .frame(width: 36, height: 36)
 
                     if meal.isEaten {

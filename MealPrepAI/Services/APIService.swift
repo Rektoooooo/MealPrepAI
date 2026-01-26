@@ -265,7 +265,8 @@ actor APIService {
     func generateMealPlan(
         userProfile: GeneratePlanUserProfile,
         weeklyPreferences: String? = nil,
-        excludeRecipeNames: [String] = []
+        excludeRecipeNames: [String] = [],
+        structuredPreferences: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = nil
     ) async throws -> GeneratePlanAPIResponse {
         print("[DEBUG:API] ========== GENERATE MEAL PLAN START ==========")
         print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
@@ -300,7 +301,10 @@ actor APIService {
             userProfile: userProfile,
             weeklyPreferences: weeklyPreferences,
             excludeRecipeNames: excludeRecipeNames.isEmpty ? nil : excludeRecipeNames,
-            deviceId: deviceId
+            deviceId: deviceId,
+            weeklyFocus: structuredPreferences?.weeklyFocus,
+            temporaryExclusions: structuredPreferences?.temporaryExclusions,
+            weeklyBusyness: structuredPreferences?.weeklyBusyness
         )
 
         print("[DEBUG:API] User Profile:", String(describing: [
@@ -316,6 +320,14 @@ actor APIService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
+
+        // Add App Check token for security
+        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
+            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+            print("[DEBUG:API] App Check token added")
+        } else {
+            print("[DEBUG:API] WARNING: No App Check token available")
+        }
 
         print("[DEBUG:API] Sending request (5min timeout)...")
         let startTime = Date()
@@ -409,6 +421,14 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
 
+        // Add App Check token for security
+        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
+            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+            print("[DEBUG:API] App Check token added")
+        } else {
+            print("[DEBUG:API] WARNING: No App Check token available")
+        }
+
         print("[DEBUG:API] Sending request...")
         let startTime = Date()
 
@@ -465,12 +485,15 @@ struct GeneratePlanUserProfile: Codable, Sendable {
     let weightGoal: String
     let dietaryRestrictions: [String]
     let allergies: [String]
+    let foodDislikes: [String]  // Foods user doesn't like
     let preferredCuisines: [String]
     let cookingSkill: String
     let maxCookingTimeMinutes: Int
     let simpleModeEnabled: Bool
     let mealsPerDay: Int
     let includeSnacks: Bool
+    let pantryLevel: String  // Well-stocked, Average, Minimal
+    let barriers: [String]   // Time constraints, budget, etc.
 }
 
 struct GeneratePlanRequest: Codable, Sendable {
@@ -478,6 +501,11 @@ struct GeneratePlanRequest: Codable, Sendable {
     let weeklyPreferences: String?
     let excludeRecipeNames: [String]?
     let deviceId: String
+
+    // Structured weekly preferences (optional, for enhanced backend parsing)
+    let weeklyFocus: [String]?
+    let temporaryExclusions: [String]?
+    let weeklyBusyness: String?
 }
 
 struct GeneratePlanAPIResponse: Codable, Sendable {

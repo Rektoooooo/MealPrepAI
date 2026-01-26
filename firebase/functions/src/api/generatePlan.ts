@@ -30,12 +30,15 @@ interface UserProfile {
   weightGoal: string;
   dietaryRestrictions: string[];
   allergies: string[];
+  foodDislikes: string[];  // Foods user doesn't like
   preferredCuisines: string[];
   cookingSkill: string;
   maxCookingTimeMinutes: number;
   simpleModeEnabled: boolean;
   mealsPerDay: number;
   includeSnacks: boolean;
+  pantryLevel: string;  // Well-stocked, Average, Minimal
+  barriers: string[];   // Time constraints, budget, etc.
 }
 
 interface GeneratePlanRequest {
@@ -43,6 +46,10 @@ interface GeneratePlanRequest {
   weeklyPreferences?: string;
   excludeRecipeNames?: string[];
   deviceId: string;
+  // Structured weekly preferences (optional, for enhanced parsing)
+  weeklyFocus?: string[];
+  temporaryExclusions?: string[];
+  weeklyBusyness?: string;
 }
 
 interface IngredientDTO {
@@ -212,7 +219,9 @@ function buildUserPrompt(
 ): string {
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
+  const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
   const cuisines = profile.preferredCuisines.join(', ') || 'Varied';
+  const barriers = profile.barriers?.join(', ') || 'None';
   const excludeList = excludeRecipeNames?.join(', ') || '';
 
   const mealTypes = profile.includeSnacks
@@ -220,6 +229,22 @@ function buildUserPrompt(
     : 'breakfast, lunch, and dinner';
 
   const numDays = endDay - startDay + 1;
+
+  // Adjust recommendations based on pantry level
+  let pantryNote = '';
+  if (profile.pantryLevel === 'Minimal') {
+    pantryNote = '- Pantry: MINIMAL - use only very common, basic ingredients (salt, pepper, oil, butter)';
+  } else if (profile.pantryLevel === 'Well-Stocked') {
+    pantryNote = '- Pantry: Well-stocked - can use varied spices and specialty ingredients';
+  } else {
+    pantryNote = '- Pantry: Average - use common pantry staples';
+  }
+
+  // Adjust for barriers
+  let barrierNotes = '';
+  if (barriers !== 'None') {
+    barrierNotes = `\nCHALLENGES TO CONSIDER:\n- ${barriers}\n(Optimize recipes to help with these challenges)`;
+  }
 
   return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}) for:
 
@@ -236,12 +261,15 @@ DAILY TARGETS:
 PERMANENT RESTRICTIONS:
 - Dietary: ${restrictions}
 - Allergies (NEVER include these ingredients): ${allergies}
+- Food Dislikes (AVOID these - user doesn't like them): ${foodDislikes}
 - Preferred Cuisines: ${cuisines}
 
 COOKING PREFERENCES:
 - Skill: ${profile.cookingSkill}
 - Max Time: ${profile.maxCookingTimeMinutes} minutes
 - Simple Mode: ${profile.simpleModeEnabled ? 'Yes - prefer recipes with fewer ingredients' : 'No'}
+${pantryNote}
+${barrierNotes}
 
 THIS WEEK'S SPECIAL REQUESTS:
 ${weeklyPreferences || 'None - follow standard preferences'}
@@ -326,12 +354,15 @@ function parseClaudeResponse(content: string): MealPlanResponse {
 export async function handleGeneratePlan(
   req: GeneratePlanRequest
 ): Promise<GeneratePlanResponse> {
-  const { userProfile, weeklyPreferences, excludeRecipeNames, deviceId } = req;
+  const { userProfile, weeklyPreferences, excludeRecipeNames, deviceId, weeklyFocus, temporaryExclusions, weeklyBusyness } = req;
 
   console.log('[DEBUG] ========== GENERATE PLAN START ==========');
   console.log('[DEBUG] Device ID:', deviceId);
   console.log('[DEBUG] Weekly Preferences:', weeklyPreferences || 'None');
   console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
+  console.log('[DEBUG] Structured Prefs - Focus:', weeklyFocus?.join(', ') || 'None');
+  console.log('[DEBUG] Structured Prefs - Exclusions:', temporaryExclusions?.join(', ') || 'None');
+  console.log('[DEBUG] Structured Prefs - Busyness:', weeklyBusyness || 'None');
 
   // Validate required fields
   if (!deviceId) {
@@ -350,10 +381,13 @@ export async function handleGeneratePlan(
     dailyCalorieTarget: userProfile.dailyCalorieTarget,
     dietaryRestrictions: userProfile.dietaryRestrictions,
     allergies: userProfile.allergies,
+    foodDislikes: userProfile.foodDislikes,
     preferredCuisines: userProfile.preferredCuisines,
     cookingSkill: userProfile.cookingSkill,
     mealsPerDay: userProfile.mealsPerDay,
     includeSnacks: userProfile.includeSnacks,
+    pantryLevel: userProfile.pantryLevel,
+    barriers: userProfile.barriers,
   }));
 
   // Check rate limit
