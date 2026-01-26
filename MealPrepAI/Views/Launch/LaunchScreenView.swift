@@ -10,6 +10,10 @@ struct LaunchScreenView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
+                // White background to prevent black bars
+                Color.white
+                    .ignoresSafeArea()
+
                 // Full screen hero image as background
                 Image("meal-prep-hero")
                     .resizable()

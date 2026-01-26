@@ -111,7 +111,7 @@ enum OnboardingStep: Int, CaseIterable {
 struct NewOnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = NewOnboardingViewModel()
-    @State private var currentStep: OnboardingStep = .launch
+    @State private var currentStep: OnboardingStep = .socialProof  // Skip launch - shown by RootView
     @State private var showSaveErrorAlert = false
     @State private var isNavigatingBack = false
 
@@ -398,12 +398,27 @@ struct NewOnboardingView: View {
     }
 
     private func goToPrevious() {
+        // If on first real step (socialProof), go back to RootView's launch screen
+        if currentStep == .socialProof {
+            onLogin?()
+            return
+        }
+
         let allSteps = OnboardingStep.allCases
         if let currentIndex = allSteps.firstIndex(of: currentStep),
            currentIndex > 0 {
-            isNavigatingBack = true
-            withAnimation(OnboardingDesign.Animation.stepTransition) {
-                currentStep = allSteps[currentIndex - 1]
+            // Skip the .launch step since it's handled by RootView
+            let previousIndex = currentIndex - 1
+            let previousStep = allSteps[previousIndex]
+
+            if previousStep == .launch {
+                // Go back to RootView's launch screen
+                onLogin?()
+            } else {
+                isNavigatingBack = true
+                withAnimation(OnboardingDesign.Animation.stepTransition) {
+                    currentStep = previousStep
+                }
             }
         }
     }

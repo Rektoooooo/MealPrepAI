@@ -239,4 +239,37 @@ final class CloudKitSyncManager {
         formatter.unitsStyle = .abbreviated
         return "Last synced \(formatter.localizedString(for: date, relativeTo: Date()))"
     }
+
+    // MARK: - Delete CloudKit Zone
+
+    /// Delete the SwiftData CloudKit zone to remove all synced data
+    /// This is the most reliable way to clear CloudKit data for SwiftData
+    func deleteCloudKitZone() async {
+        let container = CKContainer(identifier: containerIdentifier)
+        let privateDatabase = container.privateCloudDatabase
+
+        // SwiftData uses a zone named "com.apple.coredata.cloudkit.zone"
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+
+        print("[CloudKit] Deleting CloudKit zone: \(zoneID.zoneName)...")
+
+        do {
+            try await privateDatabase.deleteRecordZone(withID: zoneID)
+            print("[CloudKit] Successfully deleted CloudKit zone")
+        } catch {
+            // Zone might not exist, which is fine
+            if let ckError = error as? CKError {
+                switch ckError.code {
+                case .zoneNotFound:
+                    print("[CloudKit] Zone not found (already deleted or never created)")
+                case .userDeletedZone:
+                    print("[CloudKit] Zone was already deleted by user")
+                default:
+                    print("[CloudKit] Error deleting zone: \(ckError.localizedDescription)")
+                }
+            } else {
+                print("[CloudKit] Error deleting zone: \(error.localizedDescription)")
+            }
+        }
+    }
 }

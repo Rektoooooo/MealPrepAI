@@ -10,6 +10,11 @@ import SwiftData
 import FirebaseCore
 import FirebaseAppCheck
 
+// MARK: - Notification Names
+extension Notification.Name {
+    static let accountDeleted = Notification.Name("accountDeleted")
+}
+
 // MARK: - App Attest Provider Factory
 /// Custom factory for App Attest provider (production builds)
 class CustomAppAttestProviderFactory: NSObject, AppCheckProviderFactory {
@@ -240,5 +245,12 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(appearanceMode.colorScheme)
+        .onReceive(NotificationCenter.default.publisher(for: .accountDeleted)) { _ in
+            // Reset to launch screen when account is deleted
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showLaunchScreen = true
+                showOnboarding = false
+            }
+        }
     }
 }

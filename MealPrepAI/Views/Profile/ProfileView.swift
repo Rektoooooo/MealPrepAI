@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import StoreKit
 import AuthenticationServices
+import FirebaseAuth
 
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,6 +15,7 @@ struct ProfileView: View {
     @State private var showingEditProfile = false
     @State private var showingSignOutAlert = false
     @State private var showingOnboardingPreview = false
+    @State private var showingDeleteAccountAlert = false
     @State private var animateContent = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
@@ -732,6 +734,9 @@ struct ProfileView: View {
 
             // Developer Section
             makeDeveloperSection()
+
+            // Danger Zone Section
+            makeDangerZoneSection()
         }
     }
 
@@ -986,6 +991,105 @@ struct ProfileView: View {
         SampleDataGenerator.clearAllData(in: modelContext)
     }
 
+    // MARK: - Danger Zone Section
+    private func makeDangerZoneSection() -> some View {
+        VStack(alignment: .leading, spacing: Design.Spacing.md) {
+            NewSectionHeader(title: "Danger Zone", icon: "exclamationmark.triangle.fill", iconColor: Color(hex: "FF6B6B"))
+
+            VStack(spacing: Design.Spacing.sm) {
+                // Delete Account Button
+                Button(action: { showingDeleteAccountAlert = true }) {
+                    HStack(spacing: Design.Spacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "FF6B6B").opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "person.crop.circle.badge.minus")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color(hex: "FF6B6B"))
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Delete Account")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color(hex: "FF6B6B"))
+
+                            Text("Remove all data and reset app")
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(Design.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.card)
+                    .fill(Color.cardBackground)
+                    .shadow(
+                        color: Design.Shadow.card.color,
+                        radius: Design.Shadow.card.radius,
+                        y: Design.Shadow.card.y
+                    )
+            )
+        }
+        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete Everything", role: .destructive) {
+                deleteAccountAndResetOnboarding()
+            }
+        } message: {
+            Text("This will permanently delete all your data including your profile, meal plans, and preferences. You'll need to complete onboarding again. This action cannot be undone.")
+        }
+    }
+
+    private func deleteAccountAndResetOnboarding() {
+        // Sign out from Apple ID if signed in
+        if authManager.hasAppleID {
+            authManager.signOut()
+        }
+
+        // Sign out from Firebase Auth (persists in Keychain!)
+        do {
+            try Auth.auth().signOut()
+            print("🔐 [Firebase Auth] Signed out successfully")
+        } catch {
+            print("🔐 [Firebase Auth] Sign out error: \(error.localizedDescription)")
+        }
+
+        // Disable iCloud sync first to prevent data from syncing back
+        syncManager.disableSync()
+
+        // Clear meal prep preferences
+        MealPrepPreferencesStore.shared.clearAll()
+
+        // Clear all SwiftData (meal plans, recipes, etc.)
+        SampleDataGenerator.clearAllData(in: modelContext)
+
+        // Delete the UserProfile - this is what triggers onboarding to show again
+        if let profile = profile {
+            modelContext.delete(profile)
+        }
+
+        // Save the context to persist the deletion
+        try? modelContext.save()
+
+        // Delete CloudKit zone to remove all synced data
+        Task {
+            await syncManager.deleteCloudKitZone()
+        }
+
+        // Notify the app to reset to onboarding
+        NotificationCenter.default.post(name: .accountDeleted, object: nil)
+    }
+
     // MARK: - Authentication Handlers
 
     private func handleSignInResult(_ result: Result<ASAuthorization, Error>) {
@@ -1041,17 +1145,17 @@ struct OnboardingPreviewWrapper: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            OnboardingView {
-                // Don't actually save on preview, just dismiss
-                onDismiss()
-            }
+            NewOnboardingView(
+                onComplete: { onDismiss() },
+                onLogin: { onDismiss() }
+            )
 
             // Close button
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 32))
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(Color.textPrimary, Color.cardBackground)
+                    .foregroundStyle(Color.black, Color.white.opacity(0.9))
             }
             .padding(Design.Spacing.lg)
         }
