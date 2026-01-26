@@ -1190,7 +1190,94 @@ struct MealTypeButton: View {
     }
 }
 
+// MARK: - Preview Helper
+private struct TodayViewPreview: View {
+    @State private var container: ModelContainer
+
+    init() {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try! ModelContainer(for: UserProfile.self, MealPlan.self, Day.self, Meal.self, Recipe.self, RecipeIngredient.self, Ingredient.self, configurations: config)
+
+        // Create sample user profile
+        let profile = UserProfile()
+        profile.name = "Chef"
+        profile.dailyCalorieTarget = 2000
+        profile.proteinGrams = 150
+        profile.carbsGrams = 200
+        profile.fatGrams = 65
+        profile.hasCompletedOnboarding = true
+        container.mainContext.insert(profile)
+
+        // Create sample meal plan
+        let mealPlan = MealPlan(weekStartDate: Date(), isActive: true)
+        container.mainContext.insert(mealPlan)
+
+        // Create today's day
+        let today = Day(date: Date(), dayOfWeek: Calendar.current.component(.weekday, from: Date()))
+        today.mealPlan = mealPlan
+        container.mainContext.insert(today)
+
+        // Create sample recipes and meals
+        let breakfastRecipe = Recipe(
+            name: "Avocado Toast with Eggs",
+            recipeDescription: "Healthy breakfast",
+            cookTimeMinutes: 15,
+            calories: 450,
+            proteinGrams: 20,
+            carbsGrams: 35,
+            fatGrams: 25
+        )
+        container.mainContext.insert(breakfastRecipe)
+
+        let breakfast = Meal(mealType: .breakfast)
+        breakfast.recipe = breakfastRecipe
+        breakfast.day = today
+        breakfast.isEaten = true
+        container.mainContext.insert(breakfast)
+
+        let lunchRecipe = Recipe(
+            name: "Grilled Chicken Salad",
+            recipeDescription: "Fresh and filling",
+            cookTimeMinutes: 25,
+            calories: 550,
+            proteinGrams: 45,
+            carbsGrams: 20,
+            fatGrams: 30
+        )
+        container.mainContext.insert(lunchRecipe)
+
+        let lunch = Meal(mealType: .lunch)
+        lunch.recipe = lunchRecipe
+        lunch.day = today
+        container.mainContext.insert(lunch)
+
+        let dinnerRecipe = Recipe(
+            name: "Salmon with Vegetables",
+            recipeDescription: "Omega-3 rich dinner",
+            cookTimeMinutes: 30,
+            calories: 600,
+            proteinGrams: 40,
+            carbsGrams: 30,
+            fatGrams: 35
+        )
+        container.mainContext.insert(dinnerRecipe)
+
+        let dinner = Meal(mealType: .dinner)
+        dinner.recipe = dinnerRecipe
+        dinner.day = today
+        container.mainContext.insert(dinner)
+
+        _container = State(initialValue: container)
+    }
+
+    var body: some View {
+        TodayView()
+            .modelContainer(container)
+            .environment(HealthKitManager())
+            .environment(NotificationManager())
+    }
+}
+
 #Preview {
-    TodayView()
-        .modelContainer(for: [MealPlan.self, UserProfile.self], inMemory: true)
+    TodayViewPreview()
 }

@@ -45,6 +45,13 @@ final class UserProfile {
 
     // Onboarding
     var hasCompletedOnboarding: Bool = false
+    var primaryGoalsData: Data?
+    var foodDislikesData: Data?
+    var cuisinePreferencesMapData: Data?  // [CuisineType: CuisinePreference]
+    var pantryLevelRaw: String = "Average"
+    var avatarEmoji: String = "🍳"
+    var goalPaceRaw: String = "Moderate"
+    var barriersData: Data?
 
     // HealthKit preferences
     var healthKitEnabled: Bool = false
@@ -113,6 +120,56 @@ final class UserProfile {
         }
     }
 
+    var primaryGoals: [PrimaryGoal] {
+        get {
+            guard let data = primaryGoalsData else { return [] }
+            return (try? JSONDecoder().decode([PrimaryGoal].self, from: data)) ?? []
+        }
+        set {
+            primaryGoalsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var foodDislikes: [FoodDislike] {
+        get {
+            guard let data = foodDislikesData else { return [] }
+            return (try? JSONDecoder().decode([FoodDislike].self, from: data)) ?? []
+        }
+        set {
+            foodDislikesData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var cuisinePreferencesMap: [String: CuisinePreference] {
+        get {
+            guard let data = cuisinePreferencesMapData else { return [:] }
+            return (try? JSONDecoder().decode([String: CuisinePreference].self, from: data)) ?? [:]
+        }
+        set {
+            cuisinePreferencesMapData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var pantryLevel: PantryLevel {
+        get { PantryLevel(rawValue: pantryLevelRaw) ?? .average }
+        set { pantryLevelRaw = newValue.rawValue }
+    }
+
+    var goalPace: GoalPace {
+        get { GoalPace(rawValue: goalPaceRaw) ?? .moderate }
+        set { goalPaceRaw = newValue.rawValue }
+    }
+
+    var barriers: [Barrier] {
+        get {
+            guard let data = barriersData else { return [] }
+            return (try? JSONDecoder().decode([Barrier].self, from: data)) ?? []
+        }
+        set {
+            barriersData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
     init(
         name: String = "",
         appleUserID: String? = nil,
@@ -140,7 +197,14 @@ final class UserProfile {
         hasCompletedOnboarding: Bool = false,
         healthKitEnabled: Bool = false,
         syncNutritionToHealth: Bool = true,
-        readWeightFromHealth: Bool = false
+        readWeightFromHealth: Bool = false,
+        primaryGoals: [PrimaryGoal] = [],
+        foodDislikes: [FoodDislike] = [],
+        cuisinePreferencesMap: [String: CuisinePreference] = [:],
+        pantryLevel: PantryLevel = .average,
+        avatarEmoji: String = "🍳",
+        goalPace: GoalPace = .moderate,
+        barriers: [Barrier] = []
     ) {
         self.id = UUID()
         self.name = name
@@ -173,6 +237,13 @@ final class UserProfile {
         self.syncNutritionToHealth = syncNutritionToHealth
         self.readWeightFromHealth = readWeightFromHealth
         self.lastHealthKitSync = nil
+        self.primaryGoalsData = try? JSONEncoder().encode(primaryGoals)
+        self.foodDislikesData = try? JSONEncoder().encode(foodDislikes)
+        self.cuisinePreferencesMapData = try? JSONEncoder().encode(cuisinePreferencesMap)
+        self.pantryLevelRaw = pantryLevel.rawValue
+        self.avatarEmoji = avatarEmoji
+        self.goalPaceRaw = goalPace.rawValue
+        self.barriersData = try? JSONEncoder().encode(barriers)
     }
 
     // MARK: - Authentication Helpers

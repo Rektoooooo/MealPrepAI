@@ -273,13 +273,14 @@ struct FoodImagePlaceholder: View {
 extension CuisineType {
     var foodStyle: FoodImagePlaceholder.FoodStyle {
         switch self {
+        case .american: return .meat
         case .italian: return .pizza
         case .mexican: return .meat
+        case .french: return .dessert
         case .japanese, .korean, .vietnamese, .chinese, .thai: return .seafood
         case .mediterranean, .greek: return .healthy
-        case .american, .caribbean: return .breakfast
         case .indian, .middleEastern: return .pizza
-        case .french, .spanish: return .salad
+        case .spanish: return .seafood
         }
     }
 }

@@ -199,8 +199,12 @@ class SignInWithAppleCoordinator: NSObject, ASAuthorizationControllerDelegate, A
                 }
             }
 
-            // Fallback: create a new window if no scene found (should not happen but safer than fatalError)
-            let fallbackWindow = UIWindow(frame: UIScreen.main.bounds)
+            // Fallback: create a new window from first available scene
+            // This should rarely happen as we already iterate scenes above
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+                fatalError("No window scene available for Sign in with Apple")
+            }
+            let fallbackWindow = UIWindow(windowScene: windowScene)
             fallbackWindow.makeKeyAndVisible()
             return fallbackWindow
         }

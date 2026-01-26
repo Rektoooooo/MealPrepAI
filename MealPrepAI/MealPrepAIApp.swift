@@ -8,6 +8,15 @@
 import SwiftUI
 import SwiftData
 import FirebaseCore
+import FirebaseAppCheck
+
+// MARK: - App Attest Provider Factory
+/// Custom factory for App Attest provider (production builds)
+class CustomAppAttestProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> (any AppCheckProvider)? {
+        return AppAttestProvider(app: app)
+    }
+}
 
 // MARK: - App Delegate
 /// Handles app lifecycle events
@@ -63,6 +72,16 @@ struct MealPrepAIApp: App {
     @State private var firebaseRecipeService: FirebaseRecipeService
 
     init() {
+        // Configure App Check BEFORE Firebase.configure()
+        // Uses App Attest in production, Debug provider in development
+        #if DEBUG
+        let providerFactory = AppCheckDebugProviderFactory()
+        #else
+        let providerFactory = CustomAppAttestProviderFactory()
+        #endif
+        AppCheck.setAppCheckProviderFactory(providerFactory)
+        print("🔒 [App] App Check configured with \(type(of: providerFactory))")
+
         // Configure Firebase FIRST, before any Firebase services are created
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
@@ -80,11 +99,8 @@ struct MealPrepAIApp: App {
                 case .unknown:
                     SplashView()
 
-                case .unauthenticated:
-                    AuthenticationView()
-                        .environment(authManager)
-
-                case .guest, .authenticated:
+                case .unauthenticated, .guest, .authenticated:
+                    // Show RootView for all states - it handles onboarding vs main content
                     RootView()
                         .environment(authManager)
                         .environment(syncManager)
@@ -153,6 +169,8 @@ struct RootView: View {
     @Environment(HealthKitManager.self) var healthKitManager
     @Query private var userProfiles: [UserProfile]
     @State private var showOnboarding = false
+    @State private var showLaunchScreen = true
+    @State private var showSignInSheet = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
 
     private var hasCompletedOnboarding: Bool {
@@ -180,7 +198,41 @@ struct RootView: View {
                     .environment(authManager)
                     .environment(syncManager)
                     .environment(healthKitManager)
+            } else if showLaunchScreen {
+                // Show the new launch screen first
+                LaunchScreenView(
+                    onGetStarted: {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            showLaunchScreen = false
+                            showOnboarding = true
+                        }
+                    },
+                    onSignIn: {
+                        // Show sign-in sheet for existing users
+                        showSignInSheet = true
+                    }
+                )
+                .fullScreenCover(isPresented: $showSignInSheet) {
+                    AuthenticationView()
+                        .environment(authManager)
+                }
+            } else if showOnboarding {
+                // Show new onboarding flow
+                NewOnboardingView(
+                    onComplete: {
+                        // View will automatically update when profile is saved
+                    },
+                    onLogin: {
+                        // Go back to launch screen or auth
+                        withAnimation {
+                            showLaunchScreen = true
+                            showOnboarding = false
+                        }
+                    }
+                )
+                .environment(authManager)
             } else {
+                // Fallback to legacy onboarding
                 OnboardingView(onComplete: {
                     // View will automatically update when profile is saved
                 })

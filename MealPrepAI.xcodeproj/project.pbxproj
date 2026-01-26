@@ -15,6 +15,7 @@
 		EC0FEE632F23C61500159966 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE622F23C61500159966 /* FirebaseAuth */; };
 		EC0FEE652F23C61500159966 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE642F23C61500159966 /* FirebaseCore */; };
 		EC0FEE672F23C61500159966 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE662F23C61500159966 /* FirebaseFirestore */; };
+		EC0FEE692F23C61500159966 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE682F23C61500159966 /* FirebaseAppCheck */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +72,7 @@
 				EC0FEE632F23C61500159966 /* FirebaseAuth in Frameworks */,
 				EC0FEE652F23C61500159966 /* FirebaseCore in Frameworks */,
 				EC0FEE672F23C61500159966 /* FirebaseFirestore in Frameworks */,
+				EC0FEE692F23C61500159966 /* FirebaseAppCheck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -139,6 +141,7 @@
 				EC0FEE622F23C61500159966 /* FirebaseAuth */,
 				EC0FEE642F23C61500159966 /* FirebaseCore */,
 				EC0FEE662F23C61500159966 /* FirebaseFirestore */,
+				EC0FEE682F23C61500159966 /* FirebaseAppCheck */,
 			);
 			productName = MealPrepAI;
 			productReference = EC90E6C12F1C34A5004BE865 /* MealPrepAI.app */;
@@ -654,6 +657,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		EC0FEE682F23C61500159966 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

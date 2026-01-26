@@ -138,18 +138,17 @@ enum CuisineType: String, Codable, CaseIterable, Identifiable, Sendable {
     case american = "American"
     case mexican = "Mexican"
     case italian = "Italian"
+    case french = "French"
     case chinese = "Chinese"
     case japanese = "Japanese"
     case indian = "Indian"
     case thai = "Thai"
     case mediterranean = "Mediterranean"
+    case greek = "Greek"
     case middleEastern = "Middle Eastern"
     case korean = "Korean"
     case vietnamese = "Vietnamese"
-    case french = "French"
-    case greek = "Greek"
     case spanish = "Spanish"
-    case caribbean = "Caribbean"
 
     var id: String { rawValue }
 
@@ -158,18 +157,17 @@ enum CuisineType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .american: return "🇺🇸"
         case .mexican: return "🇲🇽"
         case .italian: return "🇮🇹"
+        case .french: return "🇫🇷"
         case .chinese: return "🇨🇳"
         case .japanese: return "🇯🇵"
         case .indian: return "🇮🇳"
         case .thai: return "🇹🇭"
         case .mediterranean: return "🌊"
+        case .greek: return "🇬🇷"
         case .middleEastern: return "🕌"
         case .korean: return "🇰🇷"
         case .vietnamese: return "🇻🇳"
-        case .french: return "🇫🇷"
-        case .greek: return "🇬🇷"
         case .spanish: return "🇪🇸"
-        case .caribbean: return "🏝️"
         }
     }
 }
@@ -544,6 +542,225 @@ enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
         case .system: return nil
         case .light: return .light
         case .dark: return .dark
+        }
+    }
+}
+
+// MARK: - Primary Goals (for onboarding)
+enum PrimaryGoal: String, Codable, CaseIterable, Identifiable, Sendable {
+    case planMeals = "Plan my meals"
+    case eatHealthy = "Eat healthy"
+    case familyMeals = "Family meals"
+    case mealPrep = "Meal prep"
+    case saveTime = "Save time"
+    case saveMoney = "Save money"
+    case tryNewRecipes = "Try new recipes"
+    case reduceFoodWaste = "Reduce food waste"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .planMeals: return "calendar"
+        case .eatHealthy: return "leaf.fill"
+        case .familyMeals: return "person.3.fill"
+        case .mealPrep: return "takeoutbag.and.cup.and.straw.fill"
+        case .saveTime: return "clock.fill"
+        case .saveMoney: return "dollarsign.circle.fill"
+        case .tryNewRecipes: return "frying.pan.fill"
+        case .reduceFoodWaste: return "arrow.3.trianglepath"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .planMeals: return "📅"
+        case .eatHealthy: return "🥗"
+        case .familyMeals: return "👨‍👩‍👧"
+        case .mealPrep: return "🍱"
+        case .saveTime: return "⏰"
+        case .saveMoney: return "💰"
+        case .tryNewRecipes: return "🍳"
+        case .reduceFoodWaste: return "♻️"
+        }
+    }
+}
+
+// MARK: - Food Dislikes (common foods people dislike)
+enum FoodDislike: String, Codable, CaseIterable, Identifiable, Sendable {
+    case avocado = "Avocado"
+    case broccoli = "Broccoli"
+    case mushrooms = "Mushrooms"
+    case olives = "Olives"
+    case onions = "Onions"
+    case tomatoes = "Tomatoes"
+    case cilantro = "Cilantro"
+    case brussels = "Brussels Sprouts"
+    case spinach = "Spinach"
+    case peppers = "Bell Peppers"
+    case celery = "Celery"
+    case eggplant = "Eggplant"
+    case beets = "Beets"
+    case tofu = "Tofu"
+    case seafood = "Seafood"
+    case chicken = "Chicken"
+    case beef = "Beef"
+    case pork = "Pork"
+    case beans = "Beans"
+    case garlic = "Garlic"
+    case spicyFood = "Spicy Food"
+
+    var id: String { rawValue }
+
+    var emoji: String {
+        switch self {
+        case .avocado: return "🥑"
+        case .broccoli: return "🥦"
+        case .mushrooms: return "🍄"
+        case .olives: return "🫒"
+        case .onions: return "🧅"
+        case .tomatoes: return "🍅"
+        case .cilantro: return "🌿"
+        case .brussels: return "🥬"
+        case .spinach: return "🥬"
+        case .peppers: return "🫑"
+        case .celery: return "🥬"
+        case .eggplant: return "🍆"
+        case .beets: return "🫓"
+        case .tofu: return "🫧"
+        case .seafood: return "🦐"
+        case .chicken: return "🍗"
+        case .beef: return "🥩"
+        case .pork: return "🥓"
+        case .beans: return "🫘"
+        case .garlic: return "🧄"
+        case .spicyFood: return "🌶️"
+        }
+    }
+}
+
+// MARK: - Pantry Level
+enum PantryLevel: String, Codable, CaseIterable, Identifiable, Sendable {
+    case basic = "Basic"
+    case average = "Average"
+    case wellStocked = "Well-stocked"
+
+    var id: String { rawValue }
+
+    var description: String {
+        switch self {
+        case .basic: return "I only have salt & pepper, olive oil"
+        case .average: return "I have common spices and seasonings"
+        case .wellStocked: return "I'm basically a grocery store at this point"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .basic: return "1.circle.fill"
+        case .average: return "2.circle.fill"
+        case .wellStocked: return "3.circle.fill"
+        }
+    }
+}
+
+// MARK: - Cuisine Preference (like/dislike/neutral)
+enum CuisinePreference: String, Codable, Sendable {
+    case like = "like"
+    case dislike = "dislike"
+    case neutral = "neutral"
+}
+
+// MARK: - Goal Pace (for weight change timeline)
+enum GoalPace: String, Codable, CaseIterable, Identifiable, Sendable {
+    case gradual = "Gradual"       // 0.5 lb/week, 0.23 kg/week
+    case moderate = "Moderate"     // 1.0 lb/week, 0.45 kg/week
+    case aggressive = "Aggressive" // 1.5 lb/week, 0.68 kg/week
+
+    var id: String { rawValue }
+
+    var weeklyLossKg: Double {
+        switch self {
+        case .gradual: return 0.23
+        case .moderate: return 0.45
+        case .aggressive: return 0.68
+        }
+    }
+
+    var weeklyLossLbs: Double {
+        switch self {
+        case .gradual: return 0.5
+        case .moderate: return 1.0
+        case .aggressive: return 1.5
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .gradual: return "Slow & sustainable"
+        case .moderate: return "Balanced approach"
+        case .aggressive: return "Fast results"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .gradual: return "tortoise.fill"
+        case .moderate: return "figure.walk"
+        case .aggressive: return "hare.fill"
+        }
+    }
+
+    var recommendation: String {
+        switch self {
+        case .gradual: return "Best for long-term success"
+        case .moderate: return "Recommended"
+        case .aggressive: return "Requires dedication"
+        }
+    }
+}
+
+// MARK: - Barriers (obstacles to reaching goals)
+enum Barrier: String, Codable, CaseIterable, Identifiable, Sendable {
+    case dontKnowWhatToCook = "Don't know what to cook"
+    case tooBusy = "Too busy to plan meals"
+    case groceryShopping = "Struggle with grocery shopping"
+    case getBored = "Get bored eating the same things"
+    case cantStickToRoutine = "Can't stick to a routine"
+    case lackCookingSkills = "Lack of cooking skills"
+
+    var id: String { rawValue }
+
+    var emoji: String {
+        switch self {
+        case .dontKnowWhatToCook: return "🤔"
+        case .tooBusy: return "⏰"
+        case .groceryShopping: return "🛒"
+        case .getBored: return "😴"
+        case .cantStickToRoutine: return "🔄"
+        case .lackCookingSkills: return "👨‍🍳"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .dontKnowWhatToCook: return "questionmark.circle.fill"
+        case .tooBusy: return "clock.fill"
+        case .groceryShopping: return "cart.fill"
+        case .getBored: return "face.smiling.inverse"
+        case .cantStickToRoutine: return "arrow.triangle.2.circlepath"
+        case .lackCookingSkills: return "frying.pan"
+        }
+    }
+
+    var solution: String {
+        switch self {
+        case .dontKnowWhatToCook: return "AI-powered recipe suggestions"
+        case .tooBusy: return "One-click meal planning"
+        case .groceryShopping: return "Smart grocery lists"
+        case .getBored: return "Variety-focused recipes"
+        case .cantStickToRoutine: return "Gentle reminders & flexibility"
+        case .lackCookingSkills: return "Step-by-step instructions"
         }
     }
 }
