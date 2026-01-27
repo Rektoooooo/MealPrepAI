@@ -16,7 +16,7 @@ struct RecipesView: View {
     @State private var debouncedSearchText = ""
     @State private var searchTask: Task<Void, Never>?
     @State private var selectedCategory: FoodCategory = .all
-    @State private var selectedNutritionFilter: NutritionFilter = .none
+    @State private var selectedFilters: Set<RecipeFilter> = []
     @State private var showingAddRecipe = false
     @State private var showingFilterSheet = false
     @State private var animateContent = false
@@ -55,10 +55,10 @@ struct RecipesView: View {
             }
         }
 
-        // Apply nutrition filter
-        if selectedNutritionFilter != .none {
+        // Apply all selected filters (recipe must match ALL selected filters)
+        for filter in selectedFilters {
             recipes = recipes.filter { recipe in
-                selectedNutritionFilter.matches(recipe)
+                filter.matches(recipe)
             }
         }
 
@@ -91,7 +91,7 @@ struct RecipesView: View {
 
     /// Check if any filter is active
     private var hasActiveFilter: Bool {
-        selectedCategory != .all || selectedNutritionFilter != .none
+        selectedCategory != .all || !selectedFilters.isEmpty
     }
 
     /// Check if we should show "Search Firebase" prompt
@@ -465,19 +465,19 @@ struct RecipesView: View {
             )
     }
 
-    // MARK: - Nutrition Filter Chips
+    // MARK: - Recipe Filter Chips (Multi-select)
     private var nutritionFilterChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Design.Spacing.sm) {
-                ForEach(NutritionFilter.allCases) { filter in
-                    let isSelected = selectedNutritionFilter == filter
+                ForEach(RecipeFilter.allCases) { filter in
+                    let isSelected = selectedFilters.contains(filter)
 
                     Button(action: {
                         withAnimation(Design.Animation.smooth) {
                             if isSelected {
-                                selectedNutritionFilter = .none
+                                selectedFilters.remove(filter)
                             } else {
-                                selectedNutritionFilter = filter
+                                selectedFilters.insert(filter)
                             }
                         }
                     }) {
@@ -493,15 +493,13 @@ struct RecipesView: View {
                                     .foregroundStyle(isSelected ? .white : filter.color)
                             }
 
-                            if filter != .none {
-                                Text(filter.rawValue)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(isSelected ? .white : .primary)
-                            }
+                            Text(filter.rawValue)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(isSelected ? .white : .primary)
                         }
                         .padding(.leading, 4)
-                        .padding(.trailing, filter != .none ? 14 : 4)
+                        .padding(.trailing, 14)
                         .padding(.vertical, 4)
                         .background {
                             if isSelected {
@@ -533,7 +531,7 @@ struct RecipesView: View {
                     Button(action: {
                         withAnimation(Design.Animation.smooth) {
                             selectedCategory = .all
-                            selectedNutritionFilter = .none
+                            selectedFilters.removeAll()
                         }
                     }) {
                         HStack(spacing: 6) {

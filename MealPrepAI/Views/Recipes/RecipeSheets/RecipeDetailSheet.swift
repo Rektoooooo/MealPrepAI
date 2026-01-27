@@ -47,6 +47,28 @@ struct RecipeDetailSheet: View {
                             .font(.body)
                             .foregroundStyle(.secondary)
 
+                        // Diet badges
+                        if !recipe.displayDiets.isEmpty {
+                            HStack(spacing: Design.Spacing.sm) {
+                                ForEach(recipe.displayDiets) { badge in
+                                    HStack(spacing: 4) {
+                                        Image(systemName: badge.icon)
+                                            .font(.system(size: 12))
+                                        Text(badge.name)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .foregroundStyle(badge.color)
+                                    .padding(.horizontal, Design.Spacing.sm)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        Capsule()
+                                            .fill(badge.color.opacity(0.12))
+                                    )
+                                }
+                            }
+                        }
+
                         // Action buttons
                         HStack(spacing: Design.Spacing.sm) {
                             RecipeActionButton(
