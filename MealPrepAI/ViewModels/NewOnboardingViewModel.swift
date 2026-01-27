@@ -117,62 +117,74 @@ class NewOnboardingViewModel {
         }
     }
 
-    // MARK: - Macro Percentages (Optimized based on goals)
+    // MARK: - Macro Calculations (Evidence-based)
 
-    /// Protein percentage optimized for user's weight goal
-    private var proteinPercentage: Double {
+    /// Protein grams per kg of body weight based on goal
+    /// Research-backed ranges:
+    /// - Weight loss: 1.6-2.2g/kg (higher to preserve muscle in deficit)
+    /// - Maintenance: 1.2-1.6g/kg
+    /// - Muscle gain: 1.6-2.0g/kg
+    /// - Recomp: 1.8-2.2g/kg
+    private var proteinPerKg: Double {
         switch weightGoal {
         case .lose:
-            // Higher protein (35%) to preserve muscle during calorie deficit
-            return 0.35
+            // Higher protein to preserve muscle during deficit
+            return 1.8
         case .maintain:
-            // Balanced protein (30%) for maintenance
-            return 0.30
+            // Moderate protein for maintenance
+            return 1.4
         case .gain:
-            // Higher protein (35%) to build muscle
-            return 0.35
+            // Higher protein to build muscle
+            return 1.8
         case .recomp:
-            // Very high protein (40%) for body recomposition
-            return 0.40
+            // High protein for muscle retention while cutting fat
+            return 2.0
         }
     }
 
-    /// Carbs percentage optimized for activity and goal
-    private var carbsPercentage: Double {
-        switch weightGoal {
-        case .lose:
-            // Lower carbs (30%) to encourage fat burning
-            return 0.30
-        case .maintain:
-            // Balanced carbs (40%) for maintenance
-            return 0.40
-        case .gain:
-            // Higher carbs (45%) for energy and muscle gain
-            return 0.45
-        case .recomp:
-            // Moderate carbs (35%) for energy while losing fat
-            return 0.35
-        }
-    }
-
-    /// Fat percentage (calculated to reach 100%)
-    private var fatPercentage: Double {
-        return 1.0 - proteinPercentage - carbsPercentage
-    }
-
-    /// Protein grams (optimized based on goals)
+    /// Protein grams based on body weight (evidence-based approach)
     var proteinGrams: Int {
-        return Int(Double(recommendedCalories) * proteinPercentage / 4)
+        return Int(weightKg * proteinPerKg)
     }
 
-    /// Carbs grams (optimized based on goals)
-    var carbsGrams: Int {
-        return Int(Double(recommendedCalories) * carbsPercentage / 4)
+    /// Calories from protein
+    private var proteinCalories: Int {
+        return proteinGrams * 4
     }
 
-    /// Fat grams (optimized based on goals)
+    /// Fat percentage of remaining calories (after protein)
+    /// - 25-30% of total calories is healthy range
+    private var fatPercentage: Double {
+        switch weightGoal {
+        case .lose:
+            // Lower fat (25%) to maximize protein and carbs
+            return 0.25
+        case .maintain:
+            // Balanced fat (30%)
+            return 0.30
+        case .gain:
+            // Moderate fat (25%) to leave room for carbs
+            return 0.25
+        case .recomp:
+            // Moderate fat (28%)
+            return 0.28
+        }
+    }
+
+    /// Fat grams (percentage-based for healthy fats)
     var fatGrams: Int {
         return Int(Double(recommendedCalories) * fatPercentage / 9)
+    }
+
+    /// Calories from fat
+    private var fatCalories: Int {
+        return fatGrams * 9
+    }
+
+    /// Carbs grams (fills remaining calories after protein and fat)
+    var carbsGrams: Int {
+        let remainingCalories = recommendedCalories - proteinCalories - fatCalories
+        return max(0, remainingCalories / 4)
     }
 
     /// Convert liked cuisines to preferred cuisines array

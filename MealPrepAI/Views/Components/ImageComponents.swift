@@ -2,124 +2,24 @@ import SwiftUI
 import SwiftData
 
 // MARK: - Recipe Async Image with Fallback
-/// Smart image loader with fallback chain:
-/// 1. High-res version of original image
-/// 2. Original image URL
-/// 3. Matched image URL (from AI recipe matching)
-/// 4. Placeholder gradient
+/// Always shows gradient placeholder (image matching disabled for now)
 struct RecipeAsyncImage: View {
     let recipe: Recipe
     let height: CGFloat
     let cornerRadius: CGFloat
-    /// Optional matched image URL from AI recipe generation (takes priority if set)
+    /// Optional matched image URL (currently unused - will re-enable later)
     var matchedImageUrl: String?
 
-    @State private var imageLoadState: ImageLoadState = .highRes
-
-    private enum ImageLoadState {
-        case highRes    // Try high-res first
-        case original   // Fall back to original
-        case matched    // Fall back to matched image
-        case failed     // All failed, show placeholder
-    }
-
-    private var currentURL: URL? {
-        switch imageLoadState {
-        case .highRes:
-            // Try high-res version first
-            if let urlString = recipe.highResImageURL ?? recipe.imageURL,
-               urlString.hasPrefix("http") {
-                return URL(string: urlString)
-            }
-            return nil
-        case .original:
-            // Try original URL
-            if let urlString = recipe.imageURL, urlString.hasPrefix("http") {
-                return URL(string: urlString)
-            }
-            return nil
-        case .matched:
-            // Try matched image URL from AI generation
-            if let urlString = matchedImageUrl, urlString.hasPrefix("http") {
-                return URL(string: urlString)
-            }
-            return nil
-        case .failed:
-            return nil
-        }
-    }
-
-    private func handleLoadFailure() {
-        switch imageLoadState {
-        case .highRes:
-            // Try original URL if high-res failed
-            if recipe.highResImageURL != recipe.imageURL && recipe.imageURL != nil {
-                imageLoadState = .original
-            } else if matchedImageUrl != nil {
-                imageLoadState = .matched
-            } else {
-                imageLoadState = .failed
-            }
-        case .original:
-            // Try matched image if original failed
-            if matchedImageUrl != nil {
-                imageLoadState = .matched
-            } else {
-                imageLoadState = .failed
-            }
-        case .matched:
-            imageLoadState = .failed
-        case .failed:
-            break
-        }
-    }
-
     var body: some View {
-        Group {
-            if let url = currentURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        ZStack {
-                            placeholderView
-                            ProgressView()
-                        }
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(height: height)
-                            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-                    case .failure:
-                        Color.clear
-                            .onAppear {
-                                handleLoadFailure()
-                            }
-                    @unknown default:
-                        placeholderView
-                    }
-                }
-            } else if imageLoadState == .failed {
-                placeholderView
-            } else {
-                // No URL available for current state, try next
-                Color.clear
-                    .onAppear {
-                        handleLoadFailure()
-                    }
-            }
-        }
-        .frame(height: height)
-    }
-
-    private var placeholderView: some View {
+        // Always show gradient placeholder (image matching disabled)
         FoodImagePlaceholder(
-            style: recipe.cuisineType?.foodStyle ?? .random,
+            style: recipe.cuisineType?.foodStyle ?? recipe.mealType?.foodStyle ?? .random,
             height: height,
             cornerRadius: cornerRadius,
             showIcon: true,
             iconSize: height * 0.3
         )
+        .frame(height: height)
     }
 }
 
@@ -188,50 +88,13 @@ struct FoodImagePlaceholder: View {
     var cornerRadius: CGFloat = Design.Radius.lg
     var showIcon: Bool = true
     var iconSize: CGFloat = 40
-    var imageName: String? = nil  // Optional real image
+    var imageName: String? = nil  // Ignored - always shows gradient (will re-enable later)
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Check if it's a remote URL
-                if let imageName = imageName,
-                   imageName.hasPrefix("http"),
-                   let url = URL(string: imageName) {
-                    // Remote image from URL
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            // Loading state - show gradient placeholder
-                            gradientPlaceholder
-                        case .success(let image):
-                            // Loaded successfully
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: geometry.size.width, height: height)
-                                .clipped()
-                        case .failure:
-                            // Failed to load - show gradient placeholder
-                            gradientPlaceholder
-                        @unknown default:
-                            gradientPlaceholder
-                        }
-                    }
-                } else if let imageName = imageName, let uiImage = UIImage(named: imageName) {
-                    // Local image from asset catalog
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: geometry.size.width, height: height)
-                        .clipped()
-                } else {
-                    // No image - show gradient placeholder
-                    gradientPlaceholder
-                }
-            }
+        // Always show gradient placeholder (image matching disabled)
+        gradientPlaceholder
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        }
-        .frame(height: height)
+            .frame(height: height)
     }
 
     // Extracted gradient placeholder view

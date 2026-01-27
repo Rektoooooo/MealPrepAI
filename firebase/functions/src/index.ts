@@ -110,7 +110,7 @@ function getNutrient(nutrients: { name: string; amount: number }[], name: string
  * Runs daily at 3am UTC to populate the Firestore database
  */
 export const collectRecipes = functions.pubsub
-  .schedule('0 3 * * *')  // Run at 3am UTC daily
+  .schedule('0 14 * * *')  // Run at 4pm CEST (14:00 UTC) daily
   .timeZone('UTC')
   .onRun(async (context) => {
     console.log('Starting daily recipe collection...');
@@ -375,19 +375,24 @@ export const populateRecipes = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // Get offset from query param (default 0) to fetch different recipes each time
+  const offset = parseInt(req.query.offset as string) || 0;
+  const number = parseInt(req.query.number as string) || 10;
+
   let totalAdded = 0;
   const errors: string[] = [];
 
   // Fetch from all cuisines
   for (const cuisine of CUISINES) {
     try {
-      console.log(`Fetching ${cuisine} recipes...`);
+      console.log(`Fetching ${cuisine} recipes (offset: ${offset})...`);
 
       const url = `https://api.spoonacular.com/recipes/complexSearch?` +
         `cuisine=${cuisine}` +
         `&addRecipeNutrition=true` +
         `&addRecipeInstructions=true` +
-        `&number=10` +
+        `&number=${number}` +
+        `&offset=${offset}` +
         `&apiKey=${SPOONACULAR_API_KEY}`;
 
       const response = await fetch(url);
@@ -471,10 +476,46 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 /**
+ * App Check verification middleware
+ * Verifies that requests come from the real iOS app using Firebase App Check
+ * In development (DEBUG mode), the debug token is used
+ * In production, App Attest is used
+ */
+const verifyAppCheck = async (req: Request, res: Response, next: express.NextFunction): Promise<void> => {
+  const appCheckToken = req.header('X-Firebase-AppCheck');
+
+  if (!appCheckToken) {
+    console.warn('🔒 [AppCheck] Missing App Check token');
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized - Missing App Check token',
+    });
+    return;
+  }
+
+  try {
+    // Verify the App Check token
+    const appCheckClaims = await admin.appCheck().verifyToken(appCheckToken);
+    console.log(`🔒 [AppCheck] Token verified for app: ${appCheckClaims.appId}`);
+
+    // Token is valid, proceed to the next middleware/route
+    next();
+  } catch (error) {
+    console.error('🔒 [AppCheck] Token verification failed:', error);
+    res.status(401).json({
+      success: false,
+      error: 'Unauthorized - Invalid App Check token',
+    });
+    return;
+  }
+};
+
+/**
  * POST /api/v1/generate-plan
  * Generate a full 7-day meal plan
+ * Protected by App Check verification
  */
-app.post('/v1/generate-plan', async (req: Request, res: Response) => {
+app.post('/v1/generate-plan', verifyAppCheck, async (req: Request, res: Response) => {
   try {
     const result = await handleGeneratePlan(req.body);
 
@@ -497,8 +538,9 @@ app.post('/v1/generate-plan', async (req: Request, res: Response) => {
 /**
  * POST /api/v1/swap-meal
  * Generate a single replacement meal
+ * Protected by App Check verification
  */
-app.post('/v1/swap-meal', async (req: Request, res: Response) => {
+app.post('/v1/swap-meal', verifyAppCheck, async (req: Request, res: Response) => {
   try {
     const result = await handleSwapMeal(req.body);
 

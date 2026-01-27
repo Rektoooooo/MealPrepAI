@@ -487,6 +487,7 @@ struct GeneratePlanUserProfile: Codable, Sendable {
     let allergies: [String]
     let foodDislikes: [String]  // Foods user doesn't like
     let preferredCuisines: [String]
+    let dislikedCuisines: [String]  // Cuisines user marked as "dislike"
     let cookingSkill: String
     let maxCookingTimeMinutes: Int
     let simpleModeEnabled: Bool
@@ -494,6 +495,8 @@ struct GeneratePlanUserProfile: Codable, Sendable {
     let includeSnacks: Bool
     let pantryLevel: String  // Well-stocked, Average, Minimal
     let barriers: [String]   // Time constraints, budget, etc.
+    let primaryGoals: [String]  // planMeals, eatHealthy, saveMoney, etc.
+    let goalPace: String  // Gradual, Moderate, Aggressive
 }
 
 struct GeneratePlanRequest: Codable, Sendable {
@@ -545,7 +548,7 @@ struct APIRecipeDTO: Codable, Sendable {
     let proteinGrams: Int
     let carbsGrams: Int
     let fatGrams: Int
-    let fiberGrams: Int
+    let fiberGrams: Int?  // Optional - Claude sometimes omits this
     let ingredients: [APIIngredientDTO]
     let instructions: [String]
 }

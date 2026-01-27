@@ -19,6 +19,7 @@ class MealPlanGenerator {
         weeklyPreferences: String? = nil,
         modelContext: ModelContext
     ) async throws -> MealPlan {
+        let generationStartTime = Date()
         print("[DEBUG:Generator] ========== GENERATE MEAL PLAN START ==========")
         print("[DEBUG:Generator] Start Date: \(startDate)")
         print("[DEBUG:Generator] Weekly Preferences: \(weeklyPreferences ?? "None")")
@@ -31,6 +32,8 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            let elapsedTime = Date().timeIntervalSince(generationStartTime)
+            print("[DEBUG:Generator] ⏱️ Total generation time: \(String(format: "%.2f", elapsedTime)) seconds")
             print("[DEBUG:Generator] ========== GENERATE MEAL PLAN END ==========")
         }
 
@@ -108,6 +111,9 @@ class MealPlanGenerator {
             try modelContext.save()
             print("[DEBUG:Generator] Context saved successfully")
 
+            // Print weekly summary for analysis
+            printWeeklySummary(mealPlan: result.mealPlan, profile: profile)
+
             return result.mealPlan
 
         } catch {
@@ -120,6 +126,11 @@ class MealPlanGenerator {
 
     // MARK: - Build API User Profile
     private func buildAPIUserProfile(from profile: UserProfile) -> GeneratePlanUserProfile {
+        // Extract disliked cuisines from cuisinePreferencesMap
+        let dislikedCuisines = profile.cuisinePreferencesMap
+            .filter { $0.value == .dislike }
+            .map { $0.key }
+
         return GeneratePlanUserProfile(
             age: profile.age,
             gender: profile.gender.rawValue,
@@ -133,12 +144,18 @@ class MealPlanGenerator {
             weightGoal: profile.weightGoal.rawValue,
             dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
             allergies: profile.allergies.map { $0.rawValue },
+            foodDislikes: profile.foodDislikes.map { $0.rawValue },
             preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
+            dislikedCuisines: dislikedCuisines,
             cookingSkill: profile.cookingSkill.rawValue,
             maxCookingTimeMinutes: profile.maxCookingTime.maxMinutes,
             simpleModeEnabled: profile.simpleModeEnabled,
             mealsPerDay: profile.mealsPerDay,
-            includeSnacks: profile.includeSnacks
+            includeSnacks: profile.includeSnacks,
+            pantryLevel: profile.pantryLevel.rawValue,
+            barriers: profile.barriers.map { $0.rawValue },
+            primaryGoals: profile.primaryGoals.map { $0.rawValue },
+            goalPace: profile.goalPace.rawValue
         )
     }
 
@@ -159,7 +176,7 @@ class MealPlanGenerator {
                     proteinGrams: apiMeal.recipe.proteinGrams,
                     carbsGrams: apiMeal.recipe.carbsGrams,
                     fatGrams: apiMeal.recipe.fatGrams,
-                    fiberGrams: apiMeal.recipe.fiberGrams,
+                    fiberGrams: apiMeal.recipe.fiberGrams ?? 0,
                     ingredients: apiMeal.recipe.ingredients.map { apiIng in
                         IngredientDTO(
                             name: apiIng.name,
@@ -184,6 +201,7 @@ class MealPlanGenerator {
         excludeRecipes: [String] = [],
         modelContext: ModelContext
     ) async throws -> (recipe: Recipe, ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
+        let swapStartTime = Date()
         print("[DEBUG:Generator] ========== REPLACEMENT MEAL START ==========")
         print("[DEBUG:Generator] Meal Type: \(mealType.rawValue)")
         print("[DEBUG:Generator] Exclude Recipes: \(excludeRecipes.joined(separator: ", "))")
@@ -195,6 +213,8 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            let elapsedTime = Date().timeIntervalSince(swapStartTime)
+            print("[DEBUG:Generator] ⏱️ Swap generation time: \(String(format: "%.2f", elapsedTime)) seconds")
             print("[DEBUG:Generator] ========== REPLACEMENT MEAL END ==========")
         }
 
@@ -251,7 +271,7 @@ class MealPlanGenerator {
                 proteinGrams: apiRecipe.proteinGrams,
                 carbsGrams: apiRecipe.carbsGrams,
                 fatGrams: apiRecipe.fatGrams,
-                fiberGrams: apiRecipe.fiberGrams,
+                fiberGrams: apiRecipe.fiberGrams ?? 0,
                 ingredients: apiRecipe.ingredients.map { apiIng in
                     IngredientDTO(
                         name: apiIng.name,
@@ -300,6 +320,78 @@ class MealPlanGenerator {
             self.error = error
             throw error
         }
+    }
+
+    // MARK: - Print Weekly Summary
+    private func printWeeklySummary(mealPlan: MealPlan, profile: UserProfile) {
+        print("\n")
+        print("╔══════════════════════════════════════════════════════════════════════════════╗")
+        print("║                         WEEKLY MEAL PLAN SUMMARY                              ║")
+        print("╠══════════════════════════════════════════════════════════════════════════════╣")
+        print("║ TARGETS: \(profile.dailyCalorieTarget) cal | \(profile.proteinGrams)g protein | \(profile.carbsGrams)g carbs | \(profile.fatGrams)g fat")
+        print("╚══════════════════════════════════════════════════════════════════════════════╝")
+
+        let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        var weekTotalCal = 0
+        var weekTotalProtein = 0
+        var weekTotalCarbs = 0
+        var weekTotalFat = 0
+
+        for (index, day) in mealPlan.sortedDays.enumerated() {
+            let dayName = index < dayNames.count ? dayNames[index] : "Day \(index + 1)"
+            var dayCal = 0
+            var dayProtein = 0
+            var dayCarbs = 0
+            var dayFat = 0
+
+            print("\n┌─────────────────────────────────────────────────────────────────────────────┐")
+            print("│ \(dayName.uppercased().padding(toLength: 75, withPad: " ", startingAt: 0)) │")
+            print("├─────────────────────────────────────────────────────────────────────────────┤")
+
+            for meal in day.sortedMeals {
+                guard let recipe = meal.recipe else { continue }
+                let mealType = meal.mealType.rawValue.padding(toLength: 10, withPad: " ", startingAt: 0)
+                let recipeName = String(recipe.name.prefix(35)).padding(toLength: 35, withPad: " ", startingAt: 0)
+                let cal = recipe.calories
+                let protein = recipe.proteinGrams
+                let carbs = recipe.carbsGrams
+                let fat = recipe.fatGrams
+
+                print("│ \(mealType) │ \(recipeName) │ \(String(cal).padding(toLength: 4, withPad: " ", startingAt: 0)) cal │ P:\(String(protein).padding(toLength: 3, withPad: " ", startingAt: 0))g C:\(String(carbs).padding(toLength: 3, withPad: " ", startingAt: 0))g F:\(String(fat).padding(toLength: 3, withPad: " ", startingAt: 0))g │")
+
+                dayCal += cal
+                dayProtein += protein
+                dayCarbs += carbs
+                dayFat += fat
+            }
+
+            let calDiff = dayCal - profile.dailyCalorieTarget
+            let proteinDiff = dayProtein - profile.proteinGrams
+            let calStatus = calDiff >= -100 && calDiff <= 100 ? "✅" : "❌"
+            let proteinStatus = proteinDiff >= -10 && proteinDiff <= 10 ? "✅" : "❌"
+
+            print("├─────────────────────────────────────────────────────────────────────────────┤")
+            print("│ TOTAL: \(String(dayCal).padding(toLength: 4, withPad: " ", startingAt: 0)) cal (\(calDiff >= 0 ? "+" : "")\(calDiff)) \(calStatus) │ P:\(dayProtein)g (\(proteinDiff >= 0 ? "+" : "")\(proteinDiff)) \(proteinStatus) │ C:\(dayCarbs)g │ F:\(dayFat)g │")
+            print("└─────────────────────────────────────────────────────────────────────────────┘")
+
+            weekTotalCal += dayCal
+            weekTotalProtein += dayProtein
+            weekTotalCarbs += dayCarbs
+            weekTotalFat += dayFat
+        }
+
+        let avgCal = weekTotalCal / max(mealPlan.sortedDays.count, 1)
+        let avgProtein = weekTotalProtein / max(mealPlan.sortedDays.count, 1)
+        let avgCarbs = weekTotalCarbs / max(mealPlan.sortedDays.count, 1)
+        let avgFat = weekTotalFat / max(mealPlan.sortedDays.count, 1)
+
+        print("\n╔══════════════════════════════════════════════════════════════════════════════╗")
+        print("║ WEEKLY AVERAGES                                                               ║")
+        print("╠══════════════════════════════════════════════════════════════════════════════╣")
+        print("║ Avg Daily: \(avgCal) cal (target: \(profile.dailyCalorieTarget)) | \(avgProtein)g protein (target: \(profile.proteinGrams)g)")
+        print("║ Avg Daily: \(avgCarbs)g carbs (target: \(profile.carbsGrams)g) | \(avgFat)g fat (target: \(profile.fatGrams)g)")
+        print("╚══════════════════════════════════════════════════════════════════════════════╝")
+        print("\n")
     }
 
     // MARK: - Build System Prompt

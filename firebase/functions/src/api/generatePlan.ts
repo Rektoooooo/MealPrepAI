@@ -13,7 +13,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit } from '../utils/rateLimiter';
-import { matchRecipeImage } from '../utils/imageMatch';
+// import { matchRecipeImage } from '../utils/imageMatch';  // TODO: Re-enable later
 import { saveRecipesIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
 // Types
@@ -32,6 +32,7 @@ interface UserProfile {
   allergies: string[];
   foodDislikes: string[];  // Foods user doesn't like
   preferredCuisines: string[];
+  dislikedCuisines: string[];  // Cuisines user marked as "dislike"
   cookingSkill: string;
   maxCookingTimeMinutes: number;
   simpleModeEnabled: boolean;
@@ -39,6 +40,8 @@ interface UserProfile {
   includeSnacks: boolean;
   pantryLevel: string;  // Well-stocked, Average, Minimal
   barriers: string[];   // Time constraints, budget, etc.
+  primaryGoals: string[];  // planMeals, eatHealthy, saveMoney, etc.
+  goalPace: string;  // Gradual, Moderate, Aggressive
 }
 
 interface GeneratePlanRequest {
@@ -125,84 +128,146 @@ function getAnthropicClient(): Anthropic {
  * Build the system prompt for Claude
  */
 function buildSystemPrompt(): string {
-  return `You are a professional nutritionist and chef creating personalized meal plans based on current nutrition science.
+  return `You are a professional nutritionist creating personalized meal plans.
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.
 
 ═══════════════════════════════════════════════════════════════
-EVIDENCE-BASED NUTRITION PRINCIPLES (from peer-reviewed research)
+STRICT CALORIE & MACRO REQUIREMENTS
 ═══════════════════════════════════════════════════════════════
 
-1. CALORIE DISTRIBUTION (front-load for better metabolism):
-   - Breakfast: 25-30% of daily calories
-   - Lunch: 35-40% (LARGEST meal - metabolism peaks midday)
-   - Dinner: 20-25% (lighter - avoid late glucose spikes)
-   - Snacks: 10-15% total (2 snacks, ~150 cal each)
+CRITICAL: Each day's totals MUST hit targets closely:
+- Daily calories: within 100 kcal of target (NOT 300 - must be close!)
+- Daily protein: within 10g of target (this is critical for muscle)
+- Carbs and fat: within 15g of target
 
-2. BREAKFAST REQUIREMENTS (critical for satiety & muscle):
-   - MUST include 20-30g protein minimum
-   - Good sources: eggs (3 = 18g), Greek yogurt 1 cup (17g), cottage cheese (14g)
-   - Include complex carbs: oats, whole grain toast
-   - Avoid: sugar-heavy cereals, pastries, juice-only
-   - MAX 10 minutes prep/cook time
+CALORIE DISTRIBUTION per day (percentages - apply to user's specific targets):
+- Breakfast: 22% of daily calories, 20% of protein
+- Lunch: 32% of calories, 28% of protein (largest meal)
+- Dinner: 28% of calories, 26% of protein
+- Snacks: 18% total (2 snacks at 9% each), 26% of protein (13% each)
 
-3. LUNCH (largest meal of the day):
-   - Aim for 30-40g protein
-   - Can include heartier carbs (rice, pasta, potatoes)
-   - Balance: protein + complex carbs + vegetables
-   - Up to 30 minutes prep/cook
-
-4. DINNER (lighter, veggie-focused):
-   - Half plate: non-starchy vegetables (broccoli, salad, green beans)
-   - Quarter plate: lean protein (25-30g)
-   - Quarter plate: small portion complex carbs OR skip carbs entirely
-   - Avoid: heavy pasta dishes, large rice portions, fried foods
-   - Up to user's max cooking time
-
-5. SNACKS (functional, not treats):
-   - ALWAYS pair protein + carbohydrate for lasting fullness
-   - Morning: Greek yogurt + fruit, apple + almond butter, cottage cheese + berries
-   - Afternoon: veggies + hummus, cheese + whole grain crackers, handful nuts + banana
-   - ~100-200 calories each, no-cook, under 5 minutes
-   - Never just carbs alone (no plain crackers, chips, or fruit only)
+The user prompt contains the EXACT calculated targets for each meal based on their profile.
+Follow those specific numbers, not generic examples.
 
 ═══════════════════════════════════════════════════════════════
-CRITICAL HEALTH REQUIREMENTS
+INGREDIENT GUIDELINES
 ═══════════════════════════════════════════════════════════════
 
-- Daily calories in RANGE: target minus 300 to target (flexibility allowed)
-- NEVER include allergenic ingredients - this is life-threatening
-- Respect all dietary restrictions strictly
+IMPORTANT: Use ONLY the ingredients listed in the user's specific prompt.
+The ingredient list is customized based on their dietary restrictions.
+
+PANTRY (always available, don't list in ingredients):
+- salt, pepper, garlic powder, Italian seasoning, soy sauce, honey
+
+LIMIT: Maximum 4-5 ingredients per recipe (excluding pantry staples)
 
 ═══════════════════════════════════════════════════════════════
-TIME CONSTRAINTS BY MEAL
+VARIETY REQUIREMENTS (CRITICAL)
 ═══════════════════════════════════════════════════════════════
-
-- Breakfast: MAX 10 minutes. Simple foods only: eggs, oats, yogurt, smoothies, toast
-- Snacks: MAX 5 minutes, no-cook only
-- Lunch: Up to 30 minutes
-- Dinner: Up to user's max cooking time preference
-
-═══════════════════════════════════════════════════════════════
-INGREDIENT OPTIMIZATION (reuse across the week for smaller grocery list)
-═══════════════════════════════════════════════════════════════
-
-Proteins (pick 3-4 for week): chicken breast, eggs, salmon/fish, ground beef, Greek yogurt, cottage cheese
-Carbs (pick 2-3): oats, rice, whole grain bread, potatoes, pasta
-Vegetables (pick 5-6): broccoli, spinach, bell peppers, tomatoes, onions, carrots, zucchini
-Fruits: bananas, apples, berries (fresh or frozen)
-Pantry: olive oil, garlic, lemon, salt, pepper, common spices
+- NEVER repeat same protein 2 days in a row for lunch/dinner
+- Follow the rotation pattern provided in the user's prompt
+- Each breakfast should be DIFFERENT - rotate daily!
+- Snacks can repeat but vary the accompaniments
 
 ═══════════════════════════════════════════════════════════════
-CUISINE & STYLE
+MEAL GUIDELINES
 ═══════════════════════════════════════════════════════════════
 
-- User's preferred cuisines are INSPIRATION only, not mandatory for every meal
-- Most meals should be simple home cooking: "Scrambled Eggs", "Chicken and Rice", "Salmon with Vegetables"
-- Include 2-3 cuisine-specific meals per week, rest simple everyday food
-- Breakfast NEVER has a cuisine label - just simple breakfast foods
+CRITICAL: Follow the PER-MEAL TARGETS in the user prompt exactly!
+The targets are calculated based on the user's specific protein goal.
 
-CRITICAL: Every ingredient mentioned in instructions MUST be in the ingredients list.`;
+BREAKFAST (quick, ~10 min):
+- Use available proteins: eggs, yogurt, or protein from user's list
+- Add carbs (oats, toast) for energy
+- Hit the protein target from user prompt (varies per user)
+
+LUNCH (respect user's max cooking time):
+- Use the ASSIGNED PROTEIN from the schedule + carb + vegetable
+- This is the biggest protein meal of the day
+
+DINNER (respect user's max cooking time):
+- Use the ASSIGNED PROTEIN from the schedule + vegetables + small carb
+
+SNACKS (no-cook, 5 min):
+- Use high-protein dairy: Greek yogurt or cottage cheese (adjust portions to hit target)
+- Add fruit for carbs and flavor
+- Hit the snack protein target from user prompt (varies per user!)
+- If user is dairy-free/vegan, use available protein sources
+
+═══════════════════════════════════════════════════════════════
+RESTRICTIONS
+═══════════════════════════════════════════════════════════════
+
+- NEVER include allergenic ingredients - life-threatening
+- Respect dietary restrictions strictly
+- Every ingredient in instructions MUST be in ingredients list`;
+}
+
+/**
+ * Build dynamic ingredient list based on user preferences
+ */
+function buildIngredientList(profile: UserProfile): {
+  proteins: string[];
+  carbs: string[];
+  vegetables: string[];
+  fruits: string[];
+  dairy: string[];
+  proteinRotation: string;
+} {
+  const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
+  const dislikes = (profile.foodDislikes || []).map(d => d.toLowerCase());
+  const allergies = profile.allergies.map(a => a.toLowerCase());
+
+  const isVegan = restrictions.includes('vegan');
+  const isVegetarian = restrictions.includes('vegetarian') || isVegan;
+  const isPescatarian = restrictions.includes('pescatarian');
+  const isDairyFree = restrictions.includes('dairy-free') || allergies.includes('dairy') || allergies.includes('lactose');
+  const isGlutenFree = restrictions.includes('gluten-free') || allergies.includes('gluten');
+
+  // Helper to filter out disliked/allergic items
+  const filterItems = (items: string[]) =>
+    items.filter(item => !dislikes.includes(item.toLowerCase()) && !allergies.includes(item.toLowerCase()));
+
+  // Build protein list based on dietary restrictions
+  let proteins: string[] = [];
+  let proteinRotation = '';
+
+  if (isVegan) {
+    proteins = filterItems(['tofu', 'tempeh', 'lentils', 'chickpeas', 'black beans', 'edamame']);
+    proteinRotation = 'tofu → tempeh → lentils → chickpeas → tofu...';
+  } else if (isVegetarian) {
+    proteins = filterItems(['eggs', 'Greek yogurt', 'cottage cheese', 'tofu', 'lentils', 'chickpeas']);
+    proteinRotation = 'eggs → tofu → lentils → chickpeas → eggs...';
+  } else if (isPescatarian) {
+    proteins = filterItems(['salmon', 'tuna', 'shrimp', 'eggs', 'Greek yogurt', 'cottage cheese', 'tofu']);
+    proteinRotation = 'salmon → tuna → shrimp → tofu → salmon...';
+  } else {
+    // Standard (omnivore)
+    proteins = filterItems(['chicken breast', 'ground beef', 'salmon', 'pork chop', 'eggs', 'Greek yogurt', 'cottage cheese']);
+    proteinRotation = 'chicken → beef → salmon → pork → chicken...';
+  }
+
+  // Build carb list
+  let carbs = isGlutenFree
+    ? filterItems(['rice', 'oats', 'potato', 'quinoa', 'sweet potato'])
+    : filterItems(['rice', 'oats', 'whole wheat bread', 'potato', 'pasta']);
+
+  // Build vegetable list
+  const vegetables = filterItems(['broccoli', 'spinach', 'bell pepper', 'onion', 'tomato', 'carrot', 'zucchini', 'mushrooms']);
+
+  // Build fruit list
+  const fruits = filterItems(['banana', 'apple', 'mixed berries']);
+
+  // Build dairy list
+  let dairy: string[] = [];
+  if (!isDairyFree) {
+    dairy = filterItems(['olive oil', 'butter', 'cheese', 'milk']);
+  } else {
+    dairy = filterItems(['olive oil', 'almond milk', 'coconut oil']);
+  }
+
+  return { proteins, carbs, vegetables, fruits, dairy, proteinRotation };
 }
 
 /**
@@ -221,7 +286,7 @@ function buildUserPrompt(
   const allergies = profile.allergies.join(', ') || 'None';
   const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
   const cuisines = profile.preferredCuisines.join(', ') || 'Varied';
-  const barriers = profile.barriers?.join(', ') || 'None';
+  const dislikedCuisines = profile.dislikedCuisines?.join(', ') || 'None';
   const excludeList = excludeRecipeNames?.join(', ') || '';
 
   const mealTypes = profile.includeSnacks
@@ -230,59 +295,172 @@ function buildUserPrompt(
 
   const numDays = endDay - startDay + 1;
 
+  // Build dynamic ingredient list based on user preferences
+  const ingredients = buildIngredientList(profile);
+  const allIngredients = [
+    ...ingredients.proteins,
+    ...ingredients.carbs,
+    ...ingredients.vegetables,
+    ...ingredients.fruits,
+    ...ingredients.dairy,
+  ].join(', ');
+
+  // Build personalization notes based on user goals and barriers
+  const goalNotes: string[] = [];
+  const userGoals = profile.primaryGoals || [];
+  const userBarriers = profile.barriers || [];
+
+  // Primary goals personalization
+  if (userGoals.includes('Save money') || userGoals.includes('saveMoney')) {
+    goalNotes.push('💰 BUDGET-FRIENDLY: Use economical ingredients, plan for leftovers');
+  }
+  if (userGoals.includes('Save time') || userGoals.includes('saveTime')) {
+    goalNotes.push('⏱️ TIME-SAVING: Quick prep, minimal cleanup, batch-friendly');
+  }
+  if (userGoals.includes('Meal prep') || userGoals.includes('mealPrep')) {
+    goalNotes.push('📦 MEAL PREP: Make recipes that store well, good for batch cooking');
+  }
+  if (userGoals.includes('Family meals') || userGoals.includes('familyMeals')) {
+    goalNotes.push('👨‍👩‍👧 FAMILY-FRIENDLY: Kid-approved flavors, crowd-pleasing dishes');
+  }
+  if (userGoals.includes('Try new recipes') || userGoals.includes('tryNewRecipes')) {
+    goalNotes.push('🌍 ADVENTUROUS: Include interesting cuisines and unique flavors');
+  }
+  if (userGoals.includes('Eat healthy') || userGoals.includes('eatHealthy')) {
+    goalNotes.push('🥗 HEALTH-FOCUSED: Whole foods, balanced nutrition, vegetables');
+  }
+
+  // Barriers personalization
+  if (userBarriers.includes('Too busy to plan meals') || userBarriers.includes('tooBusy')) {
+    goalNotes.push('⚡ QUICK MEALS: Keep recipes under 30 mins, simple prep');
+  }
+  if (userBarriers.includes('Lack of cooking skills') || userBarriers.includes('lackCookingSkills')) {
+    goalNotes.push('👨‍🍳 BEGINNER-FRIENDLY: Simple techniques, clear instructions, forgiving recipes');
+  }
+  if (userBarriers.includes('Get bored eating the same things') || userBarriers.includes('getBored')) {
+    goalNotes.push('🎨 VARIETY: Different cuisines each day, varied flavors and textures');
+  }
+  if (userBarriers.includes('Struggle with grocery shopping') || userBarriers.includes('groceryShopping')) {
+    goalNotes.push('🛒 SIMPLE SHOPPING: Use overlapping ingredients, minimize unique items');
+  }
+
+  const personalizationSection = goalNotes.length > 0
+    ? `═══ USER PRIORITIES (IMPORTANT!) ═══\n${goalNotes.join('\n')}\n`
+    : '';
+
   // Adjust recommendations based on pantry level
   let pantryNote = '';
-  if (profile.pantryLevel === 'Minimal') {
+  if (profile.pantryLevel === 'Minimal' || profile.pantryLevel === 'Basic') {
     pantryNote = '- Pantry: MINIMAL - use only very common, basic ingredients (salt, pepper, oil, butter)';
-  } else if (profile.pantryLevel === 'Well-Stocked') {
+  } else if (profile.pantryLevel === 'Well-Stocked' || profile.pantryLevel === 'wellStocked') {
     pantryNote = '- Pantry: Well-stocked - can use varied spices and specialty ingredients';
   } else {
     pantryNote = '- Pantry: Average - use common pantry staples';
   }
 
-  // Adjust for barriers
-  let barrierNotes = '';
-  if (barriers !== 'None') {
-    barrierNotes = `\nCHALLENGES TO CONSIDER:\n- ${barriers}\n(Optimize recipes to help with these challenges)`;
+  // Calculate per-meal targets for the prompt
+  // IMPORTANT: Percentages MUST add up to 100% for both calories and protein
+  // Calories: 22 + 32 + 28 + 9 + 9 = 100%
+  // Protein: 20 + 28 + 26 + 13 + 13 = 100%
+  const breakfastCal = Math.round(profile.dailyCalorieTarget * 0.22);
+  const breakfastProtein = Math.round(profile.proteinGrams * 0.20);
+  const lunchCal = Math.round(profile.dailyCalorieTarget * 0.32);
+  const lunchProtein = Math.round(profile.proteinGrams * 0.28);
+  const dinnerCal = Math.round(profile.dailyCalorieTarget * 0.28);
+  const snackProtein = Math.round(profile.proteinGrams * 0.13); // ~27g for 209g target
+
+  // Assign specific proteins to specific days for VARIETY (critical for parallel batches)
+  // This ensures different batches don't all pick the same protein
+  const proteinSchedule: { [day: number]: { lunch: string; dinner: string } } = {};
+
+  // Filter out dairy/egg proteins to get main meal proteins (meat, fish, legumes)
+  const dairyProteins = ['eggs', 'greek yogurt', 'cottage cheese'];
+  const mainProteins = ingredients.proteins.filter(p =>
+    !dairyProteins.includes(p.toLowerCase())
+  );
+
+  // Use main proteins if available, otherwise fall back to all proteins
+  const proteinsToRotate = mainProteins.length >= 2 ? mainProteins : ingredients.proteins;
+
+  // Rotate through available proteins based on user's actual preferences
+  for (let day = startDay; day <= endDay; day++) {
+    if (proteinsToRotate.length === 0) {
+      // Edge case: no proteins available (shouldn't happen)
+      proteinSchedule[day] = { lunch: 'protein source', dinner: 'protein source' };
+    } else if (proteinsToRotate.length === 1) {
+      // Only one protein available
+      proteinSchedule[day] = { lunch: proteinsToRotate[0], dinner: proteinsToRotate[0] };
+    } else {
+      // Multiple proteins - rotate them
+      const lunchProteinIdx = day % proteinsToRotate.length;
+      const dinnerProteinIdx = (day + 1) % proteinsToRotate.length;
+      proteinSchedule[day] = {
+        lunch: proteinsToRotate[lunchProteinIdx],
+        dinner: proteinsToRotate[dinnerProteinIdx],
+      };
+    }
   }
 
-  return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}) for:
+  // Build variety schedule string
+  const varietySchedule = Object.entries(proteinSchedule)
+    .map(([day, proteins]) => `Day ${day}: Lunch=${proteins.lunch}, Dinner=${proteins.dinner}`)
+    .join('\n');
+  const dinnerProtein = Math.round(profile.proteinGrams * 0.26);
+  const snackCal = Math.round(profile.dailyCalorieTarget * 0.09);
 
-PERSONAL INFO:
-- Age: ${profile.age}, Gender: ${profile.gender}
-- Weight: ${profile.weightKg}kg, Height: ${profile.heightCm}cm
-- Activity: ${profile.activityLevel}
-- Goal: ${profile.weightGoal}
+  // Calculate carbs and fat for breakfast (22% of daily)
+  const breakfastCarbs = Math.round(profile.carbsGrams * 0.22);
+  const breakfastFat = Math.round(profile.fatGrams * 0.22);
 
-DAILY TARGETS:
-- Calories: ${profile.dailyCalorieTarget} kcal
-- Protein: ${profile.proteinGrams}g, Carbs: ${profile.carbsGrams}g, Fat: ${profile.fatGrams}g
+  return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}).
 
-PERMANENT RESTRICTIONS:
+═══ DAILY TARGETS (vary naturally, don't force exact numbers) ═══
+- Calories: ~${profile.dailyCalorieTarget} kcal (vary between ${profile.dailyCalorieTarget - 150}-${profile.dailyCalorieTarget + 150})
+- Protein: ~${profile.proteinGrams}g (vary between ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g)
+- Carbs: ~${profile.carbsGrams}g, Fat: ~${profile.fatGrams}g
+- IMPORTANT: Create natural variation each day - don't hit exact same numbers daily!
+
+═══ PER-MEAL GUIDELINES (approximate, vary naturally) ═══
+- Breakfast: ${breakfastCal - 50}-${breakfastCal + 50} cal, ${breakfastProtein - 5}-${breakfastProtein + 5}g protein
+- Morning Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein
+- Lunch: ${lunchCal - 75}-${lunchCal + 75} cal, ${lunchProtein - 8}-${lunchProtein + 8}g protein
+- Afternoon Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein
+- Dinner: ${dinnerCal - 75}-${dinnerCal + 75} cal, ${dinnerProtein - 8}-${dinnerProtein + 8}g protein
+
+${personalizationSection}
+═══ RESTRICTIONS ═══
+- Allergies (NEVER include): ${allergies}
 - Dietary: ${restrictions}
-- Allergies (NEVER include these ingredients): ${allergies}
-- Food Dislikes (AVOID these - user doesn't like them): ${foodDislikes}
+- Food Dislikes: ${foodDislikes}
 - Preferred Cuisines: ${cuisines}
-
-COOKING PREFERENCES:
+- AVOID Cuisines: ${dislikedCuisines}
+- Max cooking time: ${profile.maxCookingTimeMinutes} min
 - Skill: ${profile.cookingSkill}
-- Max Time: ${profile.maxCookingTimeMinutes} minutes
-- Simple Mode: ${profile.simpleModeEnabled ? 'Yes - prefer recipes with fewer ingredients' : 'No'}
 ${pantryNote}
-${barrierNotes}
 
-THIS WEEK'S SPECIAL REQUESTS:
-${weeklyPreferences || 'None - follow standard preferences'}
+${weeklyPreferences ? `═══ THIS WEEK ═══\n${weeklyPreferences}` : ''}
+${excludeList ? `═══ AVOID THESE RECIPES ═══\n${excludeList}` : ''}
 
-${excludeList ? `VARIETY (avoid these recently used recipes):\n${excludeList}` : ''}
+Each day: ${mealTypes}
 
-Each day must include: ${mealTypes}
+═══ INGREDIENT RULES ═══
+- MAX 4-5 ingredients per recipe
+- Use ONLY: ${allIngredients}
+- Pantry staples (don't list): salt, pepper, garlic powder, spices, honey
 
-Respond with JSON in this exact format:
+═══ MANDATORY PROTEIN SCHEDULE (MUST FOLLOW!) ═══
+${varietySchedule}
+
+═══ VARIETY RULES ═══
+- USE THE PROTEIN SCHEDULE ABOVE - this is mandatory!
+- Each breakfast should be different (rotate eggs, oatmeal+yogurt, etc.)
+- Snacks: target ~${snackProtein}g protein each (Greek yogurt or cottage cheese work well)
+
+Respond with JSON:
 {
   "days": [
     {
-      "dayOfWeek": 0,
+      "dayOfWeek": ${startDay},
       "meals": [
         {
           "mealType": "breakfast",
@@ -291,17 +469,17 @@ Respond with JSON in this exact format:
             "description": "Brief description",
             "instructions": ["Step 1", "Step 2"],
             "prepTimeMinutes": 10,
-            "cookTimeMinutes": 15,
-            "servings": 2,
+            "cookTimeMinutes": 5,
+            "servings": 1,
             "complexity": "easy",
             "cuisineType": "american",
-            "calories": 400,
-            "proteinGrams": 20,
-            "carbsGrams": 40,
-            "fatGrams": 15,
+            "calories": ${breakfastCal},
+            "proteinGrams": ${breakfastProtein},
+            "carbsGrams": ${breakfastCarbs},
+            "fatGrams": ${breakfastFat},
             "fiberGrams": 5,
             "ingredients": [
-              {"name": "Ingredient", "quantity": 1, "unit": "cup", "category": "produce"}
+              {"name": "eggs", "quantity": 3, "unit": "piece", "category": "dairy"}
             ]
           }
         }
@@ -310,21 +488,21 @@ Respond with JSON in this exact format:
   ]
 }
 
-Valid mealTypes: breakfast, snack, lunch, snack, dinner (use "snack" for both morning and afternoon snacks)
-Valid complexity: easy, medium, hard
-Valid cuisineTypes: american, italian, mexican, asian, mediterranean, indian, japanese, thai, french, greek, korean, vietnamese, middleEastern, african, caribbean
-Valid categories: produce, meat, dairy, pantry, frozen, bakery, beverages, other
-Valid units: gram, kilogram, milliliter, liter, cup, tablespoon, teaspoon, piece, slice, bunch, can, package, pound, ounce
+Valid mealTypes: breakfast, snack, lunch, dinner
+Valid units: gram, cup, tablespoon, teaspoon, piece, slice
+Valid categories: produce, meat, dairy, pantry
 
-dayOfWeek should be ${startDay}-${endDay}
-Include as many instruction steps as the recipe needs. Keep ingredients to essential items (5-8 per recipe).
-IMPORTANT: Each day's total calories should be between ${profile.dailyCalorieTarget - 300} and ${profile.dailyCalorieTarget} kcal.`;
+dayOfWeek: ${startDay}-${endDay}
+
+NOTE: Vary the macros naturally each day - some days can be ${profile.proteinGrams - 15}g protein, others ${profile.proteinGrams + 10}g. Don't make every day identical!`;
 }
 
 /**
  * Parse and clean Claude's JSON response
  */
-function parseClaudeResponse(content: string): MealPlanResponse {
+function parseClaudeResponse(content: string, batchLabel: string = 'unknown'): MealPlanResponse {
+  console.log(`[DEBUG] Parsing response for ${batchLabel}, length: ${content.length} chars`);
+
   // Clean up potential markdown code blocks
   let cleanJSON = content
     .replace(/```json/gi, '')
@@ -336,15 +514,23 @@ function parseClaudeResponse(content: string): MealPlanResponse {
   const endIndex = cleanJSON.lastIndexOf('}');
 
   if (startIndex === -1 || endIndex === -1) {
-    throw new Error('No valid JSON object found in response');
+    console.error(`[DEBUG] ${batchLabel} - No JSON boundaries found in response`);
+    console.error(`[DEBUG] ${batchLabel} - Raw response (first 500 chars):`, content.substring(0, 500));
+    throw new Error(`No valid JSON object found in response for ${batchLabel}`);
   }
 
   cleanJSON = cleanJSON.substring(startIndex, endIndex + 1);
+  console.log(`[DEBUG] ${batchLabel} - Extracted JSON length: ${cleanJSON.length} chars`);
 
   try {
-    return JSON.parse(cleanJSON) as MealPlanResponse;
-  } catch {
-    throw new Error('Failed to parse JSON response from Claude');
+    const parsed = JSON.parse(cleanJSON) as MealPlanResponse;
+    console.log(`[DEBUG] ${batchLabel} - Parse successful, ${parsed.days?.length || 0} days`);
+    return parsed;
+  } catch (parseError) {
+    console.error(`[DEBUG] ${batchLabel} - JSON parse failed:`, parseError instanceof Error ? parseError.message : parseError);
+    console.error(`[DEBUG] ${batchLabel} - Clean JSON (first 1000 chars):`, cleanJSON.substring(0, 1000));
+    console.error(`[DEBUG] ${batchLabel} - Clean JSON (last 500 chars):`, cleanJSON.substring(Math.max(0, cleanJSON.length - 500)));
+    throw new Error(`Failed to parse JSON response from Claude for ${batchLabel}`);
   }
 }
 
@@ -413,10 +599,29 @@ export async function handleGeneratePlan(
   }
 
   try {
+    // Log personalization data being used
+    console.log('[DEBUG] ========== PERSONALIZATION ==========');
+    console.log('[DEBUG] Primary Goals:', userProfile.primaryGoals?.join(', ') || 'None');
+    console.log('[DEBUG] Goal Pace:', userProfile.goalPace || 'Not set');
+    console.log('[DEBUG] Barriers:', userProfile.barriers?.join(', ') || 'None');
+    console.log('[DEBUG] Preferred Cuisines:', userProfile.preferredCuisines?.join(', ') || 'None');
+    console.log('[DEBUG] Disliked Cuisines:', userProfile.dislikedCuisines?.join(', ') || 'None');
+    console.log('[DEBUG] Food Dislikes:', userProfile.foodDislikes?.join(', ') || 'None');
+
     // Get Claude client
     console.log('[DEBUG] Initializing Claude client...');
     const client = getAnthropicClient();
     console.log('[DEBUG] Claude client initialized successfully');
+
+    // Log the dynamic ingredient list being used
+    const ingredientList = buildIngredientList(userProfile);
+    console.log('[DEBUG] Dynamic ingredient list based on preferences:');
+    console.log('[DEBUG]   Proteins:', ingredientList.proteins.join(', '));
+    console.log('[DEBUG]   Carbs:', ingredientList.carbs.join(', '));
+    console.log('[DEBUG]   Vegetables:', ingredientList.vegetables.join(', '));
+    console.log('[DEBUG]   Fruits:', ingredientList.fruits.join(', '));
+    console.log('[DEBUG]   Dairy/Fats:', ingredientList.dairy.join(', '));
+    console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
 
     const systemPrompt = buildSystemPrompt();
     const allDays: DayDTO[] = [];
@@ -460,7 +665,7 @@ export async function handleGeneratePlan(
         throw new Error(`No text content in Claude response (batch ${batchNum})`);
       }
 
-      const batchResult = parseClaudeResponse(textContent.text);
+      const batchResult = parseClaudeResponse(textContent.text, `Batch ${batchNum} (days ${startDay}-${endDay})`);
       console.log(`[DEBUG] Batch ${batchNum} parsed: ${batchResult.days.length} days`);
 
       return { batchNum, days: batchResult.days };
@@ -485,34 +690,14 @@ export async function handleGeneratePlan(
     const totalMeals = mealPlan.days.reduce((acc, day) => acc + day.meals.length, 0);
     console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
 
-    // Match images and prepare recipes for storage
-    console.log('[DEBUG] Starting image matching for', totalMeals, 'recipes...');
+    // Prepare recipes for storage (image matching disabled for now)
     const allRecipes: GeneratedRecipeDTO[] = [];
-    let imagesMatched = 0;
 
     for (const day of mealPlan.days) {
       for (const meal of day.meals) {
         const recipe = meal.recipe;
 
-        // Match image
-        console.log('[DEBUG] Matching image for:', recipe.name, '(', recipe.cuisineType, meal.mealType, ')');
-        const matchedImageUrl = await matchRecipeImage({
-          cuisineType: recipe.cuisineType,
-          mealType: meal.mealType,
-          ingredients: recipe.ingredients,
-        });
-
-        if (matchedImageUrl) {
-          imagesMatched++;
-          console.log('[DEBUG]   -> Image matched:', matchedImageUrl.substring(0, 50) + '...');
-        } else {
-          console.log('[DEBUG]   -> No image match found');
-        }
-
-        // Add matched image URL to recipe
-        recipe.matchedImageUrl = matchedImageUrl;
-
-        // Prepare for storage
+        // Prepare for storage (no image matching)
         allRecipes.push({
           name: recipe.name,
           description: recipe.description,
@@ -529,12 +714,10 @@ export async function handleGeneratePlan(
           servings: recipe.servings,
           ingredients: recipe.ingredients,
           instructions: recipe.instructions,
-          matchedImageUrl,
+          matchedImageUrl: null,  // TODO: Re-enable image matching later
         });
       }
     }
-
-    console.log('[DEBUG] Image matching complete:', imagesMatched, '/', totalMeals, 'matched');
 
     // Save recipes to database
     console.log('[DEBUG] Saving', allRecipes.length, 'recipes to database...');

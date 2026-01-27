@@ -449,9 +449,9 @@ struct TodayMealCard: View {
                                 .font(.caption)
                                 .foregroundStyle(Color(hex: "FF9500"))
 
-                            if let time = meal.recipe?.cookTimeMinutes {
-                                // Gray time
-                                Label("\(time) min", systemImage: "clock")
+                            if let recipe = meal.recipe {
+                                // Gray time - show total time (prep + cook)
+                                Label("\(recipe.totalTimeMinutes) min", systemImage: "clock")
                                     .font(.caption)
                                     .foregroundStyle(Color.textSecondary)
                             }
@@ -731,114 +731,146 @@ struct GeneratingMealPlanView: View {
     @State private var pulseScale: CGFloat = 1.0
     @State private var rotationAngle: Double = 0
     @State private var currentTipIndex = 0
+    @State private var floatOffset: CGFloat = 0
+    @State private var progressWidth: CGFloat = 0.05
 
     private let tips = [
-        "Balancing your macros...",
+        "Analyzing your preferences...",
+        "Balancing macros for the week...",
         "Finding delicious recipes...",
-        "Considering your preferences...",
-        "Optimizing nutrition...",
-        "Creating variety for the week...",
-        "Matching your cooking skill...",
-        "Almost there..."
+        "Optimizing variety & nutrition...",
+        "Creating your personalized plan...",
+        "Matching your cooking style...",
+        "Almost ready..."
     ]
 
-    private let foodEmojis = ["🥗", "🍳", "🥘", "🍝", "🥙", "🍲", "🥪", "🍜"]
+    // Cooking icons for animation
+    private let cookingIcons = ["fork.knife", "flame", "leaf.fill", "carrot.fill", "fish.fill", "cup.and.saucer.fill"]
 
     var body: some View {
-        VStack(spacing: Design.Spacing.xxl) {
+        VStack(spacing: 0) {
             Spacer()
 
-            // Animated cooking illustration
+            // Main animated area
             ZStack {
                 // Outer pulsing ring
                 Circle()
-                    .stroke(Color.accentPurple.opacity(0.2), lineWidth: 3)
-                    .frame(width: 180, height: 180)
-                    .scaleEffect(pulseScale)
-                    .opacity(2 - pulseScale)
-
-                // Middle ring
-                Circle()
-                    .stroke(Color.accentPurple.opacity(0.3), lineWidth: 2)
-                    .frame(width: 140, height: 140)
-                    .rotationEffect(.degrees(rotationAngle))
-
-                // Inner gradient circle
-                Circle()
-                    .fill(
+                    .stroke(
                         LinearGradient(
-                            colors: [Color.accentPurple.opacity(0.2), Color.accentPurple.opacity(0.05)],
+                            colors: [Color.black.opacity(0.1), Color.black.opacity(0.05)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
-                        )
+                        ),
+                        lineWidth: 2
                     )
-                    .frame(width: 120, height: 120)
+                    .frame(width: 200, height: 200)
+                    .scaleEffect(pulseScale)
+                    .opacity(2.2 - pulseScale)
 
-                // Center content
-                VStack(spacing: 8) {
-                    // Animated food emoji
-                    Text(foodEmojis[currentTipIndex % foodEmojis.count])
-                        .font(.system(size: 50))
-                        .transition(.scale.combined(with: .opacity))
-                        .id(currentTipIndex)
+                // Second pulsing ring (delayed)
+                Circle()
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1.5)
+                    .frame(width: 160, height: 160)
+                    .scaleEffect(pulseScale * 0.9)
+                    .opacity(2.2 - pulseScale)
 
-                    // Small sparkle
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16))
-                        .foregroundStyle(Color.accentPurple)
-                        .opacity(isAnimating ? 1 : 0.3)
+                // Rotating dashed circle
+                Circle()
+                    .stroke(
+                        Color.black.opacity(0.15),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
+                    )
+                    .frame(width: 130, height: 130)
+                    .rotationEffect(.degrees(rotationAngle))
+
+                // Center solid circle
+                Circle()
+                    .fill(Color(hex: "F5F5F5"))
+                    .frame(width: 110, height: 110)
+                    .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
+
+                // Center content - floating icon
+                VStack(spacing: 6) {
+                    Image(systemName: cookingIcons[currentTipIndex % cookingIcons.count])
+                        .font(.system(size: 40, weight: .medium))
+                        .foregroundStyle(Color.black)
+                        .offset(y: floatOffset)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        .id("icon-\(currentTipIndex)")
                 }
 
-                // Orbiting dots
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Color.accentPurple)
-                        .frame(width: 8, height: 8)
-                        .offset(y: -90)
-                        .rotationEffect(.degrees(rotationAngle + Double(index * 120)))
+                // Orbiting elements
+                ForEach(0..<4, id: \.self) { index in
+                    let angle = Double(index) * 90 + rotationAngle
+                    let iconNames = ["sparkle", "circle.fill", "sparkle", "circle.fill"]
+
+                    Image(systemName: iconNames[index])
+                        .font(.system(size: index % 2 == 0 ? 10 : 6, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(index % 2 == 0 ? 0.6 : 0.3))
+                        .offset(
+                            x: cos(angle * .pi / 180) * 85,
+                            y: sin(angle * .pi / 180) * 85
+                        )
                 }
             }
+            .frame(height: 220)
+
+            Spacer()
+                .frame(height: 40)
 
             // Progress text
-            VStack(spacing: Design.Spacing.md) {
+            VStack(spacing: 12) {
                 Text("Creating Your Plan")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(Color.textPrimary)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color.black)
 
                 Text(progress.isEmpty ? tips[currentTipIndex % tips.count] : progress)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(hex: "6B6B6B"))
                     .multilineTextAlignment(.center)
-                    .animation(.easeInOut, value: currentTipIndex)
-                    .id(currentTipIndex)
+                    .frame(height: 24)
+                    .animation(.easeInOut(duration: 0.4), value: currentTipIndex)
+                    .id("tip-\(currentTipIndex)")
             }
-            .padding(.horizontal, Design.Spacing.xl)
+            .padding(.horizontal, 40)
 
-            // Progress bar
-            VStack(spacing: Design.Spacing.sm) {
+            Spacer()
+                .frame(height: 50)
+
+            // Progress indicator
+            VStack(spacing: 16) {
+                // Clean progress bar
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.accentPurple.opacity(0.15))
-                            .frame(height: 8)
+                        // Background
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color(hex: "E5E5E5"))
+                            .frame(height: 6)
 
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(LinearGradient.purpleButtonGradient)
-                            .frame(width: isAnimating ? geometry.size.width : 0, height: 8)
-                            .animation(.easeInOut(duration: 30), value: isAnimating)
+                        // Progress fill
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.black)
+                            .frame(width: geometry.size.width * progressWidth, height: 6)
                     }
                 }
-                .frame(height: 8)
-                .padding(.horizontal, 60)
+                .frame(height: 6)
+                .padding(.horizontal, 50)
 
-                Text("This may take a moment")
-                    .font(.caption)
-                    .foregroundStyle(Color.textSecondary.opacity(0.7))
+                // Time estimate
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("This usually takes 30-60 seconds")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(Color(hex: "9CA3AF"))
             }
 
             Spacer()
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.white)
         .onAppear {
             startAnimations()
         }
@@ -847,18 +879,28 @@ struct GeneratingMealPlanView: View {
     private func startAnimations() {
         isAnimating = true
 
-        // Pulse animation
-        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-            pulseScale = 1.3
+        // Pulse animation - smooth and elegant
+        withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+            pulseScale = 1.2
         }
 
-        // Rotation animation
-        withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+        // Rotation animation - slow and smooth
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
             rotationAngle = 360
         }
 
-        // Tip cycling
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+        // Float animation for center icon
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            floatOffset = -8
+        }
+
+        // Progress bar animation - gradual fill
+        withAnimation(.easeInOut(duration: 45)) {
+            progressWidth = 0.92
+        }
+
+        // Tip cycling - every 4 seconds for better readability
+        Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
             withAnimation(.easeInOut(duration: 0.5)) {
                 currentTipIndex += 1
             }
