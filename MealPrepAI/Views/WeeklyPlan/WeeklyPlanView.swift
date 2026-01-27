@@ -9,7 +9,7 @@ struct WeeklyPlanView: View {
 
     @State private var selectedDayIndex = 0
     @State private var showingGenerateSheet = false
-    @State private var showingEditProfile = false
+    @State private var showingPreferencesSheet = false
     @State private var selectedRecipe: Recipe?
     @State private var animateContent = false
     @State private var generator = MealPlanGenerator()
@@ -75,7 +75,7 @@ struct WeeklyPlanView: View {
                         // Empty State with Personalization Banner
                         PersonalizationBanner(
                             title: "Create Your Plan",
-                            subtitle: "Generate a personalized meal plan tailored to your goals",
+                            subtitle: "Generate a personalized meal plan tailored to your preferences",
                             buttonText: "Get Started",
                             onTap: { showingGenerateSheet = true }
                         )
@@ -89,9 +89,9 @@ struct WeeklyPlanView: View {
                         // Personalization Banner
                         PersonalizationBanner(
                             title: "Personalise Meal Plan",
-                            subtitle: "To personalize your menu, fill in your data",
+                            subtitle: "Update your weekly meal preferences",
                             buttonText: "Update Preferences",
-                            onTap: { showingEditProfile = true }
+                            onTap: { showingPreferencesSheet = true }
                         )
                         .opacity(animateContent ? 1 : 0)
                         .offset(y: animateContent ? 0 : 20)
@@ -148,10 +148,8 @@ struct WeeklyPlanView: View {
             .fullScreenCover(isPresented: $showingGenerateSheet) {
                 MealPrepSetupView(generator: generator)
             }
-            .sheet(isPresented: $showingEditProfile) {
-                if let profile = userProfile {
-                    EditProfileSheet(profile: profile)
-                }
+            .fullScreenCover(isPresented: $showingPreferencesSheet) {
+                MealPrepSetupView(generator: generator, skipWelcome: true)
             }
             .sheet(item: $selectedRecipe) { recipe in
                 RecipeDetailSheet(recipe: recipe)
@@ -333,14 +331,14 @@ struct WeeklyPlanView: View {
                     icon: "flame.fill",
                     value: "\(day.totalCalories)",
                     label: "kcal",
-                    color: Color(hex: "FF6B6B")
+                    color: .orange
                 )
 
                 CompactStatsCard(
                     icon: "p.circle.fill",
                     value: "\(day.totalProtein)g",
                     label: "Protein",
-                    color: Color.accentPurple
+                    color: .red
                 )
 
                 let totalTime = day.sortedMeals.reduce(0) { $0 + ($1.recipe?.totalTimeMinutes ?? 0) }
@@ -348,7 +346,7 @@ struct WeeklyPlanView: View {
                     icon: "clock.fill",
                     value: "\(totalTime)m",
                     label: "Cooking",
-                    color: Color.mintVibrant
+                    color: .gray
                 )
             }
         }

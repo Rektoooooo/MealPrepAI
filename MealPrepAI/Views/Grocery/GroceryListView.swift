@@ -249,17 +249,26 @@ struct GroceryListView: View {
     }
 
     private func generateGroceryList() {
-        guard let mealPlan = currentMealPlan else { return }
+        print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST START ==========")
+        guard let mealPlan = currentMealPlan else {
+            print("[DEBUG:Grocery] ERROR: No current meal plan found")
+            return
+        }
+        print("[DEBUG:Grocery] Meal plan ID: \(mealPlan.id)")
+        print("[DEBUG:Grocery] Days in meal plan: \(mealPlan.sortedDays.count)")
 
         // Create or clear existing grocery list
         let list: GroceryList
         if let existingList = mealPlan.groceryList {
             // Clear existing items
+            let existingCount = existingList.items?.count ?? 0
+            print("[DEBUG:Grocery] Clearing existing list with \(existingCount) items")
             for item in existingList.items ?? [] {
                 modelContext.delete(item)
             }
             list = existingList
         } else {
+            print("[DEBUG:Grocery] Creating new grocery list")
             list = GroceryList()
             modelContext.insert(list)
             mealPlan.groceryList = list
@@ -267,12 +276,23 @@ struct GroceryListView: View {
 
         // Collect all ingredients from the meal plan
         var ingredientQuantities: [String: (Ingredient, Double, MeasurementUnit)] = [:]
+        var totalMeals = 0
+        var totalRecipeIngredients = 0
 
         for day in mealPlan.sortedDays {
             for meal in day.sortedMeals {
-                guard let recipe = meal.recipe else { continue }
+                totalMeals += 1
+                guard let recipe = meal.recipe else {
+                    print("[DEBUG:Grocery] WARNING: Meal '\(meal.mealType.rawValue)' on day \(day.dayOfWeek) has no recipe")
+                    continue
+                }
+                print("[DEBUG:Grocery] Processing recipe: \(recipe.name) (\(recipe.ingredients?.count ?? 0) ingredients)")
                 for recipeIngredient in recipe.ingredients ?? [] {
-                    guard let ingredient = recipeIngredient.ingredient else { continue }
+                    guard let ingredient = recipeIngredient.ingredient else {
+                        print("[DEBUG:Grocery] WARNING: RecipeIngredient has no ingredient")
+                        continue
+                    }
+                    totalRecipeIngredients += 1
 
                     let key = ingredient.name.lowercased()
                     if let existing = ingredientQuantities[key] {
@@ -285,8 +305,12 @@ struct GroceryListView: View {
             }
         }
 
+        print("[DEBUG:Grocery] Total meals processed: \(totalMeals)")
+        print("[DEBUG:Grocery] Total recipe ingredients: \(totalRecipeIngredients)")
+        print("[DEBUG:Grocery] Unique ingredients: \(ingredientQuantities.count)")
+
         // Create grocery items
-        for (_, (ingredient, quantity, unit)) in ingredientQuantities {
+        for (name, (ingredient, quantity, unit)) in ingredientQuantities {
             let groceryItem = GroceryItem(
                 quantity: quantity,
                 unit: unit,
@@ -297,10 +321,17 @@ struct GroceryListView: View {
             groceryItem.ingredient = ingredient
             groceryItem.groceryList = list
             modelContext.insert(groceryItem)
+            print("[DEBUG:Grocery] Added: \(name) - \(quantity) \(unit.rawValue)")
         }
 
         list.lastModified = Date()
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            print("[DEBUG:Grocery] SUCCESS: Grocery list saved with \(ingredientQuantities.count) items")
+        } catch {
+            print("[DEBUG:Grocery] ERROR: Failed to save - \(error.localizedDescription)")
+        }
+        print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST END ==========")
     }
 }
 

@@ -8,6 +8,7 @@ struct MealPrepReviewStep: View {
     let onGenerate: () -> Void
 
     @FocusState private var isTextFieldFocused: Bool
+    @State private var showingMacroEditor = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,31 +72,54 @@ struct MealPrepReviewStep: View {
             HStack {
                 Image(systemName: "person.crop.circle.fill")
                     .foregroundStyle(OnboardingDesign.Colors.textSecondary)
-                Text("Your Profile")
+                Text("Your Targets")
                     .font(OnboardingDesign.Typography.headline)
                     .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+
+                Spacer()
+
+                // Edit button
+                Button(action: { showingMacroEditor = true }) {
+                    HStack(spacing: OnboardingDesign.Spacing.xs) {
+                        Image(systemName: "slider.horizontal.3")
+                        Text("Adjust")
+                    }
+                    .font(OnboardingDesign.Typography.subheadline)
+                    .foregroundStyle(OnboardingDesign.Colors.accent)
+                }
             }
 
-            HStack(spacing: OnboardingDesign.Spacing.lg) {
+            HStack(spacing: OnboardingDesign.Spacing.sm) {
                 profileStat(
                     icon: "flame.fill",
-                    value: "\(profile.dailyCalorieTarget)",
+                    value: "\(viewModel.effectiveCalories(profile: profile))",
                     label: "Calories",
-                    color: .orange
+                    color: .orange,
+                    isOverridden: viewModel.overrideCalories != nil
                 )
 
                 profileStat(
                     icon: "bolt.fill",
-                    value: "\(profile.proteinGrams)g",
+                    value: "\(viewModel.effectiveProtein(profile: profile))g",
                     label: "Protein",
-                    color: Color.accentPurple
+                    color: Color.accentPurple,
+                    isOverridden: viewModel.overrideProtein != nil
                 )
 
                 profileStat(
-                    icon: "clock.fill",
-                    value: "\(profile.maxCookingTime.maxMinutes)m",
-                    label: "Max Time",
-                    color: Color.mintVibrant
+                    icon: "leaf.fill",
+                    value: "\(viewModel.effectiveCarbs(profile: profile))g",
+                    label: "Carbs",
+                    color: Color.carbColor,
+                    isOverridden: viewModel.overrideCarbs != nil
+                )
+
+                profileStat(
+                    icon: "drop.fill",
+                    value: "\(viewModel.effectiveFat(profile: profile))g",
+                    label: "Fat",
+                    color: Color.fatColor,
+                    isOverridden: viewModel.overrideFat != nil
                 )
             }
         }
@@ -104,23 +128,27 @@ struct MealPrepReviewStep: View {
             RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+        .sheet(isPresented: $showingMacroEditor) {
+            MacroEditorSheet(viewModel: viewModel, profile: profile)
+        }
     }
 
-    private func profileStat(icon: String, value: String, label: String, color: Color) -> some View {
+    private func profileStat(icon: String, value: String, label: String, color: Color, isOverridden: Bool = false) -> some View {
         VStack(spacing: OnboardingDesign.Spacing.xs) {
             ZStack {
                 Circle()
                     .fill(color.opacity(0.15))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 36, height: 36)
 
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
                     .foregroundStyle(color)
             }
 
             Text(value)
-                .font(OnboardingDesign.Typography.headline)
-                .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+                .font(OnboardingDesign.Typography.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(isOverridden ? color : OnboardingDesign.Colors.textPrimary)
 
             Text(label)
                 .font(OnboardingDesign.Typography.captionSmall)
@@ -250,6 +278,182 @@ struct MealPrepReviewStep: View {
             RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+    }
+}
+
+// MARK: - Macro Editor Sheet
+struct MacroEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var viewModel: MealPrepSetupViewModel
+    let profile: UserProfile
+
+    // Local state for editing
+    @State private var calories: String = ""
+    @State private var protein: String = ""
+    @State private var carbs: String = ""
+    @State private var fat: String = ""
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: OnboardingDesign.Spacing.lg) {
+                Text("Adjust your macro targets for this meal plan")
+                    .font(OnboardingDesign.Typography.subheadline)
+                    .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                VStack(spacing: OnboardingDesign.Spacing.md) {
+                    macroInput(
+                        label: "Calories",
+                        icon: "flame.fill",
+                        color: .orange,
+                        value: $calories,
+                        unit: "kcal"
+                    )
+
+                    macroInput(
+                        label: "Protein",
+                        icon: "bolt.fill",
+                        color: Color.accentPurple,
+                        value: $protein,
+                        unit: "g"
+                    )
+
+                    macroInput(
+                        label: "Carbs",
+                        icon: "leaf.fill",
+                        color: Color.carbColor,
+                        value: $carbs,
+                        unit: "g"
+                    )
+
+                    macroInput(
+                        label: "Fat",
+                        icon: "drop.fill",
+                        color: Color.fatColor,
+                        value: $fat,
+                        unit: "g"
+                    )
+                }
+                .padding()
+
+                // Reset button
+                Button(action: resetToDefaults) {
+                    HStack {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset to Profile Defaults")
+                    }
+                    .font(OnboardingDesign.Typography.subheadline)
+                    .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                }
+                .padding(.top)
+
+                Spacer()
+            }
+            .padding(.top, OnboardingDesign.Spacing.lg)
+            .navigationTitle("Adjust Macros")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveChanges()
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .onAppear {
+            // Initialize with current values
+            calories = "\(viewModel.effectiveCalories(profile: profile))"
+            protein = "\(viewModel.effectiveProtein(profile: profile))"
+            carbs = "\(viewModel.effectiveCarbs(profile: profile))"
+            fat = "\(viewModel.effectiveFat(profile: profile))"
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func macroInput(label: String, icon: String, color: Color, value: Binding<String>, unit: String) -> some View {
+        HStack(spacing: OnboardingDesign.Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.15))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(color)
+            }
+
+            Text(label)
+                .font(OnboardingDesign.Typography.body)
+                .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+                .frame(width: 70, alignment: .leading)
+
+            Spacer()
+
+            HStack(spacing: OnboardingDesign.Spacing.xs) {
+                TextField("0", text: value)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(OnboardingDesign.Typography.headline)
+                    .frame(width: 80)
+                    .padding(OnboardingDesign.Spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: OnboardingDesign.Radius.sm)
+                            .fill(OnboardingDesign.Colors.unselectedBackground)
+                    )
+
+                Text(unit)
+                    .font(OnboardingDesign.Typography.subheadline)
+                    .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                    .frame(width: 35, alignment: .leading)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private func saveChanges() {
+        // Parse and save overrides (only if different from profile)
+        if let cal = Int(calories), cal != profile.dailyCalorieTarget {
+            viewModel.overrideCalories = cal
+        } else {
+            viewModel.overrideCalories = nil
+        }
+
+        if let prot = Int(protein), prot != profile.proteinGrams {
+            viewModel.overrideProtein = prot
+        } else {
+            viewModel.overrideProtein = nil
+        }
+
+        if let carb = Int(carbs), carb != profile.carbsGrams {
+            viewModel.overrideCarbs = carb
+        } else {
+            viewModel.overrideCarbs = nil
+        }
+
+        if let fatVal = Int(fat), fatVal != profile.fatGrams {
+            viewModel.overrideFat = fatVal
+        } else {
+            viewModel.overrideFat = nil
+        }
+    }
+
+    private func resetToDefaults() {
+        calories = "\(profile.dailyCalorieTarget)"
+        protein = "\(profile.proteinGrams)"
+        carbs = "\(profile.carbsGrams)"
+        fat = "\(profile.fatGrams)"
+
+        // Clear overrides
+        viewModel.overrideCalories = nil
+        viewModel.overrideProtein = nil
+        viewModel.overrideCarbs = nil
+        viewModel.overrideFat = nil
     }
 }
 

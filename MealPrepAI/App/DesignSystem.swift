@@ -3,51 +3,51 @@ import UIKit
 
 // MARK: - Adaptive Color Palette (Light/Dark Mode)
 extension Color {
-    // MARK: - Primary Mint Green (Adaptive)
-    static let mintLight = Color(light: Color(hex: "E8F5E9"), dark: Color(hex: "1B3D20"))
-    static let mintMedium = Color(light: Color(hex: "C8E6C9"), dark: Color(hex: "2E5233"))
-    static let mintDark = Color(light: Color(hex: "A5D6A7"), dark: Color(hex: "4A7C50"))
-    static let mintVibrant = Color(light: Color(hex: "66BB6A"), dark: Color(hex: "81C784"))
+    // MARK: - Primary Black/Gray (Adaptive) - Formerly Mint Green
+    static let mintLight = Color(light: Color(hex: "F5F5F5"), dark: Color(hex: "1C1C1E"))
+    static let mintMedium = Color(light: Color(hex: "E0E0E0"), dark: Color(hex: "2C2C2E"))
+    static let mintDark = Color(light: Color(hex: "9E9E9E"), dark: Color(hex: "3A3A3C"))
+    static let mintVibrant = Color(light: Color(hex: "212121"), dark: Color(hex: "FFFFFF"))
 
-    // MARK: - Accent Green (Adaptive) - Named "Purple" for compatibility
-    static let accentPurpleLight = Color(light: Color(hex: "81C784"), dark: Color(hex: "A5D6A7"))
-    static let accentPurple = Color(light: Color(hex: "43A047"), dark: Color(hex: "66BB6A"))
-    static let accentPurpleDeep = Color(light: Color(hex: "2E7D32"), dark: Color(hex: "43A047"))
+    // MARK: - Accent Black/Gray (Adaptive) - Named "Purple" for compatibility
+    static let accentPurpleLight = Color(light: Color(hex: "757575"), dark: Color(hex: "B0B0B0"))
+    static let accentPurple = Color(light: Color(hex: "424242"), dark: Color(hex: "9E9E9E"))
+    static let accentPurpleDeep = Color(light: Color(hex: "212121"), dark: Color(hex: "757575"))
 
-    // MARK: - Accent Yellow/Gold (Adaptive)
-    static let accentYellowLight = Color(light: Color(hex: "FFD54F"), dark: Color(hex: "FFE082"))
-    static let accentYellow = Color(light: Color(hex: "FFCA28"), dark: Color(hex: "FFD54F"))
-    static let accentGold = Color(light: Color(hex: "FFC107"), dark: Color(hex: "FFCA28"))
+    // MARK: - Accent Yellow/Gold (Adaptive) - Vibrant for CTAs
+    static let accentYellowLight = Color(light: Color(hex: "FFF176"), dark: Color(hex: "FFF59D"))
+    static let accentYellow = Color(light: Color(hex: "FFEE58"), dark: Color(hex: "FFF176"))
+    static let accentGold = Color(light: Color(hex: "FFD54F"), dark: Color(hex: "FFEE58"))
 
-    // MARK: - Legacy Brand Colors (Keep for compatibility)
-    static let brandGreen = Color(light: Color(hex: "4CAF50"), dark: Color(hex: "66BB6A"))
-    static let brandGreenDark = Color(light: Color(hex: "388E3C"), dark: Color(hex: "4CAF50"))
-    static let brandGreenLight = Color(light: Color(hex: "C8E6C9"), dark: Color(hex: "2E5233"))
+    // MARK: - Legacy Brand Colors (Keep for compatibility) - Now Black
+    static let brandGreen = Color(light: Color(hex: "212121"), dark: Color(hex: "FFFFFF"))
+    static let brandGreenDark = Color(light: Color(hex: "000000"), dark: Color(hex: "E0E0E0"))
+    static let brandGreenLight = Color(light: Color(hex: "E0E0E0"), dark: Color(hex: "2C2C2E"))
 
-    // MARK: - Additional Accents
-    static let accentOrange = Color(light: Color(hex: "FF9800"), dark: Color(hex: "FFB74D"))
-    static let accentBlue = Color(light: Color(hex: "2196F3"), dark: Color(hex: "64B5F6"))
-    static let accentPink = Color(light: Color(hex: "E91E63"), dark: Color(hex: "F06292"))
-    static let accentTeal = Color(light: Color(hex: "009688"), dark: Color(hex: "4DB6AC"))
+    // MARK: - Additional Accents - Vibrant for Key UI
+    static let accentOrange = Color(light: Color(hex: "FF9500"), dark: Color(hex: "FFB340"))
+    static let accentBlue = Color(light: Color(hex: "007AFF"), dark: Color(hex: "409CFF"))
+    static let accentPink = Color(light: Color(hex: "FF2D55"), dark: Color(hex: "FF6482"))
+    static let accentTeal = Color(light: Color(hex: "30D5C8"), dark: Color(hex: "5CE1D6"))
 
-    // MARK: - Meal Type Colors
+    // MARK: - Meal Type Colors - Vibrant & Distinct
     static let breakfastGradientStart = Color(light: Color(hex: "FFB74D"), dark: Color(hex: "FFA726"))
-    static let breakfastGradientEnd = Color(light: Color(hex: "FF8A65"), dark: Color(hex: "FF7043"))
+    static let breakfastGradientEnd = Color(light: Color(hex: "FF9800"), dark: Color(hex: "F57C00"))
 
     static let lunchGradientStart = Color(light: Color(hex: "66BB6A"), dark: Color(hex: "81C784"))
-    static let lunchGradientEnd = Color(light: Color(hex: "4CAF50"), dark: Color(hex: "66BB6A"))
+    static let lunchGradientEnd = Color(light: Color(hex: "43A047"), dark: Color(hex: "66BB6A"))
 
-    static let dinnerGradientStart = Color(light: Color(hex: "5C6BC0"), dark: Color(hex: "7986CB"))
-    static let dinnerGradientEnd = Color(light: Color(hex: "3F51B5"), dark: Color(hex: "5C6BC0"))
+    static let dinnerGradientStart = Color(light: Color(hex: "7E57C2"), dark: Color(hex: "9575CD"))
+    static let dinnerGradientEnd = Color(light: Color(hex: "5E35B1"), dark: Color(hex: "7E57C2"))
 
-    static let snackGradientStart = Color(light: Color(hex: "FF8A80"), dark: Color(hex: "FF8A80"))
-    static let snackGradientEnd = Color(light: Color(hex: "FF5252"), dark: Color(hex: "FF5252"))
+    static let snackGradientStart = Color(light: Color(hex: "F06292"), dark: Color(hex: "F48FB1"))
+    static let snackGradientEnd = Color(light: Color(hex: "E91E63"), dark: Color(hex: "F06292"))
 
-    // MARK: - Macro Colors
-    static let calorieColor = Color(light: Color(hex: "FF9800"), dark: Color(hex: "FFB74D"))
-    static let proteinColor = Color(light: Color(hex: "5C6BC0"), dark: Color(hex: "7986CB")) // Indigo for protein
-    static let carbColor = Color(light: Color(hex: "FFCA28"), dark: Color(hex: "FFD54F"))
-    static let fatColor = Color(light: Color(hex: "EC407A"), dark: Color(hex: "F06292"))
+    // MARK: - Macro Colors - Vibrant for Nutrition Tracking
+    static let calorieColor = Color(light: Color(hex: "FF6B6B"), dark: Color(hex: "FF8A8A"))
+    static let proteinColor = Color(light: Color(hex: "EF4444"), dark: Color(hex: "F87171"))  // Red
+    static let carbColor = Color(light: Color(hex: "F97316"), dark: Color(hex: "FB923C"))    // Orange
+    static let fatColor = Color(light: Color(hex: "3B82F6"), dark: Color(hex: "60A5FA"))     // Blue
 
     // MARK: - Background Colors (Adaptive)
     static let backgroundPrimary = Color(UIColor.systemBackground)
@@ -56,7 +56,7 @@ extension Color {
     static let backgroundGrouped = Color(UIColor.systemGroupedBackground)
 
     // Custom backgrounds
-    static let backgroundMint = Color(light: Color(hex: "F1F8E9"), dark: Color(hex: "1A2E1C"))
+    static let backgroundMint = Color(light: Color(hex: "FAFAFA"), dark: Color(hex: "1C1C1E"))
     static let backgroundCream = Color(light: Color(hex: "FFFDF7"), dark: Color(hex: "1C1C1E"))
     static let cardBackground = Color(light: .white, dark: Color(hex: "2C2C2E"))
 
@@ -229,8 +229,8 @@ struct Design {
         static let lg = (color: Color.black.opacity(0.12), radius: 20.0, y: 8.0)
         static let card = (color: Color.black.opacity(0.06), radius: 16.0, y: 6.0)
         static let elevated = (color: Color.black.opacity(0.10), radius: 24.0, y: 10.0)
-        static let purple = (color: Color.accentPurple.opacity(0.25), radius: 16.0, y: 6.0) // Now teal
-        static let glow = (color: Color.mintVibrant.opacity(0.3), radius: 20.0, y: 0.0)
+        static let purple = (color: Color.accentPurple.opacity(0.25), radius: 16.0, y: 6.0) // Now black/gray
+        static let glow = (color: Color.mintVibrant.opacity(0.3), radius: 20.0, y: 0.0) // Now black glow
     }
 
     // Animation
@@ -607,17 +607,17 @@ extension MealType {
 extension GroceryCategory {
     var themeColor: Color {
         switch self {
-        case .produce: return .mintVibrant
-        case .meat: return .accentPink
-        case .dairy: return .accentBlue
-        case .bakery: return .accentOrange
-        case .frozen: return .accentTeal
-        case .pantry: return .accentYellow
-        case .canned: return .accentGold
-        case .condiments: return .accentOrange
-        case .snacks: return .accentOrange
-        case .beverages: return .accentBlue
-        case .spices: return .accentPink
+        case .produce: return .lunchGradientEnd      // Green for fresh produce
+        case .meat: return .accentPink               // Pink/red for meat
+        case .dairy: return .accentBlue              // Blue for dairy
+        case .bakery: return .accentOrange           // Orange for bakery
+        case .frozen: return .accentTeal             // Teal for frozen
+        case .pantry: return .carbColor              // Yellow for pantry
+        case .canned: return .accentOrange           // Orange for canned
+        case .condiments: return .fatColor           // Purple for condiments
+        case .snacks: return .snackGradientEnd       // Pink for snacks
+        case .beverages: return .accentBlue          // Blue for beverages
+        case .spices: return .dinnerGradientEnd      // Purple for spices
         case .other: return .textSecondary
         }
     }

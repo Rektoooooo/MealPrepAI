@@ -126,24 +126,25 @@ struct NewSectionHeader: View {
 // MARK: - Personalization Banner
 struct PersonalizationBanner: View {
     var title: String = "Personalise Meal Plan"
-    var subtitle: String = "To personalize your menu, we still need information."
-    var buttonText: String = "Fill in Data"
+    var subtitle: String = "Update your weekly meal preferences"
+    var buttonText: String = "Update Preferences"
     var onTap: () -> Void
 
     // Brown colors for text
     private let titleColor = Color(red: 0.30, green: 0.20, blue: 0.15)
     private let subtitleColor = Color(red: 0.45, green: 0.35, blue: 0.28)
-    private let buttonTextColor = Color(red: 0.35, green: 0.25, blue: 0.18)
+    private let buttonTextColor = Color(hex: "59402E")
+    private let buttonBackgroundColor = Color(hex: "FECA27")
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Background
+            // Background gradient: FEF1C6 to FDE6AF
             RoundedRectangle(cornerRadius: Design.Radius.card)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 1.0, green: 0.95, blue: 0.78),
-                            Color(red: 0.99, green: 0.90, blue: 0.68)
+                            Color(hex: "FEF1C6"),
+                            Color(hex: "FDE6AF")
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -180,9 +181,9 @@ struct PersonalizationBanner: View {
                         .padding(.vertical, Design.Spacing.md)
                         .background(
                             Capsule()
-                                .fill(Color.accentYellow)
+                                .fill(buttonBackgroundColor)
                                 .shadow(
-                                    color: Color.accentYellow.opacity(0.4),
+                                    color: buttonBackgroundColor.opacity(0.4),
                                     radius: 8,
                                     y: 4
                                 )

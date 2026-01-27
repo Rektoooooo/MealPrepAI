@@ -2,6 +2,19 @@ import Foundation
 import SwiftUI
 import SwiftData
 
+// MARK: - Macro Overrides
+/// Temporary macro overrides for a single meal plan generation
+struct MacroOverrides {
+    var calories: Int?
+    var protein: Int?
+    var carbs: Int?
+    var fat: Int?
+
+    var hasOverrides: Bool {
+        calories != nil || protein != nil || carbs != nil || fat != nil
+    }
+}
+
 // MARK: - Meal Plan Generator
 @MainActor
 @Observable
@@ -17,6 +30,7 @@ class MealPlanGenerator {
         for profile: UserProfile,
         startDate: Date = Date(),
         weeklyPreferences: String? = nil,
+        macroOverrides: MacroOverrides? = nil,
         modelContext: ModelContext
     ) async throws -> MealPlan {
         let generationStartTime = Date()
@@ -40,7 +54,7 @@ class MealPlanGenerator {
         do {
             // Build API user profile from SwiftData profile
             print("[DEBUG:Generator] Building API user profile...")
-            let apiProfile = buildAPIUserProfile(from: profile)
+            let apiProfile = buildAPIUserProfile(from: profile, overrides: macroOverrides)
 
             progress = "Generating recipes with AI..."
             print("[DEBUG:Generator] Calling generateMealPlan API...")
@@ -125,11 +139,21 @@ class MealPlanGenerator {
     }
 
     // MARK: - Build API User Profile
-    private func buildAPIUserProfile(from profile: UserProfile) -> GeneratePlanUserProfile {
+    private func buildAPIUserProfile(from profile: UserProfile, overrides: MacroOverrides?) -> GeneratePlanUserProfile {
         // Extract disliked cuisines from cuisinePreferencesMap
         let dislikedCuisines = profile.cuisinePreferencesMap
             .filter { $0.value == .dislike }
             .map { $0.key }
+
+        // Use overrides if provided, otherwise use profile values
+        let calories = overrides?.calories ?? profile.dailyCalorieTarget
+        let protein = overrides?.protein ?? profile.proteinGrams
+        let carbs = overrides?.carbs ?? profile.carbsGrams
+        let fat = overrides?.fat ?? profile.fatGrams
+
+        if let overrides = overrides, overrides.hasOverrides {
+            print("[DEBUG:Generator] Using macro overrides - Calories: \(calories), Protein: \(protein)g, Carbs: \(carbs)g, Fat: \(fat)g")
+        }
 
         return GeneratePlanUserProfile(
             age: profile.age,
@@ -137,10 +161,10 @@ class MealPlanGenerator {
             weightKg: profile.weightKg,
             heightCm: profile.heightCm,
             activityLevel: profile.activityLevel.rawValue,
-            dailyCalorieTarget: profile.dailyCalorieTarget,
-            proteinGrams: profile.proteinGrams,
-            carbsGrams: profile.carbsGrams,
-            fatGrams: profile.fatGrams,
+            dailyCalorieTarget: calories,
+            proteinGrams: protein,
+            carbsGrams: carbs,
+            fatGrams: fat,
             weightGoal: profile.weightGoal.rawValue,
             dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
             allergies: profile.allergies.map { $0.rawValue },

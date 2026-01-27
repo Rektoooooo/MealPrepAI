@@ -48,6 +48,15 @@ final class MealPrepSetupViewModel {
     var generationProgress: String = ""
     var generationError: Error?
 
+    // MARK: - Macro Overrides (for this generation only)
+    var overrideCalories: Int?
+    var overrideProtein: Int?
+    var overrideCarbs: Int?
+    var overrideFat: Int?
+
+    // MARK: - Mode
+    var skipWelcome: Bool = false
+
     // MARK: - Dependencies
     private let preferencesStore: MealPrepPreferencesStore
 
@@ -102,10 +111,43 @@ final class MealPrepSetupViewModel {
 
     // MARK: - Initialization
 
-    init(preferencesStore: MealPrepPreferencesStore = .shared) {
+    init(preferencesStore: MealPrepPreferencesStore = .shared, skipWelcome: Bool = false) {
         self.preferencesStore = preferencesStore
+        self.skipWelcome = skipWelcome
         // Start with a copy of saved preferences
         self.preferences = preferencesStore.preferences
+        // If skipping welcome, start at weeklyFocus
+        if skipWelcome {
+            self.currentStep = .weeklyFocus
+        }
+    }
+
+    /// Initialize macro overrides from a user profile
+    func initializeMacroOverrides(from profile: UserProfile) {
+        overrideCalories = profile.dailyCalorieTarget
+        overrideProtein = profile.proteinGrams
+        overrideCarbs = profile.carbsGrams
+        overrideFat = profile.fatGrams
+    }
+
+    /// Get effective calories (override or profile default)
+    func effectiveCalories(profile: UserProfile) -> Int {
+        overrideCalories ?? profile.dailyCalorieTarget
+    }
+
+    /// Get effective protein (override or profile default)
+    func effectiveProtein(profile: UserProfile) -> Int {
+        overrideProtein ?? profile.proteinGrams
+    }
+
+    /// Get effective carbs (override or profile default)
+    func effectiveCarbs(profile: UserProfile) -> Int {
+        overrideCarbs ?? profile.carbsGrams
+    }
+
+    /// Get effective fat (override or profile default)
+    func effectiveFat(profile: UserProfile) -> Int {
+        overrideFat ?? profile.fatGrams
     }
 
     // MARK: - Navigation
@@ -174,10 +216,24 @@ final class MealPrepSetupViewModel {
 
                 generationProgress = "Generating your personalized meal plan..."
 
+                // Build macro overrides if any are set
+                let macroOverrides: MacroOverrides? = {
+                    if overrideCalories != nil || overrideProtein != nil || overrideCarbs != nil || overrideFat != nil {
+                        return MacroOverrides(
+                            calories: overrideCalories,
+                            protein: overrideProtein,
+                            carbs: overrideCarbs,
+                            fat: overrideFat
+                        )
+                    }
+                    return nil
+                }()
+
                 _ = try await generator.generateMealPlan(
                     for: profile,
                     startDate: Date(),
                     weeklyPreferences: weeklyPrefsString,
+                    macroOverrides: macroOverrides,
                     modelContext: modelContext
                 )
 

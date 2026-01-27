@@ -8,8 +8,17 @@ struct MealPrepSetupView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var userProfiles: [UserProfile]
 
-    @State private var viewModel = MealPrepSetupViewModel()
+    @State private var viewModel: MealPrepSetupViewModel
     @Bindable var generator: MealPlanGenerator
+
+    /// If true, skips the welcome screen and goes straight to customization
+    let skipWelcome: Bool
+
+    init(generator: MealPlanGenerator, skipWelcome: Bool = false) {
+        self.generator = generator
+        self.skipWelcome = skipWelcome
+        self._viewModel = State(initialValue: MealPrepSetupViewModel(skipWelcome: skipWelcome))
+    }
 
     private var userProfile: UserProfile? {
         userProfiles.first
