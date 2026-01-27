@@ -45,8 +45,8 @@ struct RecipesView: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        // Start with recipes that have valid instructions
-        var recipes = allRecipes.filter { $0.hasValidInstructions }
+        // Start with recipes that have valid instructions and are from Firebase (not AI-generated)
+        var recipes = allRecipes.filter { $0.hasValidInstructions && $0.isFromFirebase }
 
         // Apply category filter
         if selectedCategory != .all {
@@ -893,6 +893,14 @@ struct RecipesView: View {
         // Mutex: prevent concurrent sync operations
         guard !isLoadingMore && !isSyncing else { return }
         print("📥 [RecipesView] Loading more recipes...")
+
+        // If pagination state is not initialized, do a full refresh instead
+        if !firebaseService.isPaginationInitialized {
+            print("📥 [RecipesView] Pagination not initialized, doing full refresh...")
+            await refreshRecipes()
+            return
+        }
+
         isLoadingMore = true
         isSyncing = true
         loadMoreError = nil
@@ -989,17 +997,28 @@ struct RecipesView: View {
 
     /// Initial sync if cache is empty or stale
     private func initialSyncIfNeeded() async {
-        // Only sync if we have very few recipes and haven't synced recently
+        // Check filtered recipes (the ones actually shown to user)
+        let visibleRecipes = filteredRecipes.count
+        print("📋 [RecipesView] Initial sync check: \(visibleRecipes) visible recipes, lastSync: \(String(describing: lastSyncDate))")
+
+        // Determine if we need to sync
         let shouldSync: Bool
-        if let lastSync = lastSyncDate {
+        if visibleRecipes == 0 {
+            // Always sync if no visible recipes
+            print("📋 [RecipesView] No visible recipes - will sync")
+            shouldSync = true
+        } else if let lastSync = lastSyncDate {
             // Sync if more than 1 hour since last sync
-            shouldSync = Date().timeIntervalSince(lastSync) > 3600
+            let hoursSinceSync = Date().timeIntervalSince(lastSync) / 3600
+            shouldSync = hoursSinceSync > 1
+            print("📋 [RecipesView] Hours since last sync: \(hoursSinceSync) - will sync: \(shouldSync)")
         } else {
             // Never synced before
+            print("📋 [RecipesView] Never synced before - will sync")
             shouldSync = true
         }
 
-        if shouldSync && allRecipes.count < 5 {
+        if shouldSync {
             await refreshRecipes()
         }
     }

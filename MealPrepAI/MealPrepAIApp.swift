@@ -236,6 +236,7 @@ struct RootView: View {
                     }
                 )
                 .environment(authManager)
+                .environment(syncManager)
             } else {
                 // Fallback to legacy onboarding
                 OnboardingView(onComplete: {

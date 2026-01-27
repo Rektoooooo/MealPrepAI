@@ -9,6 +9,9 @@ class NewOnboardingViewModel {
     var saveError: Error?
     var didSaveSuccessfully: Bool = false
 
+    // MARK: - User Info (from Apple Sign In)
+    var userName: String = ""
+
     // MARK: - Step 3: Primary Goals
     var primaryGoals: Set<PrimaryGoal> = []
 
@@ -212,7 +215,7 @@ class NewOnboardingViewModel {
 
         // Create profile
         let profile = UserProfile(
-            name: "",
+            name: userName,
             age: age,
             gender: gender,
             heightCm: heightCm,

@@ -12,6 +12,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
+
     // User favorites (if we want to track favorites in Firestore)
     match /users/{userId}/favorites/{recipeId} {
       // Users can only read/write their own favorites

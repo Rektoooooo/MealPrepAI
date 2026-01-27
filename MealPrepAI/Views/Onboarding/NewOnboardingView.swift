@@ -110,6 +110,8 @@ enum OnboardingStep: Int, CaseIterable {
 // MARK: - New Onboarding Container View
 struct NewOnboardingView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(AuthenticationManager.self) private var authManager
+    @Environment(CloudKitSyncManager.self) private var syncManager
     @State private var viewModel = NewOnboardingViewModel()
     @State private var currentStep: OnboardingStep = .socialProof  // Skip launch - shown by RootView
     @State private var showSaveErrorAlert = false
@@ -360,8 +362,20 @@ struct NewOnboardingView: View {
         case .login:
             LoginStepView(
                 onSignInWithApple: {
-                    // Apple sign in completed - just advance to next step
-                    // (Authentication is handled in LoginStepView)
+                    // Capture user's name from Apple Sign In
+                    if let fullName = authManager.userFullName {
+                        let givenName = fullName.givenName ?? ""
+                        let familyName = fullName.familyName ?? ""
+                        viewModel.userName = [givenName, familyName]
+                            .filter { !$0.isEmpty }
+                            .joined(separator: " ")
+                    }
+
+                    // Enable CloudKit sync for signed-in users
+                    if authManager.hasAppleID, let userID = authManager.currentUserID {
+                        syncManager.enableSync(for: userID)
+                    }
+
                     goToNext()
                 },
                 onContinueAsGuest: { goToNext() }
@@ -427,4 +441,6 @@ struct NewOnboardingView: View {
 #Preview {
     NewOnboardingView()
         .modelContainer(for: UserProfile.self, inMemory: true)
+        .environment(AuthenticationManager())
+        .environment(CloudKitSyncManager())
 }
