@@ -49,9 +49,13 @@ struct TodayView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Design.Spacing.lg) {
                     // Greeting Header
-                    GreetingHeader(userName: userProfile?.name ?? "Chef")
-                        .opacity(animateCards ? 1 : 0)
-                        .offset(y: animateCards ? 0 : 20)
+                    GreetingHeader(
+                        userName: userProfile?.name ?? "Chef",
+                        avatarEmoji: userProfile?.avatarEmoji,
+                        profileImageData: userProfile?.profileImageData
+                    )
+                    .opacity(animateCards ? 1 : 0)
+                    .offset(y: animateCards ? 0 : 20)
 
                     if currentMealPlan == nil {
                         // No meal plan - show generate prompt

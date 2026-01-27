@@ -71,18 +71,10 @@ struct ProfileView: View {
                     Text("Profile")
                         .font(Design.Typography.headline)
                 }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: { showingEditProfile = true }) {
-                        Text("Edit")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.accentPurple)
-                    }
-                }
             }
-            .sheet(isPresented: $showingEditProfile) {
+            .fullScreenCover(isPresented: $showingEditProfile) {
                 if let profile = profile {
-                    EditProfileSheet(profile: profile)
+                    EditProfileView(profile: profile)
                 }
             }
             .fullScreenCover(isPresented: $showingOnboardingPreview) {
@@ -102,46 +94,64 @@ struct ProfileView: View {
 
     // MARK: - Profile Header
     private var profileHeader: some View {
-        VStack(spacing: Design.Spacing.md) {
-            // Avatar with gradient ring
-            ZStack {
-                Circle()
-                    .stroke(LinearGradient.purpleButtonGradient, lineWidth: 4)
-                    .frame(width: 94, height: 94)
+        Button(action: { showingEditProfile = true }) {
+            VStack(spacing: Design.Spacing.md) {
+                // Avatar with gradient ring
+                ZStack {
+                    Circle()
+                        .stroke(LinearGradient.purpleButtonGradient, lineWidth: 4)
+                        .frame(width: 94, height: 94)
 
-                Circle()
-                    .fill(LinearGradient.purpleButtonGradient)
-                    .frame(width: 84, height: 84)
+                    if let imageData = profile?.profileImageData,
+                       let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 84, height: 84)
+                            .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(LinearGradient.purpleButtonGradient)
+                            .frame(width: 84, height: 84)
 
-                Text(profile?.name.prefix(2).uppercased() ?? "??")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-            }
-
-            VStack(spacing: Design.Spacing.xxs) {
-                Text(profile?.name ?? "Guest")
-                    .font(Design.Typography.title)
-                    .foregroundStyle(Color.textPrimary)
-
-                if let createdAt = profile?.createdAt {
-                    Text("Member since \(createdAt.formatted(.dateTime.month(.wide).year()))")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
+                        Text(profile?.avatarEmoji ?? "🍳")
+                            .font(.system(size: 40))
+                    }
                 }
+
+                VStack(spacing: Design.Spacing.xxs) {
+                    Text(profile?.name ?? "Guest")
+                        .font(Design.Typography.title)
+                        .foregroundStyle(Color.textPrimary)
+
+                    if let createdAt = profile?.createdAt {
+                        Text("Member since \(createdAt.formatted(.dateTime.month(.wide).year()))")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
+
+                // Edit hint
+                HStack(spacing: 4) {
+                    Image(systemName: "pencil.circle.fill")
+                    Text("Tap to edit")
+                }
+                .font(.caption)
+                .foregroundStyle(Color.textSecondary)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Design.Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.card)
+                    .fill(Color.cardBackground)
+                    .shadow(
+                        color: Design.Shadow.card.color,
+                        radius: Design.Shadow.card.radius,
+                        y: Design.Shadow.card.y
+                    )
+            )
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, Design.Spacing.lg)
-        .background(
-            RoundedRectangle(cornerRadius: Design.Radius.card)
-                .fill(Color.cardBackground)
-                .shadow(
-                    color: Design.Shadow.card.color,
-                    radius: Design.Shadow.card.radius,
-                    y: Design.Shadow.card.y
-                )
-        )
+        .buttonStyle(.plain)
     }
 
     // MARK: - Stats Card

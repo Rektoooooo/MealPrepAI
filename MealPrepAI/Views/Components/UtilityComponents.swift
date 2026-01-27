@@ -1,13 +1,11 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Greeting Header
 struct GreetingHeader: View {
     let userName: String
-    var avatarInitials: String? = nil
-
-    private var initials: String {
-        avatarInitials ?? String(userName.prefix(2)).uppercased()
-    }
+    var avatarEmoji: String? = nil
+    var profileImageData: Data? = nil
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -21,15 +19,27 @@ struct GreetingHeader: View {
 
     var body: some View {
         HStack(spacing: Design.Spacing.md) {
-            // Avatar
+            // Avatar - shows profile image, emoji, or initials
             ZStack {
                 Circle()
                     .fill(LinearGradient.purpleButtonGradient)
                     .frame(width: 50, height: 50)
 
-                Text(initials)
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                if let imageData = profileImageData,
+                   let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 50, height: 50)
+                        .clipShape(Circle())
+                } else if let emoji = avatarEmoji {
+                    Text(emoji)
+                        .font(.system(size: 26))
+                } else {
+                    Text(String(userName.prefix(2)).uppercased())
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                }
             }
 
             VStack(alignment: .leading, spacing: 2) {

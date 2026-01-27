@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UIKit
 
 @Model
 final class UserProfile {
@@ -50,6 +51,7 @@ final class UserProfile {
     var cuisinePreferencesMapData: Data?  // [CuisineType: CuisinePreference]
     var pantryLevelRaw: String = "Average"
     var avatarEmoji: String = "🍳"
+    var profileImageData: Data?  // Profile photo (alternative to emoji avatar)
     var goalPaceRaw: String = "Moderate"
     var barriersData: Data?
 
@@ -168,6 +170,22 @@ final class UserProfile {
         set {
             barriersData = try? JSONEncoder().encode(newValue)
         }
+    }
+
+    // MARK: - Profile Image Computed Properties
+
+    var profileImage: UIImage? {
+        get {
+            guard let data = profileImageData else { return nil }
+            return UIImage(data: data)
+        }
+        set {
+            profileImageData = newValue?.jpegData(compressionQuality: 0.7)
+        }
+    }
+
+    var hasCustomImage: Bool {
+        profileImageData != nil
     }
 
     init(
