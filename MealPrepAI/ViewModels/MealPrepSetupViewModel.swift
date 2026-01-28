@@ -48,6 +48,10 @@ final class MealPrepSetupViewModel {
     var generationProgress: String = ""
     var generationError: Error?
 
+    // MARK: - Date Selection
+    var selectedStartDate: Date = Date()
+    var showingDatePicker: Bool = false
+
     // MARK: - Macro Overrides (for this generation only)
     var overrideCalories: Int?
     var overrideProtein: Int?
@@ -95,6 +99,20 @@ final class MealPrepSetupViewModel {
         case .review:
             return true
         }
+    }
+
+    /// End date for the selected week (6 days after start)
+    var selectedEndDate: Date {
+        Calendar.current.date(byAdding: .day, value: 6, to: selectedStartDate) ?? selectedStartDate
+    }
+
+    /// Formatted date range string (e.g., "Mon, Feb 3 - Sun, Feb 9")
+    var formattedDateRange: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        let startString = formatter.string(from: selectedStartDate)
+        let endString = formatter.string(from: selectedEndDate)
+        return "\(startString) - \(endString)"
     }
 
     /// CTA button title for current step
@@ -231,7 +249,7 @@ final class MealPrepSetupViewModel {
 
                 _ = try await generator.generateMealPlan(
                     for: profile,
-                    startDate: Date(),
+                    startDate: selectedStartDate,
                     weeklyPreferences: weeklyPrefsString,
                     macroOverrides: macroOverrides,
                     modelContext: modelContext

@@ -22,6 +22,9 @@ struct MealPrepReviewStep: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: OnboardingDesign.Spacing.lg) {
+                    // Plan Dates Card
+                    planDatesCard
+
                     // Profile Summary Card
                     if let profile = userProfile {
                         profileSummaryCard(profile)
@@ -36,6 +39,9 @@ struct MealPrepReviewStep: View {
                 .padding(.horizontal, OnboardingDesign.Spacing.lg)
                 .padding(.top, OnboardingDesign.Spacing.lg)
                 .padding(.bottom, 150)
+            }
+            .sheet(isPresented: $viewModel.showingDatePicker) {
+                DateRangePickerSheet(selectedDate: $viewModel.selectedStartDate)
             }
 
             Spacer()
@@ -64,6 +70,39 @@ struct MealPrepReviewStep: View {
             }
             .padding(.bottom, OnboardingDesign.Spacing.xxl)
         }
+    }
+
+    // MARK: - Plan Dates Card
+    private var planDatesCard: some View {
+        VStack(alignment: .leading, spacing: OnboardingDesign.Spacing.md) {
+            HStack {
+                Image(systemName: "calendar")
+                    .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                Text("Plan Dates")
+                    .font(OnboardingDesign.Typography.headline)
+                    .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+
+                Spacer()
+
+                Button(action: { viewModel.showingDatePicker = true }) {
+                    HStack(spacing: OnboardingDesign.Spacing.xs) {
+                        Text("Change")
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(OnboardingDesign.Typography.subheadline)
+                    .foregroundStyle(OnboardingDesign.Colors.accent)
+                }
+            }
+
+            Text(viewModel.formattedDateRange)
+                .font(OnboardingDesign.Typography.title3)
+                .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+        }
+        .padding(OnboardingDesign.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
+                .fill(OnboardingDesign.Colors.unselectedBackground)
+        )
     }
 
     // MARK: - Profile Summary Card
