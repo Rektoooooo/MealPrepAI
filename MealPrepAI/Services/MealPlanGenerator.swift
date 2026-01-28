@@ -31,6 +31,7 @@ class MealPlanGenerator {
         startDate: Date = Date(),
         weeklyPreferences: String? = nil,
         macroOverrides: MacroOverrides? = nil,
+        duration: Int = 7,
         modelContext: ModelContext
     ) async throws -> MealPlan {
         let generationStartTime = Date()
@@ -63,7 +64,8 @@ class MealPlanGenerator {
             let apiResponse = try await apiService.generateMealPlan(
                 userProfile: apiProfile,
                 weeklyPreferences: weeklyPreferences,
-                excludeRecipeNames: []
+                excludeRecipeNames: [],
+                duration: duration
             )
 
             print("[DEBUG:Generator] API response received")
@@ -93,7 +95,7 @@ class MealPlanGenerator {
 
             // Convert to SwiftData models and save
             print("[DEBUG:Generator] Converting to SwiftData models...")
-            let result = mealPlanResponse.toSwiftDataModels(startDate: startDate)
+            let result = mealPlanResponse.toSwiftDataModels(startDate: startDate, planDuration: duration)
             print("[DEBUG:Generator] Created: \(result.days.count) days, \(result.recipes.count) recipes, \(result.meals.count) meals")
 
             // Insert all models into context
@@ -463,7 +465,7 @@ class MealPlanGenerator {
         }
 
         return """
-        Create a 7-day meal plan for a person with the following profile:
+        Create a meal plan for a person with the following profile:
 
         DAILY TARGETS:
         - Calories: \(profile.dailyCalorieTarget) kcal

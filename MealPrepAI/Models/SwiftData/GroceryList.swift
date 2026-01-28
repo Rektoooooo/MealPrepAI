@@ -45,7 +45,7 @@ final class GroceryList {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
         let startDate = mealPlan.weekStartDate
-        let endDate = Calendar.current.date(byAdding: .day, value: 6, to: startDate) ?? startDate
+        let endDate = Calendar.current.date(byAdding: .day, value: mealPlan.planDuration - 1, to: startDate) ?? startDate
         return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
     }
 

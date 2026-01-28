@@ -7,6 +7,12 @@ final class MealPlan {
     var weekStartDate: Date = Date()
     var createdAt: Date = Date()
     var isActive: Bool = true
+    var planDuration: Int = 7
+
+    /// End date computed from start date and duration
+    var endDate: Date {
+        Calendar.current.date(byAdding: .day, value: planDuration - 1, to: weekStartDate) ?? weekStartDate
+    }
 
     // Relationship to user
     var userProfile: UserProfile?
@@ -24,11 +30,13 @@ final class MealPlan {
 
     init(
         weekStartDate: Date = Date(),
-        isActive: Bool = true
+        isActive: Bool = true,
+        planDuration: Int = 7
     ) {
         self.id = UUID()
         self.weekStartDate = weekStartDate
         self.createdAt = Date()
         self.isActive = isActive
+        self.planDuration = planDuration
     }
 }

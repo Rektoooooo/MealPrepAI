@@ -266,7 +266,8 @@ actor APIService {
         userProfile: GeneratePlanUserProfile,
         weeklyPreferences: String? = nil,
         excludeRecipeNames: [String] = [],
-        structuredPreferences: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = nil
+        structuredPreferences: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = nil,
+        duration: Int = 7
     ) async throws -> GeneratePlanAPIResponse {
         print("[DEBUG:API] ========== GENERATE MEAL PLAN START ==========")
         print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
@@ -302,6 +303,7 @@ actor APIService {
             weeklyPreferences: weeklyPreferences,
             excludeRecipeNames: excludeRecipeNames.isEmpty ? nil : excludeRecipeNames,
             deviceId: deviceId,
+            duration: duration,
             weeklyFocus: structuredPreferences?.weeklyFocus,
             temporaryExclusions: structuredPreferences?.temporaryExclusions,
             weeklyBusyness: structuredPreferences?.weeklyBusyness
@@ -504,6 +506,7 @@ struct GeneratePlanRequest: Codable, Sendable {
     let weeklyPreferences: String?
     let excludeRecipeNames: [String]?
     let deviceId: String
+    let duration: Int
 
     // Structured weekly preferences (optional, for enhanced backend parsing)
     let weeklyFocus: [String]?

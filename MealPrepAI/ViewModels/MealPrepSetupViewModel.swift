@@ -51,6 +51,7 @@ final class MealPrepSetupViewModel {
     // MARK: - Date Selection
     var selectedStartDate: Date = Date()
     var showingDatePicker: Bool = false
+    var planDuration: Int = 7
 
     // MARK: - Macro Overrides (for this generation only)
     var overrideCalories: Int?
@@ -101,18 +102,23 @@ final class MealPrepSetupViewModel {
         }
     }
 
-    /// End date for the selected week (6 days after start)
-    var selectedEndDate: Date {
-        Calendar.current.date(byAdding: .day, value: 6, to: selectedStartDate) ?? selectedStartDate
+    /// Maximum duration allowed based on subscription
+    func maxDuration(for profile: UserProfile?) -> Int {
+        profile?.isSubscribed == true ? 14 : 7
     }
 
-    /// Formatted date range string (e.g., "Mon, Feb 3 - Sun, Feb 9")
+    /// End date for the selected plan
+    var selectedEndDate: Date {
+        Calendar.current.date(byAdding: .day, value: planDuration - 1, to: selectedStartDate) ?? selectedStartDate
+    }
+
+    /// Formatted date range string (e.g., "Mon, Feb 3 - Sun, Feb 9 (7 days)")
     var formattedDateRange: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE, MMM d"
         let startString = formatter.string(from: selectedStartDate)
         let endString = formatter.string(from: selectedEndDate)
-        return "\(startString) - \(endString)"
+        return "\(startString) - \(endString) (\(planDuration) \(planDuration == 1 ? "day" : "days"))"
     }
 
     /// CTA button title for current step
@@ -252,8 +258,14 @@ final class MealPrepSetupViewModel {
                     startDate: selectedStartDate,
                     weeklyPreferences: weeklyPrefsString,
                     macroOverrides: macroOverrides,
+                    duration: planDuration,
                     modelContext: modelContext
                 )
+
+                // Mark free trial as used for free users
+                if !profile.isSubscribed {
+                    profile.hasUsedFreeTrial = true
+                }
 
                 isGenerating = false
                 generationProgress = ""

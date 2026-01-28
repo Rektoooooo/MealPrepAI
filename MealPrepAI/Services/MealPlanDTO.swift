@@ -149,8 +149,8 @@ struct IngredientDTO: Codable {
 // MARK: - Mapping DTOs to SwiftData Models
 extension MealPlanResponse {
     /// Creates SwiftData models from the parsed response
-    func toSwiftDataModels(startDate: Date) -> (mealPlan: MealPlan, days: [Day], meals: [Meal], recipes: [Recipe], ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
-        let mealPlan = MealPlan(weekStartDate: startDate, isActive: true)
+    func toSwiftDataModels(startDate: Date, planDuration: Int = 7) -> (mealPlan: MealPlan, days: [Day], meals: [Meal], recipes: [Recipe], ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
+        let mealPlan = MealPlan(weekStartDate: startDate, isActive: true, planDuration: planDuration)
 
         var allDays: [Day] = []
         var allMeals: [Meal] = []

@@ -10,6 +10,7 @@ struct MealPrepSetupView: View {
 
     @State private var viewModel: MealPrepSetupViewModel
     @Bindable var generator: MealPlanGenerator
+    @State private var showingPaywall = false
 
     /// If true, skips the welcome screen and goes straight to customization
     let skipWelcome: Bool
@@ -30,13 +31,17 @@ struct MealPrepSetupView: View {
             OnboardingDesign.Colors.background
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Header with progress and back button
-                headerView
+            if showingPaywall {
+                paywallView
+            } else {
+                VStack(spacing: 0) {
+                    // Header with progress and back button
+                    headerView
 
-                // Step Content
-                stepContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Step Content
+                    stepContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
 
             // Loading overlay
@@ -45,6 +50,36 @@ struct MealPrepSetupView: View {
             }
         }
         .interactiveDismissDisabled(viewModel.isGenerating)
+        .onAppear {
+            // TESTING: Force subscription status for existing profiles
+            if let profile = userProfile {
+                profile.subscriptionStatus = "subscribed"
+            }
+
+            if let profile = userProfile, !profile.canCreatePlan {
+                showingPaywall = true
+            }
+            // Lock free users to 7-day duration
+            if let profile = userProfile, !profile.isSubscribed {
+                viewModel.planDuration = 7
+            }
+        }
+    }
+
+    // MARK: - Paywall View
+    private var paywallView: some View {
+        PaywallStepView(
+            onSubscribe: { _ in
+                // For now, just simulate subscription
+                if let profile = userProfile {
+                    profile.subscriptionStatus = "subscribed"
+                }
+                showingPaywall = false
+            },
+            onRestorePurchases: {
+                // Placeholder for restore logic
+            }
+        )
     }
 
     // MARK: - Header View

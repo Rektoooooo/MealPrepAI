@@ -4,17 +4,17 @@ import SwiftData
 @MainActor
 class SampleDataGenerator {
 
-    static func generateSampleMealPlan(for profile: UserProfile, in context: ModelContext) {
+    static func generateSampleMealPlan(for profile: UserProfile, in context: ModelContext, duration: Int = 7) {
         // Create sample recipes first
         let (breakfastRecipes, lunchRecipes, dinnerRecipes, snackRecipes) = createSampleRecipes(in: context)
 
-        // Create a 7-day meal plan starting today
-        let mealPlan = MealPlan(weekStartDate: Date(), isActive: true)
+        // Create a meal plan starting today with the given duration
+        let mealPlan = MealPlan(weekStartDate: Date(), isActive: true, planDuration: duration)
         context.insert(mealPlan)
 
         // Create days
         let calendar = Calendar.current
-        for dayOffset in 0..<7 {
+        for dayOffset in 0..<duration {
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
 
             let dayOfWeek = calendar.component(.weekday, from: date)

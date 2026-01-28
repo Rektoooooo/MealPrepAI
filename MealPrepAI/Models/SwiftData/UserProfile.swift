@@ -44,6 +44,18 @@ final class UserProfile {
     var includeSnacks: Bool = true
     var simpleModeEnabled: Bool = false
 
+    // Subscription & Trial
+    var hasUsedFreeTrial: Bool = false
+    var subscriptionStatus: String = "subscribed"  // "free" or "subscribed" — hardcoded for testing
+
+    var isSubscribed: Bool {
+        subscriptionStatus == "subscribed"
+    }
+
+    var canCreatePlan: Bool {
+        isSubscribed || !hasUsedFreeTrial
+    }
+
     // Onboarding
     var hasCompletedOnboarding: Bool = false
     var primaryGoalsData: Data?

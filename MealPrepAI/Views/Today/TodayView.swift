@@ -561,7 +561,7 @@ struct GenerateMealPlanSheet: View {
                                     .font(.system(size: 26, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
-                                Text("We'll create a personalized 7-day meal plan based on your dietary preferences and nutritional goals.")
+                                Text("We'll create a personalized meal plan based on your dietary preferences and nutritional goals.")
                                     .font(.subheadline)
                                     .foregroundStyle(Color.textSecondary)
                                     .multilineTextAlignment(.center)

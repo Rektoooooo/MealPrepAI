@@ -17,7 +17,7 @@ struct MealPrepReviewStep: View {
     private var existingPlanRanges: [ExistingPlanRange] {
         allMealPlans.compactMap { plan in
             let start = plan.weekStartDate
-            let end = Calendar.current.date(byAdding: .day, value: 6, to: start) ?? start
+            let end = Calendar.current.date(byAdding: .day, value: plan.planDuration - 1, to: start) ?? start
             return ExistingPlanRange(start: start, end: end)
         }
     }
@@ -55,7 +55,9 @@ struct MealPrepReviewStep: View {
             .sheet(isPresented: $viewModel.showingDatePicker) {
                 DateRangePickerSheet(
                     selectedDate: $viewModel.selectedStartDate,
-                    existingPlanRanges: existingPlanRanges
+                    planDuration: $viewModel.planDuration,
+                    existingPlanRanges: existingPlanRanges,
+                    maxDuration: viewModel.maxDuration(for: userProfile)
                 )
             }
 

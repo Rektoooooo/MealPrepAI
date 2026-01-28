@@ -3,7 +3,7 @@
  *
  * POST /api/v1/generate-plan
  *
- * Generates a full 7-day meal plan using Claude AI with:
+ * Generates a 1-14 day meal plan using Claude AI with:
  * - User profile-based personalization
  * - Weekly preference support
  * - Smart image matching
@@ -49,6 +49,7 @@ interface GeneratePlanRequest {
   weeklyPreferences?: string;
   excludeRecipeNames?: string[];
   deviceId: string;
+  duration?: number; // 1-14 days, defaults to 7
   // Structured weekly preferences (optional, for enhanced parsing)
   weeklyFocus?: string[];
   temporaryExclusions?: string[];
@@ -541,6 +542,7 @@ export async function handleGeneratePlan(
   req: GeneratePlanRequest
 ): Promise<GeneratePlanResponse> {
   const { userProfile, weeklyPreferences, excludeRecipeNames, deviceId, weeklyFocus, temporaryExclusions, weeklyBusyness } = req;
+  const duration = Math.min(14, Math.max(1, req.duration ?? 7));
 
   console.log('[DEBUG] ========== GENERATE PLAN START ==========');
   console.log('[DEBUG] Device ID:', deviceId);
@@ -627,20 +629,19 @@ export async function handleGeneratePlan(
     const allDays: DayDTO[] = [];
 
     // Using Claude Haiku for cost efficiency (~12x cheaper than Sonnet)
-    // Split into 4 batches to fit within Haiku's 4096 token output limit
+    // Split into batches of 2 days each to fit within Haiku's 4096 token output limit
     const MODEL = 'claude-3-5-haiku-latest';
     const MAX_TOKENS = 4000;
 
-    // Batch definitions: [startDay, endDay]
-    const batches: [number, number][] = [
-      [0, 1],  // Days 0-1 (2 days, 8 meals)
-      [2, 3],  // Days 2-3 (2 days, 8 meals)
-      [4, 5],  // Days 4-5 (2 days, 8 meals)
-      [6, 6],  // Day 6 (1 day, 4 meals)
-    ];
+    // Dynamic batching: pairs of 2 days each, remainder in last batch
+    const batches: [number, number][] = [];
+    for (let i = 0; i < duration; i += 2) {
+      const endDay = Math.min(i + 1, duration - 1);
+      batches.push([i, endDay]);
+    }
 
-    // Run all 4 batches IN PARALLEL for speed
-    console.log('[DEBUG] Starting all 4 batches in PARALLEL...');
+    // Run all batches IN PARALLEL for speed
+    console.log(`[DEBUG] Starting ${batches.length} batches in PARALLEL for ${duration}-day plan...`);
     const parallelStartTime = Date.now();
 
     const batchPromises = batches.map(async ([startDay, endDay], i) => {

@@ -6,7 +6,7 @@ struct HelpSupportNavigationView: View {
     @Environment(\.requestReview) private var requestReview
 
     private let faqItems: [(question: String, answer: String)] = [
-        ("How do I generate a meal plan?", "Go to the Today or Weekly Plan tab and tap 'Generate Meal Plan'. Fill in your preferences and our AI will create a personalized 7-day plan."),
+        ("How do I generate a meal plan?", "Go to the Today or Weekly Plan tab and tap 'Generate Meal Plan'. Fill in your preferences, choose your plan duration (1-14 days), and our AI will create a personalized plan."),
         ("Can I swap individual meals?", "Yes! Tap on any meal and use the 'Swap' button to generate a new meal alternative that fits your preferences."),
         ("How do I add my own recipes?", "Go to the Recipes tab and tap the + button in the top right. Fill in the recipe details to add your own creations."),
         ("How do allergies work?", "Set your allergies in your Profile. The AI will never suggest recipes containing your allergens."),

@@ -6,25 +6,25 @@ struct ExistingPlanRange: Equatable {
     let end: Date
 }
 
-/// Custom calendar that highlights the 7-day meal plan range starting from the selected date
-/// and shows existing meal plan ranges in a separate color
+/// Custom calendar where user taps to select a start date, then taps again to select an end date.
+/// The range is validated to be within maxDuration days.
 struct MealPlanCalendarView: View {
-    @Binding var selectedDate: Date
+    @Binding var selectedStartDate: Date
+    @Binding var selectedEndDate: Date
     let minDate: Date
     let maxDate: Date
     var existingPlanRanges: [ExistingPlanRange] = []
+    var maxDuration: Int = 14
+
+    /// Tracks whether the next tap should set the start or end date
+    @Binding var isSelectingEnd: Bool
 
     @State private var displayedMonth: Date = Date()
 
     private let calendar = Calendar.current
     private let daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    private let rangeColor = Color(red: 0.2, green: 0.78, blue: 0.35) // Green for new selection
-    private let existingColor = Color(red: 0.2, green: 0.78, blue: 0.35) // Green for existing plans
-
-    // The 7-day range end date
-    private var endDate: Date {
-        calendar.date(byAdding: .day, value: 6, to: selectedDate) ?? selectedDate
-    }
+    private let rangeColor = Color(red: 0.2, green: 0.78, blue: 0.35)
+    private let existingColor = Color(red: 0.2, green: 0.78, blue: 0.35)
 
     private var monthTitle: String {
         let formatter = DateFormatter()
@@ -44,6 +44,11 @@ struct MealPlanCalendarView: View {
         return nextMonthStart <= maxDate
     }
 
+    /// The latest valid end date based on start + maxDuration
+    private var maxEndDate: Date {
+        calendar.date(byAdding: .day, value: maxDuration - 1, to: selectedStartDate) ?? selectedStartDate
+    }
+
     /// Check if a date falls within any existing meal plan range
     private func isInExistingPlan(_ date: Date) -> Bool {
         let day = calendar.startOfDay(for: date)
@@ -52,12 +57,10 @@ struct MealPlanCalendarView: View {
         }
     }
 
-    /// Check if a date is the start of an existing meal plan range
     private func isExistingPlanStart(_ date: Date) -> Bool {
         existingPlanRanges.contains { calendar.isDate(date, inSameDayAs: $0.start) }
     }
 
-    /// Check if a date is the end of an existing meal plan range
     private func isExistingPlanEnd(_ date: Date) -> Bool {
         existingPlanRanges.contains { calendar.isDate(date, inSameDayAs: $0.end) }
     }
@@ -98,6 +101,12 @@ struct MealPlanCalendarView: View {
             }
             .padding(.horizontal, 4)
 
+            // Instruction hint
+            Text(isSelectingEnd ? "Now tap the end date (max \(maxDuration) days)" : "Tap to select start date")
+                .font(.caption)
+                .foregroundStyle(isSelectingEnd ? rangeColor : OnboardingDesign.Colors.textTertiary)
+                .animation(.easeInOut(duration: 0.2), value: isSelectingEnd)
+
             // Day of week headers
             HStack(spacing: 0) {
                 ForEach(daysOfWeek, id: \.self) { day in
@@ -137,7 +146,7 @@ struct MealPlanCalendarView: View {
                 .fill(OnboardingDesign.Colors.cardBackground)
         )
         .onAppear {
-            displayedMonth = selectedDate
+            displayedMonth = selectedStartDate
         }
     }
 
@@ -158,19 +167,39 @@ struct MealPlanCalendarView: View {
     private func dayCell(for date: Date?) -> some View {
         if let date = date {
             let isCurrentMonth = calendar.isDate(date, equalTo: displayedMonth, toGranularity: .month)
-            let isStartDate = calendar.isDate(date, inSameDayAs: selectedDate)
-            let isEndDate = calendar.isDate(date, inSameDayAs: endDate)
-            let isInRange = date >= calendar.startOfDay(for: selectedDate) && date <= calendar.startOfDay(for: endDate)
+            let startDay = calendar.startOfDay(for: selectedStartDate)
+            let endDay = calendar.startOfDay(for: selectedEndDate)
+            let thisDay = calendar.startOfDay(for: date)
+
+            let isStartDate = calendar.isDate(date, inSameDayAs: selectedStartDate)
+            let isEndDate = calendar.isDate(date, inSameDayAs: selectedEndDate)
+            let isInRange = thisDay >= startDay && thisDay <= endDay
             let isToday = calendar.isDateInToday(date)
-            let isSelectable = date >= calendar.startOfDay(for: minDate) && date <= calendar.startOfDay(for: maxDate)
+            let isSelectable = thisDay >= calendar.startOfDay(for: minDate) && thisDay <= calendar.startOfDay(for: maxDate)
+
+            // When selecting end, dates beyond maxDuration from start are dimmed
+            let isWithinMaxRange = !isSelectingEnd || thisDay <= calendar.startOfDay(for: maxEndDate)
+            let isValidEndTarget = !isSelectingEnd || thisDay >= startDay
+
             let isExisting = isInExistingPlan(date) && !isInRange
             let isExistingStart = isExistingPlanStart(date) && !isInRange
             let isExistingEnd = isExistingPlanEnd(date) && !isInRange
 
+            let canTap = isSelectable && isCurrentMonth && isWithinMaxRange && isValidEndTarget
+
             Button(action: {
-                if isSelectable {
+                if canTap {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedDate = date
+                        if isSelectingEnd {
+                            // Second tap: set end date
+                            selectedEndDate = date
+                            isSelectingEnd = false
+                        } else {
+                            // First tap: set start date, reset end to same day, enter end-selection mode
+                            selectedStartDate = date
+                            selectedEndDate = date
+                            isSelectingEnd = true
+                        }
                     }
                 }
             }) {
@@ -178,7 +207,7 @@ struct MealPlanCalendarView: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(
                         !isCurrentMonth ? OnboardingDesign.Colors.textTertiary.opacity(0.4) :
-                        !isSelectable ? OnboardingDesign.Colors.textTertiary.opacity(0.3) :
+                        !isSelectable || (isSelectingEnd && (!isWithinMaxRange || !isValidEndTarget)) ? OnboardingDesign.Colors.textTertiary.opacity(0.3) :
                         isStartDate || isEndDate ? .white :
                         isInRange ? rangeColor :
                         isExistingStart || isExistingEnd ? .white :
@@ -190,7 +219,7 @@ struct MealPlanCalendarView: View {
                     .frame(height: 38)
                     .background(
                         ZStack {
-                            // Existing plan range background (behind new selection)
+                            // Existing plan range background
                             if isExisting && isCurrentMonth && !isExistingStart && !isExistingEnd {
                                 Rectangle()
                                     .fill(existingColor.opacity(0.10))
@@ -224,9 +253,12 @@ struct MealPlanCalendarView: View {
 
                             // Start date: right half range + circle
                             if isStartDate && isCurrentMonth {
-                                HStack(spacing: 0) {
-                                    Color.clear.frame(width: 19)
-                                    Rectangle().fill(rangeColor.opacity(0.12))
+                                if !isEndDate {
+                                    // Only show right-side fill if there's a range
+                                    HStack(spacing: 0) {
+                                        Color.clear.frame(width: 19)
+                                        Rectangle().fill(rangeColor.opacity(0.12))
+                                    }
                                 }
                                 Circle()
                                     .fill(rangeColor)
@@ -244,7 +276,7 @@ struct MealPlanCalendarView: View {
                                     .frame(width: 36, height: 36)
                             }
 
-                            // Today indicator (subtle ring when not in any range)
+                            // Today indicator
                             if isToday && !isStartDate && !isEndDate && !isExistingStart && !isExistingEnd {
                                 Circle()
                                     .stroke(OnboardingDesign.Colors.textTertiary, lineWidth: 1)
@@ -254,7 +286,7 @@ struct MealPlanCalendarView: View {
                     )
             }
             .buttonStyle(.plain)
-            .disabled(!isSelectable || !isCurrentMonth)
+            .disabled(!canTap)
         } else {
             Color.clear
                 .frame(maxWidth: .infinity)
@@ -309,15 +341,17 @@ private extension Calendar {
 
 #Preview {
     MealPlanCalendarView(
-        selectedDate: .constant(Date()),
+        selectedStartDate: .constant(Date()),
+        selectedEndDate: .constant(Calendar.current.date(byAdding: .day, value: 6, to: Date())!),
         minDate: Date(),
         maxDate: Calendar.current.date(byAdding: .weekOfYear, value: 8, to: Date())!,
         existingPlanRanges: [
             ExistingPlanRange(
-                start: Date(),
-                end: Calendar.current.date(byAdding: .day, value: 6, to: Date())!
+                start: Calendar.current.date(byAdding: .day, value: -7, to: Date())!,
+                end: Calendar.current.date(byAdding: .day, value: -1, to: Date())!
             )
-        ]
+        ],
+        isSelectingEnd: .constant(false)
     )
     .padding()
 }

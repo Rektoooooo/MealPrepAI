@@ -1,32 +1,43 @@
 import SwiftUI
 
 // MARK: - Date Range Picker Sheet
-/// A sheet for selecting the start date of a meal plan with quick options and calendar
+/// A sheet for selecting the start and end dates of a meal plan via calendar taps
 struct DateRangePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedDate: Date
+    @Binding var planDuration: Int
     var existingPlanRanges: [ExistingPlanRange] = []
+    var maxDuration: Int = 14
 
     // Local state for editing before confirmation
-    @State private var tempDate: Date
+    @State private var tempStartDate: Date
+    @State private var tempEndDate: Date
+    @State private var isSelectingEnd: Bool = false
 
-    init(selectedDate: Binding<Date>, existingPlanRanges: [ExistingPlanRange] = []) {
+    init(selectedDate: Binding<Date>, planDuration: Binding<Int>, existingPlanRanges: [ExistingPlanRange] = [], maxDuration: Int = 14) {
         self._selectedDate = selectedDate
+        self._planDuration = planDuration
         self.existingPlanRanges = existingPlanRanges
-        self._tempDate = State(initialValue: selectedDate.wrappedValue)
+        self.maxDuration = maxDuration
+        let start = selectedDate.wrappedValue
+        let end = Calendar.current.date(byAdding: .day, value: planDuration.wrappedValue - 1, to: start) ?? start
+        self._tempStartDate = State(initialValue: start)
+        self._tempEndDate = State(initialValue: end)
     }
 
     // MARK: - Computed Properties
 
-    private var endDate: Date {
-        Calendar.current.date(byAdding: .day, value: 6, to: tempDate) ?? tempDate
+    private var computedDuration: Int {
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: tempStartDate), to: cal.startOfDay(for: tempEndDate)).day ?? 0
+        return days + 1
     }
 
     private var dateRangePreview: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE, MMM d"
-        let startString = formatter.string(from: tempDate)
-        let endString = formatter.string(from: endDate)
+        let startString = formatter.string(from: tempStartDate)
+        let endString = formatter.string(from: tempEndDate)
         return "\(startString) → \(endString)"
     }
 
@@ -41,13 +52,17 @@ struct DateRangePickerSheet: View {
     private var nextMonday: Date {
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: today)
-        // Sunday = 1, Monday = 2, etc.
         let daysUntilMonday = weekday == 1 ? 1 : (9 - weekday)
         return calendar.date(byAdding: .day, value: daysUntilMonday, to: today) ?? today
     }
 
     private var maxDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: today) ?? today
+    }
+
+    /// Whether a valid range has been fully selected (not mid-selection)
+    private var hasValidRange: Bool {
+        !isSelectingEnd && computedDuration >= 1
     }
 
     // MARK: - Body
@@ -74,7 +89,7 @@ struct DateRangePickerSheet: View {
                     .padding(.horizontal, OnboardingDesign.Spacing.lg)
                     .padding(.bottom, OnboardingDesign.Spacing.xxl)
             }
-            .navigationTitle("Select Start Date")
+            .navigationTitle("Select Date Range")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -93,7 +108,7 @@ struct DateRangePickerSheet: View {
 
     private var quickOptionsSection: some View {
         VStack(alignment: .leading, spacing: OnboardingDesign.Spacing.md) {
-            Text("Quick Select")
+            Text("Quick Select Start")
                 .font(OnboardingDesign.Typography.headline)
                 .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
@@ -106,11 +121,13 @@ struct DateRangePickerSheet: View {
     }
 
     private func quickOptionButton(_ title: String, date: Date) -> some View {
-        let isSelected = Calendar.current.isDate(tempDate, inSameDayAs: date)
+        let isSelected = Calendar.current.isDate(tempStartDate, inSameDayAs: date) && !isSelectingEnd
 
         return Button(action: {
             withAnimation(OnboardingDesign.Animation.quick) {
-                tempDate = date
+                tempStartDate = date
+                tempEndDate = date
+                isSelectingEnd = true
             }
         }) {
             Text(title)
@@ -132,15 +149,18 @@ struct DateRangePickerSheet: View {
 
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: OnboardingDesign.Spacing.md) {
-            Text("Or pick a date")
+            Text("Pick your date range")
                 .font(OnboardingDesign.Typography.headline)
                 .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
             MealPlanCalendarView(
-                selectedDate: $tempDate,
+                selectedStartDate: $tempStartDate,
+                selectedEndDate: $tempEndDate,
                 minDate: today,
                 maxDate: maxDate,
-                existingPlanRanges: existingPlanRanges
+                existingPlanRanges: existingPlanRanges,
+                maxDuration: maxDuration,
+                isSelectingEnd: $isSelectingEnd
             )
         }
     }
@@ -158,14 +178,21 @@ struct DateRangePickerSheet: View {
                     .font(OnboardingDesign.Typography.subheadline)
                     .foregroundStyle(OnboardingDesign.Colors.textSecondary)
 
-                Text(dateRangePreview)
-                    .font(OnboardingDesign.Typography.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+                if isSelectingEnd {
+                    Text("Select end date...")
+                        .font(OnboardingDesign.Typography.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(OnboardingDesign.Colors.accent)
+                } else {
+                    Text(dateRangePreview)
+                        .font(OnboardingDesign.Typography.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
-                Text("(7 days)")
-                    .font(OnboardingDesign.Typography.caption)
-                    .foregroundStyle(OnboardingDesign.Colors.textTertiary)
+                    Text("(\(computedDuration) \(computedDuration == 1 ? "day" : "days"))")
+                        .font(OnboardingDesign.Typography.caption)
+                        .foregroundStyle(OnboardingDesign.Colors.textTertiary)
+                }
             }
             .padding(OnboardingDesign.Spacing.md)
             .frame(maxWidth: .infinity)
@@ -176,25 +203,27 @@ struct DateRangePickerSheet: View {
 
             // Confirm Button
             Button(action: {
-                selectedDate = tempDate
+                selectedDate = tempStartDate
+                planDuration = computedDuration
                 dismiss()
             }) {
-                Text("Confirm Date")
+                Text("Confirm Date Range")
                     .font(OnboardingDesign.Typography.headline)
                     .foregroundStyle(OnboardingDesign.Colors.textOnDark)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, OnboardingDesign.Spacing.lg)
                     .background(
                         RoundedRectangle(cornerRadius: OnboardingDesign.Radius.xl)
-                            .fill(OnboardingDesign.Colors.accent)
+                            .fill(hasValidRange ? OnboardingDesign.Colors.accent : OnboardingDesign.Colors.textTertiary)
                     )
             }
             .buttonStyle(.plain)
+            .disabled(!hasValidRange)
         }
     }
 }
 
 // MARK: - Preview
 #Preview {
-    DateRangePickerSheet(selectedDate: .constant(Date()))
+    DateRangePickerSheet(selectedDate: .constant(Date()), planDuration: .constant(7))
 }
