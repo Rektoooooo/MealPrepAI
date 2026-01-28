@@ -16,19 +16,34 @@ struct WeeklyPlanView: View {
     @State private var weekOffset: Int = 0
 
     private var viewingWeekStart: Date {
-        let calendar = Calendar.current
-        let today = Date()
-        // Get start of current week (Sunday)
-        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today))!
-        // Apply offset
-        return calendar.date(byAdding: .weekOfYear, value: weekOffset, to: startOfWeek) ?? startOfWeek
+        var calendar = Calendar.current
+        calendar.firstWeekday = 1  // 1 = Sunday, ensures consistent week start
+        let today = calendar.startOfDay(for: Date())
+
+        // Get the weekday (1 = Sunday, 2 = Monday, etc.)
+        let weekday = calendar.component(.weekday, from: today)
+        // Calculate days to subtract to get to Sunday
+        let daysToSubtract = weekday - 1
+
+        // Get Sunday of current week
+        let sundayOfCurrentWeek = calendar.date(byAdding: .day, value: -daysToSubtract, to: today)!
+
+        // Apply week offset
+        return calendar.date(byAdding: .day, value: weekOffset * 7, to: sundayOfCurrentWeek) ?? sundayOfCurrentWeek
     }
 
     private var currentMealPlan: MealPlan? {
         let calendar = Calendar.current
+        // Calculate the end of the viewing week (Saturday)
+        let viewingWeekEnd = calendar.date(byAdding: .day, value: 6, to: viewingWeekStart)!
+
+        // Find meal plan that has any days overlapping with the viewing week
         return mealPlans.first { plan in
-            calendar.isDate(plan.weekStartDate, equalTo: viewingWeekStart, toGranularity: .weekOfYear)
-        } ?? (weekOffset == 0 ? mealPlans.first : nil)
+            // Check if any day in the meal plan falls within the viewing week
+            plan.sortedDays.contains { day in
+                day.date >= viewingWeekStart && day.date <= viewingWeekEnd
+            }
+        }
     }
 
     private var canNavigateToPreviousWeek: Bool {
@@ -50,29 +65,67 @@ struct WeeklyPlanView: View {
     }
 
     private var selectedDay: Day? {
-        guard selectedDayIndex < sortedDays.count else { return nil }
-        return sortedDays[selectedDayIndex]
+        guard selectedDayIndex < weekDaysFromViewingWeek.count else { return nil }
+        let selectedDate = weekDaysFromViewingWeek[selectedDayIndex].fullDate
+        let calendar = Calendar.current
+        // Find the day in the meal plan that matches the selected date
+        return sortedDays.first { calendar.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
-    private var weekDays: [String] {
-        sortedDays.map { $0.shortDayName }
-    }
+    // Week days based on viewingWeekStart (always available, not dependent on meal plan)
+    private var weekDaysFromViewingWeek: [(dayName: String, date: Int, fullDate: Date)] {
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
 
-    private var dates: [Int] {
-        sortedDays.map { Calendar.current.component(.day, from: $0.date) }
+        return (0..<7).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: viewingWeekStart) else {
+                return nil
+            }
+            let dayName = formatter.string(from: date)
+            let dayOfMonth = calendar.component(.day, from: date)
+            return (dayName: dayName, date: dayOfMonth, fullDate: date)
+        }
     }
 
     private var todayIndex: Int {
         let calendar = Calendar.current
-        return sortedDays.firstIndex { calendar.isDateInToday($0.date) } ?? 0
+        return weekDaysFromViewingWeek.firstIndex { calendar.isDateInToday($0.fullDate) } ?? 0
+    }
+
+    // Calculate suggested next plan dates based on when current plan ends
+    private var suggestedNextPlanDateRange: String? {
+        guard let plan = currentMealPlan,
+              let lastDay = plan.sortedDays.last else { return nil }
+
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+
+        // Next plan starts the day after current plan ends
+        guard let nextStart = calendar.date(byAdding: .day, value: 1, to: lastDay.date),
+              let nextEnd = calendar.date(byAdding: .day, value: 6, to: nextStart) else { return nil }
+
+        return "\(formatter.string(from: nextStart)) - \(formatter.string(from: nextEnd))"
+    }
+
+    // Check if we're viewing a day after the current plan ends
+    private var isViewingDayAfterPlanEnds: Bool {
+        guard let plan = currentMealPlan,
+              let lastDay = plan.sortedDays.last,
+              selectedDayIndex < weekDaysFromViewingWeek.count else { return false }
+
+        let selectedDate = weekDaysFromViewingWeek[selectedDayIndex].fullDate
+        return selectedDate > lastDay.date
     }
 
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Design.Spacing.lg) {
+                    // Personalization Banner - context aware
                     if currentMealPlan == nil {
-                        // Empty State with Personalization Banner
+                        // No plan at all
                         PersonalizationBanner(
                             title: "Create Your Plan",
                             subtitle: "Generate a personalized meal plan tailored to your preferences",
@@ -81,12 +134,18 @@ struct WeeklyPlanView: View {
                         )
                         .opacity(animateContent ? 1 : 0)
                         .offset(y: animateContent ? 0 : 20)
-
-                        emptyStateView
-                            .opacity(animateContent ? 1 : 0)
-                            .offset(y: animateContent ? 0 : 20)
+                    } else if selectedDay == nil, let dateRange = suggestedNextPlanDateRange {
+                        // Plan exists but selected day has no meals - suggest next plan
+                        PersonalizationBanner(
+                            title: "Plan Your Next Week",
+                            subtitle: "Generate meals for \(dateRange)",
+                            buttonText: "Generate Plan",
+                            onTap: { showingGenerateSheet = true }
+                        )
+                        .opacity(animateContent ? 1 : 0)
+                        .offset(y: animateContent ? 0 : 20)
                     } else {
-                        // Personalization Banner
+                        // Plan exists and viewing a covered day
                         PersonalizationBanner(
                             title: "Personalise Meal Plan",
                             subtitle: "Update your weekly meal preferences",
@@ -95,32 +154,38 @@ struct WeeklyPlanView: View {
                         )
                         .opacity(animateContent ? 1 : 0)
                         .offset(y: animateContent ? 0 : 20)
+                    }
 
-                        // Week Navigation
-                        weekNavigation
+                    // Week Navigation - always shown
+                    weekNavigation
+                        .opacity(animateContent ? 1 : 0)
+                        .offset(y: animateContent ? 0 : 20)
+
+                    // Day Pills - always shown
+                    dayPillsSection
+                        .opacity(animateContent ? 1 : 0)
+                        .offset(y: animateContent ? 0 : 20)
+
+                    // Content based on meal plan and day availability
+                    if currentMealPlan == nil {
+                        // No meal plan covers this week at all
+                        noMealPlanForWeekView
+                            .opacity(animateContent ? 1 : 0)
+                            .offset(y: animateContent ? 0 : 20)
+                    } else if let day = selectedDay {
+                        // Meal plan exists and selected day has meals
+                        daySummarySection(for: day)
                             .opacity(animateContent ? 1 : 0)
                             .offset(y: animateContent ? 0 : 20)
 
-                        // Day Pills
-                        if !weekDays.isEmpty {
-                            dayPillsSection
-                                .opacity(animateContent ? 1 : 0)
-                                .offset(y: animateContent ? 0 : 20)
-                        }
-
-                        // Day Summary
-                        if let day = selectedDay {
-                            daySummarySection(for: day)
-                                .opacity(animateContent ? 1 : 0)
-                                .offset(y: animateContent ? 0 : 20)
-                        }
-
-                        // Meals By Type
-                        if let day = selectedDay {
-                            mealsByTypeSection(for: day)
-                                .opacity(animateContent ? 1 : 0)
-                                .offset(y: animateContent ? 0 : 20)
-                        }
+                        mealsByTypeSection(for: day)
+                            .opacity(animateContent ? 1 : 0)
+                            .offset(y: animateContent ? 0 : 20)
+                    } else {
+                        // Meal plan exists but selected day has no meals
+                        noMealsForDayView
+                            .opacity(animateContent ? 1 : 0)
+                            .offset(y: animateContent ? 0 : 20)
                     }
                 }
                 .padding(.horizontal, Design.Spacing.md)
@@ -165,18 +230,85 @@ struct WeeklyPlanView: View {
         }
     }
 
-    // MARK: - Empty State
-    private var emptyStateView: some View {
-        NewEmptyStateView(
-            icon: "calendar.badge.plus",
-            title: "No Meal Plan Yet",
-            message: "Generate your first personalized meal plan based on your preferences and goals.",
-            buttonTitle: "Create My Meal Plan",
-            buttonIcon: "sparkles",
-            buttonStyle: .purple,
-            onButtonTap: { showingGenerateSheet = true }
+    // MARK: - Empty State for Week Without Plan
+    private var noMealPlanForWeekView: some View {
+        VStack(spacing: Design.Spacing.lg) {
+            Image(systemName: "calendar.badge.plus")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.accentPurple.opacity(0.6))
+
+            VStack(spacing: Design.Spacing.sm) {
+                Text("No Meal Plan for This Week")
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("Generate a personalized meal plan for this week")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
+                showingGenerateSheet = true
+            } label: {
+                HStack(spacing: Design.Spacing.sm) {
+                    Image(systemName: "sparkles")
+                    Text("Generate Meal Plan")
+                }
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, Design.Spacing.xl)
+                .padding(.vertical, Design.Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: Design.Radius.lg)
+                        .fill(Color.accentPurple)
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Design.Spacing.xxl)
+        .padding(.horizontal, Design.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
         )
-        .frame(height: 350)
+    }
+
+    // MARK: - Empty State for Day Without Meals
+    private var noMealsForDayView: some View {
+        VStack(spacing: Design.Spacing.md) {
+            Image(systemName: "fork.knife")
+                .font(.system(size: 36))
+                .foregroundStyle(Color.textSecondary.opacity(0.5))
+
+            VStack(spacing: Design.Spacing.xs) {
+                Text("No Meals for This Day")
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("This day isn't part of your current meal plan")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Design.Spacing.xl)
+        .padding(.horizontal, Design.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
+        )
     }
 
     // MARK: - Week Navigation
@@ -270,54 +402,51 @@ struct WeeklyPlanView: View {
 
     // MARK: - Day Pills Section
     private var dayPillsSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Design.Spacing.sm) {
-                ForEach(Array(zip(weekDays.indices, zip(weekDays, dates))), id: \.0) { index, dayData in
-                    let (dayName, date) = dayData
-                    let isSelected = index == selectedDayIndex
-                    let isToday = index == todayIndex
+        HStack(spacing: Design.Spacing.xs) {
+            ForEach(Array(weekDaysFromViewingWeek.enumerated()), id: \.offset) { index, dayData in
+                let isSelected = index == selectedDayIndex
+                let calendar = Calendar.current
+                let isToday = calendar.isDateInToday(dayData.fullDate)
 
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            selectedDayIndex = index
-                        }
-                    } label: {
-                        VStack(spacing: Design.Spacing.xs) {
-                            Text(dayName)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundStyle(isSelected ? .white : Color.textSecondary)
-
-                            Text("\(date)")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundStyle(isSelected ? .white : Color.textPrimary)
-
-                            if isToday && !isSelected {
-                                Circle()
-                                    .fill(Color.accentPurple)
-                                    .frame(width: 6, height: 6)
-                            } else {
-                                Circle()
-                                    .fill(Color.clear)
-                                    .frame(width: 6, height: 6)
-                            }
-                        }
-                        .frame(width: 50)
-                        .padding(.vertical, Design.Spacing.sm)
-                        .background(
-                            RoundedRectangle(cornerRadius: Design.Radius.md)
-                                .fill(isSelected ? Color.accentPurple : Color.cardBackground)
-                                .shadow(
-                                    color: isSelected ? Color.accentPurple.opacity(0.3) : Design.Shadow.card.color,
-                                    radius: isSelected ? 8 : Design.Shadow.card.radius,
-                                    y: Design.Shadow.card.y
-                                )
-                        )
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        selectedDayIndex = index
                     }
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(dayData.dayName)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundStyle(isSelected ? .white : Color.textSecondary)
+
+                        Text("\(dayData.date)")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(isSelected ? .white : Color.textPrimary)
+
+                        if isToday && !isSelected {
+                            Circle()
+                                .fill(Color.accentPurple)
+                                .frame(width: 5, height: 5)
+                        } else {
+                            Circle()
+                                .fill(Color.clear)
+                                .frame(width: 5, height: 5)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Design.Spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: Design.Radius.md)
+                            .fill(isSelected ? Color.accentPurple : Color.cardBackground)
+                            .shadow(
+                                color: isSelected ? Color.accentPurple.opacity(0.3) : Design.Shadow.card.color,
+                                radius: isSelected ? 8 : Design.Shadow.card.radius,
+                                y: Design.Shadow.card.y
+                            )
+                    )
                 }
             }
-            .padding(.horizontal, Design.Spacing.xs)
         }
     }
 

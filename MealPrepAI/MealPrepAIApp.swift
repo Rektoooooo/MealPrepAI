@@ -173,7 +173,6 @@ struct RootView: View {
     @Environment(CloudKitSyncManager.self) var syncManager
     @Environment(HealthKitManager.self) var healthKitManager
     @Query private var userProfiles: [UserProfile]
-    @State private var showOnboarding = false
     @State private var showLaunchScreen = true
     @State private var showSignInSheet = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
@@ -209,7 +208,6 @@ struct RootView: View {
                     onGetStarted: {
                         withAnimation(.easeInOut(duration: 0.4)) {
                             showLaunchScreen = false
-                            showOnboarding = true
                         }
                     },
                     onSignIn: {
@@ -221,8 +219,8 @@ struct RootView: View {
                     AuthenticationView()
                         .environment(authManager)
                 }
-            } else if showOnboarding {
-                // Show new onboarding flow
+            } else {
+                // Show onboarding flow
                 NewOnboardingView(
                     onComplete: {
                         // View will automatically update when profile is saved
@@ -231,18 +229,11 @@ struct RootView: View {
                         // Go back to launch screen or auth
                         withAnimation {
                             showLaunchScreen = true
-                            showOnboarding = false
                         }
                     }
                 )
                 .environment(authManager)
                 .environment(syncManager)
-            } else {
-                // Fallback to legacy onboarding
-                OnboardingView(onComplete: {
-                    // View will automatically update when profile is saved
-                })
-                .environment(authManager)
             }
         }
         .preferredColorScheme(appearanceMode.colorScheme)
@@ -250,7 +241,6 @@ struct RootView: View {
             // Reset to launch screen when account is deleted
             withAnimation(.easeInOut(duration: 0.3)) {
                 showLaunchScreen = true
-                showOnboarding = false
             }
         }
     }
