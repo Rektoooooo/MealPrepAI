@@ -265,6 +265,7 @@ final class MealPrepSetupViewModel {
                 // Mark free trial as used for free users
                 if !profile.isSubscribed {
                     profile.hasUsedFreeTrial = true
+                    SuperwallTracker.trackFreeTrialStarted()
                 }
 
                 isGenerating = false

@@ -58,6 +58,7 @@ struct MealPrepSetupView: View {
 
             if let profile = userProfile, !profile.canCreatePlan {
                 showingPaywall = true
+                SuperwallTracker.trackPaywallShown()
             }
             // Lock free users to 7-day duration
             if let profile = userProfile, !profile.isSubscribed {
@@ -69,7 +70,8 @@ struct MealPrepSetupView: View {
     // MARK: - Paywall View
     private var paywallView: some View {
         PaywallStepView(
-            onSubscribe: { _ in
+            onSubscribe: { plan in
+                SuperwallTracker.trackPaywallSubscribeTapped(plan: plan.rawValue)
                 // For now, just simulate subscription
                 if let profile = userProfile {
                     profile.subscriptionStatus = "subscribed"
@@ -77,7 +79,7 @@ struct MealPrepSetupView: View {
                 showingPaywall = false
             },
             onRestorePurchases: {
-                // Placeholder for restore logic
+                SuperwallTracker.trackRestoreTapped()
             }
         )
     }

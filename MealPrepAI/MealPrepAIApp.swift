@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import FirebaseCore
 import FirebaseAppCheck
+import SuperwallKit
 
 // MARK: - Notification Names
 extension Notification.Name {
@@ -92,6 +93,9 @@ struct MealPrepAIApp: App {
             FirebaseApp.configure()
             print("🔥 [App] Firebase configured in init")
         }
+
+        // Configure Superwall for analytics tracking
+        Superwall.configure(apiKey: "pk_Sk5q5XhpVeMrBXV1EJ1X_")
 
         // Now safe to create Firebase services
         _firebaseRecipeService = State(initialValue: FirebaseRecipeService())

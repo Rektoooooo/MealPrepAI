@@ -1,4 +1,5 @@
 import SwiftUI
+import SuperwallKit
 
 struct PaywallStepView: View {
     let onSubscribe: (SubscriptionPlan) -> Void
@@ -157,6 +158,7 @@ struct PaywallStepView: View {
         }
         .background(Color.white.ignoresSafeArea())
         .onAppear {
+            SuperwallTracker.trackPaywallShown()
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {
                 appeared = true
             }

@@ -16,6 +16,7 @@
 		EC0FEE652F23C61500159966 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE642F23C61500159966 /* FirebaseCore */; };
 		EC0FEE672F23C61500159966 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE662F23C61500159966 /* FirebaseFirestore */; };
 		EC0FEE692F23C61500159966 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE682F23C61500159966 /* FirebaseAppCheck */; };
+		EC4D84402F2A93A400A91514 /* SuperwallKit in Frameworks */ = {isa = PBXBuildFile; productRef = EC4D843F2F2A93A400A91514 /* SuperwallKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 				EC0FEE5B2F23C61500159966 /* FirebaseAILogic in Frameworks */,
 				EC0FEE612F23C61500159966 /* FirebaseAnalyticsIdentitySupport in Frameworks */,
 				EC0FEE592F23C61500159966 /* FirebaseAI in Frameworks */,
+				EC4D84402F2A93A400A91514 /* SuperwallKit in Frameworks */,
 				EC0FEE5D2F23C61500159966 /* FirebaseAnalytics in Frameworks */,
 				EC0FEE5F2F23C61500159966 /* FirebaseAnalyticsCore in Frameworks */,
 				EC0FEE632F23C61500159966 /* FirebaseAuth in Frameworks */,
@@ -142,6 +144,7 @@
 				EC0FEE642F23C61500159966 /* FirebaseCore */,
 				EC0FEE662F23C61500159966 /* FirebaseFirestore */,
 				EC0FEE682F23C61500159966 /* FirebaseAppCheck */,
+				EC4D843F2F2A93A400A91514 /* SuperwallKit */,
 			);
 			productName = MealPrepAI;
 			productReference = EC90E6C12F1C34A5004BE865 /* MealPrepAI.app */;
@@ -227,6 +230,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				EC4D843E2F2A93A400A91514 /* XCRemoteSwiftPackageReference "Superwall-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = EC90E6C22F1C34A5004BE865 /* Products */;
@@ -434,6 +438,7 @@
 				DEVELOPMENT_TEAM = PH3V9JYRDW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "MealPrepAI reads your weight and activity data to personalize your nutrition goals and track your progress.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MealPrepAI logs your meal nutrition to Apple Health when you mark meals as eaten, helping you track your daily intake.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -467,6 +472,7 @@
 				DEVELOPMENT_TEAM = PH3V9JYRDW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.food-and-drink";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "MealPrepAI reads your weight and activity data to personalize your nutrition goals and track your progress.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MealPrepAI logs your meal nutrition to Apple Health when you mark meals as eaten, helping you track your daily intake.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -615,6 +621,14 @@
 				minimumVersion = 12.8.0;
 			};
 		};
+		EC4D843E2F2A93A400A91514 /* XCRemoteSwiftPackageReference "Superwall-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/superwall-me/Superwall-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.12.9;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -662,6 +676,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EC0FEE572F23C61500159966 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAppCheck;
+		};
+		EC4D843F2F2A93A400A91514 /* SuperwallKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EC4D843E2F2A93A400A91514 /* XCRemoteSwiftPackageReference "Superwall-iOS" */;
+			productName = SuperwallKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
