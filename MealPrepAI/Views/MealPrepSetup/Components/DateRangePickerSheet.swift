@@ -5,12 +5,14 @@ import SwiftUI
 struct DateRangePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedDate: Date
+    var existingPlanRanges: [ExistingPlanRange] = []
 
     // Local state for editing before confirmation
     @State private var tempDate: Date
 
-    init(selectedDate: Binding<Date>) {
+    init(selectedDate: Binding<Date>, existingPlanRanges: [ExistingPlanRange] = []) {
         self._selectedDate = selectedDate
+        self.existingPlanRanges = existingPlanRanges
         self._tempDate = State(initialValue: selectedDate.wrappedValue)
     }
 
@@ -134,14 +136,12 @@ struct DateRangePickerSheet: View {
                 .font(OnboardingDesign.Typography.headline)
                 .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
-            DatePicker(
-                "Start Date",
-                selection: $tempDate,
-                in: today...maxDate,
-                displayedComponents: .date
+            MealPlanCalendarView(
+                selectedDate: $tempDate,
+                minDate: today,
+                maxDate: maxDate,
+                existingPlanRanges: existingPlanRanges
             )
-            .datePickerStyle(.graphical)
-            .tint(OnboardingDesign.Colors.accent)
         }
     }
 

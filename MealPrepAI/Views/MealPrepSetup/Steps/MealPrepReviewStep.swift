@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Meal Prep Review Step
 /// Step 5: Review preferences and generate the plan
@@ -7,8 +8,19 @@ struct MealPrepReviewStep: View {
     let userProfile: UserProfile?
     let onGenerate: () -> Void
 
+    @Query(sort: \MealPlan.createdAt, order: .reverse)
+    private var allMealPlans: [MealPlan]
+
     @FocusState private var isTextFieldFocused: Bool
     @State private var showingMacroEditor = false
+
+    private var existingPlanRanges: [ExistingPlanRange] {
+        allMealPlans.compactMap { plan in
+            let start = plan.weekStartDate
+            let end = Calendar.current.date(byAdding: .day, value: 6, to: start) ?? start
+            return ExistingPlanRange(start: start, end: end)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,7 +53,10 @@ struct MealPrepReviewStep: View {
                 .padding(.bottom, 150)
             }
             .sheet(isPresented: $viewModel.showingDatePicker) {
-                DateRangePickerSheet(selectedDate: $viewModel.selectedStartDate)
+                DateRangePickerSheet(
+                    selectedDate: $viewModel.selectedStartDate,
+                    existingPlanRanges: existingPlanRanges
+                )
             }
 
             Spacer()
