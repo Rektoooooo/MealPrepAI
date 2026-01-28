@@ -9,6 +9,8 @@ struct GroceryListView: View {
     @State private var searchText = ""
     @State private var showingAddItem = false
     @State private var showingShareSheet = false
+    @State private var showingHistory = false
+    @State private var showingCompleteConfirmation = false
     @State private var animateContent = false
 
     private var currentMealPlan: MealPlan? {
@@ -82,6 +84,7 @@ struct GroceryListView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
             .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -120,6 +123,10 @@ struct GroceryListView: View {
                                 Label("Regenerate from Meal Plan", systemImage: "arrow.clockwise")
                             }
                         }
+                        Divider()
+                        Button(action: { showingHistory = true }) {
+                            Label("Shopping History", systemImage: "clock.arrow.circlepath")
+                        }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 18))
@@ -132,6 +139,17 @@ struct GroceryListView: View {
             }
             .sheet(isPresented: $showingShareSheet) {
                 ShareGroceryListSheet(items: allItems)
+            }
+            .sheet(isPresented: $showingHistory) {
+                GroceryHistoryView()
+            }
+            .alert("Complete Shopping?", isPresented: $showingCompleteConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Complete", role: .none) {
+                    markShoppingComplete()
+                }
+            } message: {
+                Text("This will mark all items as checked and archive this list. You can view it later in Shopping History.")
             }
             .onAppear {
                 withAnimation(.easeOut(duration: 0.5)) {
@@ -165,36 +183,59 @@ struct GroceryListView: View {
 
     // MARK: - Progress Header
     private var progressHeader: some View {
-        HStack(spacing: Design.Spacing.md) {
-            VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
-                Text("Shopping Progress")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+        VStack(spacing: Design.Spacing.md) {
+            HStack(spacing: Design.Spacing.md) {
+                VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
+                    Text("Shopping Progress")
+                        .font(.headline)
+                        .foregroundStyle(.white)
 
-                Text("\(checkedCount) of \(allItems.count) items")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
+                    Text("\(checkedCount) of \(allItems.count) items")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Spacer()
+
+                // Progress Ring
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 5)
+                        .frame(width: 56, height: 56)
+
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .frame(width: 56, height: 56)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+
+                    Text("\(Int(progress * 100))%")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                }
             }
 
-            Spacer()
-
-            // Progress Ring
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.3), lineWidth: 5)
-                    .frame(width: 56, height: 56)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .frame(width: 56, height: 56)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-
-                Text("\(Int(progress * 100))%")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
+            // Show "Mark Shopping Complete" button when progress >= 80%
+            if progress >= 0.8 {
+                Button(action: { showingCompleteConfirmation = true }) {
+                    HStack(spacing: Design.Spacing.xs) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 16))
+                        Text("Mark Shopping Complete")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundStyle(Color.accentPurple)
+                    .padding(.horizontal, Design.Spacing.md)
+                    .padding(.vertical, Design.Spacing.sm)
+                    .background(
+                        Capsule()
+                            .fill(Color.white)
+                    )
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
         .padding(Design.Spacing.lg)
@@ -205,6 +246,7 @@ struct GroceryListView: View {
         )
         .padding(.horizontal, Design.Spacing.md)
         .padding(.top, Design.Spacing.sm)
+        .animation(Design.Animation.smooth, value: progress >= 0.8)
     }
 
     // MARK: - Category Header
@@ -246,6 +288,27 @@ struct GroceryListView: View {
             item.isChecked = false
         }
         try? modelContext.save()
+    }
+
+    private func markShoppingComplete() {
+        guard let list = groceryList else { return }
+        withAnimation {
+            // Mark all items as checked
+            for item in list.items ?? [] {
+                item.isChecked = true
+            }
+            // Mark list as completed
+            list.isCompleted = true
+            list.completedAt = Date()
+            list.lastModified = Date()
+
+            // Deactivate the associated meal plan so a new one can be generated
+            if let mealPlan = list.mealPlan {
+                mealPlan.isActive = false
+            }
+
+            try? modelContext.save()
+        }
     }
 
     private func generateGroceryList() {
@@ -367,13 +430,13 @@ struct GroceryItemRow: View {
     }
 
     var body: some View {
-        HStack(spacing: Design.Spacing.md) {
-            // Animated Checkbox
-            Button(action: {
-                withAnimation(Design.Animation.bouncy) {
-                    item.isChecked.toggle()
-                }
-            }) {
+        Button {
+            withAnimation(Design.Animation.bouncy) {
+                item.isChecked.toggle()
+            }
+        } label: {
+            HStack(spacing: Design.Spacing.md) {
+                // Animated Checkbox
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(item.isChecked ? LinearGradient.purpleButtonGradient : LinearGradient(colors: [Color.clear], startPoint: .top, endPoint: .bottom))
@@ -390,37 +453,37 @@ struct GroceryItemRow: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
+
+                // Item Details
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.displayName)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundStyle(item.isChecked ? Color.textSecondary : Color.textPrimary)
+                        .strikethrough(item.isChecked)
+
+                    Text(convertedQuantity)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                Spacer()
+
+                // Category Icon
+                if let category = item.ingredient?.category {
+                    Image(systemName: category.icon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.textSecondary.opacity(0.5))
+                }
             }
-            .buttonStyle(.plain)
-
-            // Item Details
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.displayName)
-                    .font(.body)
-                    .fontWeight(.medium)
-                    .foregroundStyle(item.isChecked ? Color.textSecondary : Color.textPrimary)
-                    .strikethrough(item.isChecked)
-
-                Text(convertedQuantity)
-                    .font(.caption)
-                    .foregroundStyle(Color.textSecondary)
-            }
-
-            Spacer()
-
-            // Category Icon
-            if let category = item.ingredient?.category {
-                Image(systemName: category.icon)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.textSecondary.opacity(0.5))
-            }
+            .padding(Design.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.md)
+                    .fill(Color.cardBackground)
+                    .opacity(item.isChecked ? 0.6 : 1)
+            )
         }
-        .padding(Design.Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: Design.Radius.md)
-                .fill(Color.cardBackground)
-                .opacity(item.isChecked ? 0.6 : 1)
-        )
+        .buttonStyle(.plain)
         .animation(Design.Animation.smooth, value: item.isChecked)
     }
 }

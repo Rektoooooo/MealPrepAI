@@ -2,22 +2,20 @@ import SwiftUI
 import SwiftData
 
 // MARK: - Recipe Async Image with Fallback
-/// Always shows gradient placeholder (image matching disabled for now)
 struct RecipeAsyncImage: View {
     let recipe: Recipe
     let height: CGFloat
     let cornerRadius: CGFloat
-    /// Optional matched image URL (currently unused - will re-enable later)
     var matchedImageUrl: String?
 
     var body: some View {
-        // Always show gradient placeholder (image matching disabled)
         FoodImagePlaceholder(
             style: recipe.cuisineType?.foodStyle ?? recipe.mealType?.foodStyle ?? .random,
             height: height,
             cornerRadius: cornerRadius,
-            showIcon: true,
-            iconSize: height * 0.3
+            showIcon: recipe.imageURL == nil,
+            iconSize: height * 0.3,
+            imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL
         )
         .frame(height: height)
     }
@@ -88,13 +86,36 @@ struct FoodImagePlaceholder: View {
     var cornerRadius: CGFloat = Design.Radius.lg
     var showIcon: Bool = true
     var iconSize: CGFloat = 40
-    var imageName: String? = nil  // Ignored - always shows gradient (will re-enable later)
+    var imageName: String? = nil
 
     var body: some View {
-        // Always show gradient placeholder (image matching disabled)
-        gradientPlaceholder
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        if let urlString = imageName, let url = URL(string: urlString) {
+            GeometryReader { geo in
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: geo.size.width, height: height)
+                            .clipped()
+                    case .failure:
+                        gradientPlaceholder
+                    case .empty:
+                        gradientPlaceholder
+                            .shimmer()
+                    @unknown default:
+                        gradientPlaceholder
+                    }
+                }
+            }
             .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        } else {
+            gradientPlaceholder
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                .frame(height: height)
+        }
     }
 
     // Extracted gradient placeholder view

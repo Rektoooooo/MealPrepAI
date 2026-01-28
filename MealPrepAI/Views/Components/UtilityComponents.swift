@@ -22,23 +22,29 @@ struct GreetingHeader: View {
             // Avatar - shows profile image, emoji, or initials
             ZStack {
                 Circle()
-                    .fill(LinearGradient.purpleButtonGradient)
-                    .frame(width: 50, height: 50)
+                    .stroke(LinearGradient.purpleButtonGradient, lineWidth: 3)
+                    .frame(width: 54, height: 54)
 
                 if let imageData = profileImageData,
                    let uiImage = UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 50, height: 50)
+                        .frame(width: 46, height: 46)
                         .clipShape(Circle())
-                } else if let emoji = avatarEmoji {
-                    Text(emoji)
-                        .font(.system(size: 26))
                 } else {
-                    Text(String(userName.prefix(2)).uppercased())
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                    Circle()
+                        .fill(LinearGradient.purpleButtonGradient)
+                        .frame(width: 46, height: 46)
+
+                    if let emoji = avatarEmoji {
+                        Text(emoji)
+                            .font(.system(size: 24))
+                    } else {
+                        Text(String(userName.prefix(2)).uppercased())
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
                 }
             }
 
