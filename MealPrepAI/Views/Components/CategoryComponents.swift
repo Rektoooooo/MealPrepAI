@@ -112,6 +112,10 @@ struct CategoryPill: View {
         }
         .buttonStyle(.plain)
         .animation(Design.Animation.smooth, value: isSelected)
+        .accessibilityLabel("\(category.rawValue) category")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint("Double tap to select")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

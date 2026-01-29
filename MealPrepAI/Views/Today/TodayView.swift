@@ -112,7 +112,7 @@ struct TodayView: View {
                             Image(systemName: "bell")
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundStyle(Color.textPrimary)
-                            
+
                             if notificationManager.hasUnread {
                                 Circle()
                                     .fill(Color.accentPurple)
@@ -121,6 +121,8 @@ struct TodayView: View {
                             }
                         }
                     }
+                    .accessibilityLabel(notificationManager.hasUnread ? "Notifications, unread" : "Notifications")
+                    .accessibilityHint("Double tap to view notifications")
                 }
             }
             .navigationDestination(isPresented: $showingNotifications) {
@@ -215,6 +217,8 @@ struct TodayView: View {
                 )
                 .shadow(color: Color(hex: "34C759").opacity(0.4), radius: 12, y: 6)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(greeting) You've eaten \(mealsEaten) of \(todaysMeals.count) meals, \(todaysMeals.isEmpty ? "0" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))") percent complete")
     }
 
     private var greeting: String {
@@ -244,6 +248,7 @@ struct TodayView: View {
                             .fill(Color(hex: "212121").opacity(0.1))
                     )
             }
+            .accessibilityLabel("Previous day")
 
             Spacer()
 
@@ -256,6 +261,8 @@ struct TodayView: View {
                     .font(.subheadline)
                     .foregroundStyle(Color.textSecondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
 
             Spacer()
 
@@ -269,6 +276,7 @@ struct TodayView: View {
                             .fill(Color(hex: "212121").opacity(0.1))
                     )
             }
+            .accessibilityLabel("Next day")
         }
         .padding(.vertical, Design.Spacing.sm)
         .padding(.horizontal, Design.Spacing.md)
@@ -485,6 +493,8 @@ struct TodayMealCard: View {
                     }
                 }
             }
+            .accessibilityLabel(meal.isEaten ? "Mark as not eaten" : "Mark as eaten")
+            .accessibilityHint("Double tap to toggle")
         }
         .padding(Design.Spacing.md)
         .background(

@@ -186,6 +186,8 @@ struct RecipeDetailSheet: View {
                                             .fontWeight(.medium)
                                             .foregroundStyle(.secondary)
                                     }
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel("\(formattedQuantity(for: recipeIngredient)) \(recipeIngredient.ingredient?.name ?? "Unknown")")
                                     .padding(.vertical, Design.Spacing.sm)
                                     .padding(.horizontal, Design.Spacing.md)
                                     .background(
@@ -221,6 +223,8 @@ struct RecipeDetailSheet: View {
                                             .foregroundStyle(.primary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel("Step \(index + 1): \(instruction)")
                                     .padding(.vertical, Design.Spacing.xs)
                                 }
                             }
@@ -242,6 +246,8 @@ struct RecipeDetailSheet: View {
                                             .foregroundStyle(.primary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
+                                    .accessibilityElement(children: .combine)
+                                    .accessibilityLabel("Step \(index + 1): \(instruction)")
                                     .padding(.vertical, Design.Spacing.xs)
                                 }
                             }
@@ -264,6 +270,8 @@ struct RecipeDetailSheet: View {
                         Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
                             .foregroundStyle(recipe.isFavorite ? .red : Color.accentPurple)
                     }
+                    .accessibilityLabel(recipe.isFavorite ? "Remove from favorites" : "Add to favorites")
+                    .accessibilityHint("Double tap to toggle favorite")
                 }
             }
             .sheet(isPresented: $showingAddToPlan) {
@@ -316,5 +324,7 @@ struct RecipeDetailSheet: View {
         .padding(.vertical, Design.Spacing.md)
         .background(color.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: Design.Radius.md))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }

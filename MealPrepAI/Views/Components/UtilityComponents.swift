@@ -61,6 +61,8 @@ struct GreetingHeader: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(greeting), \(userName)")
     }
 }
 
@@ -89,6 +91,7 @@ struct RoundedSearchBar: View {
                         .font(.system(size: 18))
                         .foregroundStyle(.tertiary)
                 }
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, Design.Spacing.md)
@@ -126,6 +129,7 @@ struct NewSectionHeader: View {
             }
 
             Spacer()
+                .accessibilityHidden(true)
 
             if showSeeAll, let onSeeAll = onSeeAll {
                 Button(action: onSeeAll) {
@@ -136,6 +140,8 @@ struct NewSectionHeader: View {
                 }
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -213,6 +219,10 @@ struct PersonalizationBanner: View {
         }
         .frame(height: 180)
         .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(subtitle)")
+        .accessibilityHint("Double tap to \(buttonText.lowercased())")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -253,6 +263,8 @@ struct QuickActionCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityHint("Double tap to activate")
     }
 }
 
@@ -304,6 +316,8 @@ struct NewEmptyStateView: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(message)")
     }
 
     @ViewBuilder

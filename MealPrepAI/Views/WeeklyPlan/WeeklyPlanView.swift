@@ -208,6 +208,7 @@ struct WeeklyPlanView: View {
                             .font(.system(size: 18, weight: .medium))
                             .foregroundStyle(Color.accentPurple)
                     }
+                    .accessibilityLabel("Generate new meal plan")
                 }
             }
             .fullScreenCover(isPresented: $showingGenerateSheet) {
@@ -325,6 +326,7 @@ struct WeeklyPlanView: View {
                     )
             }
             .disabled(!canNavigateToPreviousWeek)
+            .accessibilityLabel("Previous week")
 
             Spacer()
 
@@ -358,6 +360,7 @@ struct WeeklyPlanView: View {
                     )
             }
             .disabled(!canNavigateToNextWeek)
+            .accessibilityLabel("Next week")
         }
         .padding(Design.Spacing.md)
         .background(
@@ -446,6 +449,10 @@ struct WeeklyPlanView: View {
                             )
                     )
                 }
+                .accessibilityLabel("\(dayData.dayName) \(dayData.date)")
+                .accessibilityValue(isSelected ? "Selected" : (isToday ? "Today" : ""))
+                .accessibilityHint("Double tap to select")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
     }

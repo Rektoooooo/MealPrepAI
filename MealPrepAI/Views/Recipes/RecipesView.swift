@@ -306,6 +306,7 @@ struct RecipesView: View {
                             .font(.system(size: 18))
                             .foregroundStyle(Color.accentPurple)
                     }
+                    .accessibilityLabel("Add custom recipe")
                 }
             }
             .sheet(isPresented: $showingAddRecipe) {
@@ -524,6 +525,10 @@ struct RecipesView: View {
                     }
                     .buttonStyle(.plain)
                     .scaleEffect(isSelected ? 1.02 : 1.0)
+                    .accessibilityLabel("\(filter.rawValue) filter")
+                    .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                    .accessibilityHint("Double tap to toggle filter")
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
 
                 // Clear filters button (when any filter is active)

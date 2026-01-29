@@ -100,11 +100,16 @@ struct FeaturedRecipeCard: View {
                             .foregroundStyle(recipe.isFavorite ? .red : .white)
                     }
                 }
+                .accessibilityLabel(recipe.isFavorite ? "Remove from favorites" : "Add to favorites")
                 .padding(Design.Spacing.md)
             }
         }
         .buttonStyle(.plain)
         .featuredCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(recipe.name), \(recipe.cuisineType?.rawValue ?? "Recipe"), \(recipe.totalTimeMinutes) minutes, \(recipe.caloriesPerServing) calories per serving")
+        .accessibilityHint("Double tap to view recipe")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -172,6 +177,7 @@ struct StackedRecipeCard: View {
                                             .foregroundStyle(Color.accentPurple)
                                     }
                                 }
+                                .accessibilityLabel("Add to meal plan")
                             }
                         }
                         .padding(Design.Spacing.sm)
@@ -280,5 +286,9 @@ struct StackedRecipeCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(recipe.name), \(recipe.caloriesPerServing) calories, \(recipe.totalTimeMinutes) minutes, \(recipe.servings) servings")
+        .accessibilityHint("Double tap to view recipe")
+        .accessibilityAddTraits(.isButton)
     }
 }

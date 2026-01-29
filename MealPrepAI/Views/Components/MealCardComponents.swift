@@ -80,6 +80,10 @@ struct HorizontalMealCard: View {
             .opacity(isCompleted ? 0.7 : 1)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(mealType.rawValue): \(recipe.name), \(recipe.caloriesPerServing) calories per serving")
+        .accessibilityValue(isCompleted ? "Completed" : "Not completed")
+        .accessibilityHint("Double tap to view recipe")
     }
 }
 
@@ -164,6 +168,8 @@ struct WideMealCard: View {
                     .font(.system(size: 24))
                     .foregroundStyle(isCompleted ? Color.mintVibrant : Color.textSecondary.opacity(0.3))
             }
+            .accessibilityLabel(isCompleted ? "Mark as not eaten" : "Mark as eaten")
+            .accessibilityHint("Double tap to toggle")
         }
         .padding(Design.Spacing.md)
         .background(Color.cardBackground)
@@ -214,6 +220,8 @@ struct CompactStatsCard: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -302,5 +310,7 @@ struct NutritionSummaryCard: View {
             radius: Design.Shadow.card.radius,
             y: Design.Shadow.card.y
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Calories: \(consumed) of \(target). Protein: \(protein) of \(proteinTarget) grams. Carbs: \(carbs) of \(carbsTarget) grams. Fat: \(fat) of \(fatTarget) grams")
     }
 }

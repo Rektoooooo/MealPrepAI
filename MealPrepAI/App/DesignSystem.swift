@@ -534,6 +534,8 @@ struct ProgressRing: View {
                 animatedProgress = min(newValue, 1.0)
             }
         }
+        .accessibilityLabel("Progress")
+        .accessibilityValue("\(Int(animatedProgress * 100)) percent")
     }
 }
 
@@ -579,6 +581,9 @@ struct MacroProgressBar: View {
             }
             .frame(height: 6)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label) progress")
+        .accessibilityValue("\(current) of \(target) grams, \(target > 0 ? Int(Double(current) / Double(target) * 100) : 0) percent")
     }
 }
 

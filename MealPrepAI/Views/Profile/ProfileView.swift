@@ -155,6 +155,9 @@ struct ProfileView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Edit profile: \(profile?.name ?? "Guest")")
+        .accessibilityHint("Double tap to edit your profile")
     }
 
     // MARK: - Stats Card
@@ -194,6 +197,8 @@ struct ProfileView: View {
                 .foregroundStyle(Color.textSecondary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     // MARK: - Goals Section

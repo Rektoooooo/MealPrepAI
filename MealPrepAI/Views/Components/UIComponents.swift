@@ -35,6 +35,8 @@ struct HeroHeaderCard: View {
                     y: 8
                 )
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(subtitle)")
     }
 }
 
@@ -101,6 +103,7 @@ struct PremiumMealCard: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding(Design.Spacing.md)
             .background(
@@ -115,6 +118,10 @@ struct PremiumMealCard: View {
             .scaleEffect(isPressed ? 0.98 : 1)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(mealType.rawValue): \(recipeName), \(calories) calories")
+        .accessibilityValue(isCompleted ? "Completed" : "Not completed")
+        .accessibilityHint("Double tap to view recipe")
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
             withAnimation(Design.Animation.quick) {
                 isPressed = pressing
@@ -192,6 +199,8 @@ struct NutritionRingCard: View {
             }
         }
         .premiumCard()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Calories: \(consumed) of \(target). Protein: \(protein) of \(proteinTarget) grams. Carbs: \(carbs) of \(carbsTarget) grams. Fat: \(fat) of \(fatTarget) grams")
     }
 }
 
@@ -332,6 +341,10 @@ struct DayPill: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(day) \(date)")
+        .accessibilityValue(isSelected ? "Selected" : (isToday ? "Today" : ""))
+        .accessibilityHint("Double tap to select")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -366,6 +379,8 @@ struct FloatingPrimaryButton: View {
             .scaleEffect(isPressed ? 0.96 : 1)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityHint("Double tap to activate")
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
             withAnimation(Design.Animation.quick) {
                 isPressed = pressing
@@ -418,6 +433,8 @@ struct EmptyStateView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title). \(message)")
     }
 }
 
@@ -459,6 +476,7 @@ struct PremiumGroceryItem: View {
                 .font(.system(size: 16))
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
+                .accessibilityHidden(true)
 
             // Item Details
             VStack(alignment: .leading, spacing: 2) {
@@ -481,6 +499,10 @@ struct PremiumGroceryItem: View {
                 .fill(Color.backgroundSecondary)
                 .opacity(isChecked ? 0.6 : 1)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(isChecked ? "Checked" : "Unchecked"), \(name), \(quantity)")
+        .accessibilityHint("Double tap to toggle")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -532,6 +554,7 @@ struct PremiumRecipeCard: View {
                                     .fill(isFavorite ? Color.accentPink : Color.black.opacity(0.2))
                             )
                     }
+                    .accessibilityLabel(isFavorite ? "Remove from favorites" : "Add to favorites")
                     .padding(Design.Spacing.xs)
                 }
 
@@ -584,6 +607,10 @@ struct PremiumRecipeCard: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name), \(mealType), \(calories) calories, \(cookTime) minutes, \(complexity.label)")
+        .accessibilityHint("Double tap to view recipe")
+        .accessibilityAddTraits(.isButton)
     }
 
     private var complexityColor: Color {

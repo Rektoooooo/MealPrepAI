@@ -247,6 +247,8 @@ struct GroceryListView: View {
         .padding(.horizontal, Design.Spacing.md)
         .padding(.top, Design.Spacing.sm)
         .animation(Design.Animation.smooth, value: progress >= 0.8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Shopping progress: \(checkedCount) of \(allItems.count) items, \(Int(progress * 100)) percent complete")
     }
 
     // MARK: - Category Header
@@ -270,6 +272,9 @@ struct GroceryListView: View {
         .padding(.vertical, Design.Spacing.xs)
         .padding(.horizontal, Design.Spacing.xxs)
         .background(Color.backgroundMint.opacity(0.95))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(category.rawValue), \(count) items")
+        .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - Actions
@@ -485,6 +490,9 @@ struct GroceryItemRow: View {
         }
         .buttonStyle(.plain)
         .animation(Design.Animation.smooth, value: item.isChecked)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.isChecked ? "Checked" : "Unchecked"), \(item.displayName), \(convertedQuantity)")
+        .accessibilityHint("Double tap to toggle")
     }
 }
 

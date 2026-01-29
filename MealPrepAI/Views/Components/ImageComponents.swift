@@ -18,6 +18,8 @@ struct RecipeAsyncImage: View {
             imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL
         )
         .frame(height: height)
+        .accessibilityLabel("Recipe image for \(recipe.name)")
+        .accessibilityAddTraits(.isImage)
     }
 }
 
@@ -118,7 +120,7 @@ struct FoodImagePlaceholder: View {
         }
     }
 
-    // Extracted gradient placeholder view
+    // Extracted gradient placeholder view (decorative)
     private var gradientPlaceholder: some View {
         ZStack {
             // Gradient background
