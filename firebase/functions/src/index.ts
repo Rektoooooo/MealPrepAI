@@ -106,125 +106,149 @@ function getNutrient(nutrients: { name: string; amount: number }[], name: string
 }
 
 /**
+ * Fetch recipes from Spoonacular with given params and save new ones to Firestore.
+ * Returns { added, skipped }.
+ */
+async function fetchAndSaveRecipes(params: {
+  cuisine?: string;
+  type?: string;
+  number: number;
+}): Promise<{ added: number; skipped: number }> {
+  let added = 0;
+  let skipped = 0;
+
+  const queryParts = [
+    params.cuisine ? `cuisine=${params.cuisine}` : '',
+    params.type ? `type=${params.type}` : '',
+    `sort=random`,
+    `addRecipeNutrition=true`,
+    `addRecipeInstructions=true`,
+    `number=${params.number}`,
+    `apiKey=${SPOONACULAR_API_KEY}`,
+  ].filter(Boolean);
+
+  const url = `https://api.spoonacular.com/recipes/complexSearch?${queryParts.join('&')}`;
+  const label = [params.cuisine, params.type].filter(Boolean).join('/') || 'general';
+  console.log(`Fetching ${label} recipes...`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    console.error(`API error for ${label}: ${response.status} ${response.statusText}`);
+    return { added, skipped };
+  }
+
+  const data: SpoonacularResponse = await response.json();
+  console.log(`Found ${data.results.length} ${label} recipes`);
+
+  for (const recipe of data.results) {
+    try {
+      const existingQuery = await db.collection(RECIPES_COLLECTION)
+        .where('externalId', '==', recipe.id)
+        .limit(1)
+        .get();
+
+      if (!existingQuery.empty) {
+        skipped++;
+        continue;
+      }
+
+      const nutrients = recipe.nutrition?.nutrients || [];
+      const mealType = params.type
+        ? (params.type === 'main course' ? 'dinner' : params.type)
+        : determineMealType(recipe.dishTypes);
+
+      await db.collection(RECIPES_COLLECTION).add({
+        externalId: recipe.id,
+        title: recipe.title,
+        imageUrl: recipe.image,
+        readyInMinutes: recipe.readyInMinutes || 30,
+        servings: recipe.servings || 4,
+        calories: getNutrient(nutrients, 'Calories'),
+        proteinGrams: getNutrient(nutrients, 'Protein'),
+        carbsGrams: getNutrient(nutrients, 'Carbohydrates'),
+        fatGrams: getNutrient(nutrients, 'Fat'),
+        instructions: recipe.analyzedInstructions?.[0]?.steps
+          ?.map(step => step.step)
+          .filter(step => step && step.trim().length > 0) || [],
+        cuisineType: (params.cuisine || 'mixed').toLowerCase(),
+        mealType,
+        diets: recipe.diets || [],
+        dishTypes: recipe.dishTypes || [],
+        healthScore: recipe.healthScore || 0,
+        sourceUrl: recipe.sourceUrl || null,
+        creditsText: recipe.creditsText || null,
+        ingredients: (recipe.nutrition?.ingredients || []).map(ing => ({
+          name: ing.name,
+          amount: ing.amount,
+          unit: ing.unit,
+          aisle: ing.aisle || 'Other'
+        })),
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      added++;
+      console.log(`Added: ${recipe.title} (${label}, ${mealType})`);
+    } catch (recipeError) {
+      console.error(`Error processing recipe ${recipe.id}:`, recipeError);
+    }
+  }
+
+  return { added, skipped };
+}
+
+/**
  * Scheduled Cloud Function: Collect recipes from Spoonacular
- * Runs daily at 3am UTC to populate the Firestore database
+ * Runs daily at 2pm UTC to populate the Firestore database
+ *
+ * Uses sort=random to get different recipes each day.
+ * Fetches across cuisines AND meal types for balanced coverage.
+ *
+ * API budget: ~150 calls/day free tier
+ * - 8 cuisines × 10 recipes = 80 calls (random cuisine-based)
+ * - 4 meal types × 12 recipes = 48 calls (breakfast, lunch, dinner, snack)
+ * Total: ~128 calls/day
  */
 export const collectRecipes = functions.pubsub
-  .schedule('0 14 * * *')  // Run at 4pm CEST (14:00 UTC) daily
+  .schedule('0 14 * * *')  // 2pm UTC daily
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async () => {
     console.log('Starting daily recipe collection...');
 
     if (!SPOONACULAR_API_KEY) {
       console.error('Spoonacular API key not configured!');
-      console.error('Run: firebase functions:config:set spoonacular.key="YOUR_API_KEY"');
       return null;
     }
 
     let totalAdded = 0;
     let totalSkipped = 0;
 
-    // Iterate through each cuisine
+    // Part 1: Fetch random recipes by cuisine (6 per cuisine)
     for (const cuisine of CUISINES) {
       try {
-        console.log(`Fetching ${cuisine} recipes...`);
-
-        // Fetch recipes with nutrition data (costs 1 point per recipe)
-        // addRecipeNutrition=true includes nutrition info
-        // addRecipeInstructions=true includes cooking steps
-        const url = `https://api.spoonacular.com/recipes/complexSearch?` +
-          `cuisine=${cuisine}` +
-          `&addRecipeNutrition=true` +
-          `&addRecipeInstructions=true` +
-          `&number=12` +  // 12 recipes per cuisine × 8 cuisines = 96 calls
-          `&apiKey=${SPOONACULAR_API_KEY}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          console.error(`API error for ${cuisine}: ${response.status} ${response.statusText}`);
-          continue;
-        }
-
-        const data: SpoonacularResponse = await response.json();
-        console.log(`Found ${data.results.length} ${cuisine} recipes`);
-
-        // Process each recipe
-        for (const recipe of data.results) {
-          try {
-            // Check if recipe already exists (by externalId)
-            const existingQuery = await db.collection(RECIPES_COLLECTION)
-              .where('externalId', '==', recipe.id)
-              .limit(1)
-              .get();
-
-            if (!existingQuery.empty) {
-              totalSkipped++;
-              continue;  // Skip existing recipes
-            }
-
-            // Extract nutrition values
-            const nutrients = recipe.nutrition?.nutrients || [];
-            const calories = getNutrient(nutrients, 'Calories');
-            const protein = getNutrient(nutrients, 'Protein');
-            const carbs = getNutrient(nutrients, 'Carbohydrates');
-            const fat = getNutrient(nutrients, 'Fat');
-
-            // Extract instructions as array of steps
-            const instructions: string[] = recipe.analyzedInstructions?.[0]?.steps
-              ?.map(step => step.step)
-              .filter(step => step && step.trim().length > 0) || [];
-
-            // Extract ingredients
-            const ingredients = (recipe.nutrition?.ingredients || []).map(ing => ({
-              name: ing.name,
-              amount: ing.amount,
-              unit: ing.unit,
-              aisle: ing.aisle || 'Other'
-            }));
-
-            // Determine meal type
-            const mealType = determineMealType(recipe.dishTypes);
-
-            // Create Firestore document
-            const recipeDoc = {
-              externalId: recipe.id,
-              title: recipe.title,
-              imageUrl: recipe.image,
-              readyInMinutes: recipe.readyInMinutes || 30,
-              servings: recipe.servings || 4,
-              calories,
-              proteinGrams: protein,
-              carbsGrams: carbs,
-              fatGrams: fat,
-              instructions,
-              cuisineType: cuisine.toLowerCase(),
-              mealType,
-              diets: recipe.diets || [],
-              dishTypes: recipe.dishTypes || [],
-              healthScore: recipe.healthScore || 0,
-              sourceUrl: recipe.sourceUrl || null,
-              creditsText: recipe.creditsText || null,
-              ingredients,
-              createdAt: admin.firestore.FieldValue.serverTimestamp()
-            };
-
-            // Save to Firestore
-            await db.collection(RECIPES_COLLECTION).add(recipeDoc);
-            totalAdded++;
-
-            console.log(`Added: ${recipe.title} (${cuisine}, ${mealType})`);
-
-          } catch (recipeError) {
-            console.error(`Error processing recipe ${recipe.id}:`, recipeError);
-          }
-        }
-
-        // Small delay between cuisine requests to be nice to the API
+        const result = await fetchAndSaveRecipes({ cuisine, number: 10 });
+        totalAdded += result.added;
+        totalSkipped += result.skipped;
         await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Error fetching ${cuisine}:`, error);
+      }
+    }
 
-      } catch (cuisineError) {
-        console.error(`Error fetching ${cuisine} recipes:`, cuisineError);
+    // Part 2: Fetch by meal type to fill gaps (breakfast, dinner, snack)
+    const mealTypeQueries = [
+      { type: 'breakfast', number: 12 },
+      { type: 'lunch', number: 12 },
+      { type: 'main course', number: 12 },  // maps to 'dinner'
+      { type: 'snack', number: 12 },
+    ];
+
+    for (const query of mealTypeQueries) {
+      try {
+        const result = await fetchAndSaveRecipes(query);
+        totalAdded += result.added;
+        totalSkipped += result.skipped;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error(`Error fetching ${query.type}:`, error);
       }
     }
 

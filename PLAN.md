@@ -1,36 +1,42 @@
 # MealPrepAI - Implementation Plan
 
+## Status: ~85% Feature Complete
+
+Last updated: January 29, 2026
+
+---
+
 ## Competitor Pain Points We're Solving
 
-| Problem | Competitor | Our Solution |
-|---------|-----------|--------------|
-| Recipes too complicated | Mealime | "Simple Mode" toggle, complexity scoring |
-| Can't modify meals without resetting grocery list | Mealime | Granular editing with "lock" feature |
-| Can't swap individual ingredients | MealPrepPro | AI ingredient substitution with macro recalculation |
-| Only uses ounces | MealPrepPro | Dual measurements (cups/tbsp + grams) |
-| No search or favorites | MealPrepPro | Full search, favorites, recipe history |
-| Recipes repeat constantly | Eat This Much | Variety engine tracking usage, enforcing diversity |
-| Odd portions (3/16th tortilla) | Eat This Much | Practical measurement rounding |
-| Can't import recipes | Eat This Much | URL recipe import with AI parsing |
+| Problem | Competitor | Our Solution | Status |
+|---------|-----------|--------------|--------|
+| Recipes too complicated | Mealime | "Simple Mode" toggle, complexity scoring | ✅ Done |
+| Can't modify meals without resetting grocery list | Mealime | Granular editing with "lock" feature | ⚠️ Partial |
+| Can't swap individual ingredients | MealPrepPro | AI ingredient substitution with macro recalculation | ❌ Not started |
+| Only uses ounces | MealPrepPro | Dual measurements (cups/tbsp + grams) | ✅ Done |
+| No search or favorites | MealPrepPro | Full search, favorites, recipe history | ✅ Done |
+| Recipes repeat constantly | Eat This Much | Variety engine tracking usage, enforcing diversity | ✅ Done |
+| Odd portions (3/16th tortilla) | Eat This Much | Practical measurement rounding | ✅ Done |
+| Can't import recipes | Eat This Much | URL recipe import with AI parsing | ❌ Not started |
 
 ---
 
 ## Core Features
 
-1. **Onboarding** - Collect: dietary restrictions, allergies, meal count, calorie/macro goals, weight goals, cooking skill, time constraints, preferred cuisines
-2. **AI Meal Plan Generation** - Claude Haiku generates personalized weekly plans
-3. **Daily View** - Today's meals with progress tracking, mark meals eaten
-4. **Plan Editing** - Swap meals/ingredients with macro-aware suggestions
-5. **Smart Grocery List** - Auto-generated, grouped by aisle, practical quantities
+1. **Onboarding** - 29-step comprehensive flow ✅
+2. **AI Meal Plan Generation** - Claude Sonnet 4 via Cloud Functions backend ✅
+3. **Daily View** - Today's meals with progress tracking, mark meals eaten ✅
+4. **Plan Editing** - Meal swap with variety engine ✅ (ingredient substitution ❌)
+5. **Smart Grocery List** - Auto-generated, grouped by category, shopping features ✅
 
 ---
 
-## Data Models (SwiftData)
+## Data Models (SwiftData) ✅
 
 ```
 UserProfile (goals, restrictions, allergies, preferences)
-    └── MealPlan (weekly)
-            └── Day (7 per plan)
+    └── MealPlan (1-14 days, variable duration)
+            └── Day
                     └── Meal (breakfast, lunch, dinner, snacks)
                             └── Recipe
                                     └── RecipeIngredient
@@ -42,155 +48,174 @@ GroceryList ← linked to MealPlan
 
 ---
 
-## App Navigation (5 Tabs)
+## App Navigation (5 Tabs) ✅
 
 ```
-Tab 1: Today       → Daily meals, progress, quick actions
-Tab 2: Weekly Plan → 7-day view, day selector, generate new plan
-Tab 3: Grocery     → Smart shopping list by category
-Tab 4: Recipes     → Library, search, favorites, custom recipes
-Tab 5: Profile     → Settings, goals, dietary preferences
-```
-
----
-
-## Files to Create
-
-```
-MealPrepAI/
-├── App/
-│   └── AppState.swift
-├── Models/
-│   ├── SwiftData/
-│   │   ├── UserProfile.swift
-│   │   ├── MealPlan.swift
-│   │   ├── Day.swift
-│   │   ├── Meal.swift
-│   │   ├── Recipe.swift
-│   │   ├── RecipeIngredient.swift
-│   │   ├── Ingredient.swift
-│   │   ├── GroceryList.swift
-│   │   └── GroceryItem.swift
-│   └── Enums/
-│       └── (MealType, Allergy, DietaryRestriction, etc.)
-├── Services/
-│   ├── ClaudeAPI/
-│   │   ├── ClaudeAPIService.swift
-│   │   └── ClaudePromptBuilder.swift
-│   ├── MealPlanService.swift
-│   ├── GroceryListService.swift
-│   └── NutritionCalculator.swift
-├── ViewModels/
-│   ├── OnboardingViewModel.swift
-│   ├── TodayViewModel.swift
-│   ├── WeeklyPlanViewModel.swift
-│   ├── GroceryListViewModel.swift
-│   └── ProfileViewModel.swift
-└── Views/
-    ├── Onboarding/ (8 screens)
-    ├── Today/
-    ├── WeeklyPlan/
-    ├── Grocery/
-    ├── Recipes/
-    └── Profile/
+Tab 1: Today       → Daily meals, progress rings, quick swap
+Tab 2: Weekly Plan → Day selector, week navigation, generate plans
+Tab 3: Grocery     → Shopping list by category, history, progress
+Tab 4: Recipes     → Library, search, favorites, Firebase recipes
+Tab 5: Profile     → Settings, goals, dietary preferences, account
 ```
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Foundation (CURRENT - UI ONLY)
+### Phase 1: Foundation ✅ COMPLETE
 - SwiftData models (all 9 core models)
-- Enum types
+- Enum types (13 enums)
 - Tab navigation structure
-- All Views with placeholder UI
+- Design system (colors, typography, spacing, components)
+- Reusable UI component library
 
-### Phase 2: Onboarding
-- 8-screen onboarding flow
+### Phase 2: Onboarding ✅ COMPLETE
+- 29-step onboarding flow (goals, prefs, metrics, culinary, permissions)
+- Meal prep setup flow (5 steps for returning users)
 - Profile creation and persistence
-- Validation logic
+- Validation logic per step
+- Launch screen with sign-in option
 
-### Phase 3: Claude API Integration
-- ClaudeAPIService with async/await
-- Secure API key storage (Keychain)
-- Prompt engineering for meal plans
-- Response parsing and error handling
+### Phase 3: AI Integration ✅ COMPLETE
+- Cloud Functions backend (`us-central1-mealprepai-b6ac0`)
+- Claude 3.5 Haiku model for generation (cost-efficient, parallel batches)
+- Prompt engineering with full user context
+- JSON response parsing to SwiftData models
+- Meal swap endpoint
+- Mock data fallback for development
+- Variable plan duration (1-14 days)
+- Overlapping plan handling (non-overlapping days migrated to new plan)
 
-### Phase 4: Meal Plan Display
-- WeeklyPlanView with day selector
-- RecipeDetailView with ingredients/instructions
-- TodayView with daily focus
-- Mark meals as eaten
+### Phase 4: Meal Plan Display ✅ COMPLETE
+- Weekly plan view with day selector and week navigation
+- Recipe detail view (ingredients, instructions, nutrition)
+- Today view with daily progress and nutrition rings
+- Mark meals as eaten with HealthKit logging
+- Custom calendar with meal plan date range highlighting
 
-### Phase 5: Editing & Swapping
-- MealSwapView for changing meals
-- Ingredient substitution with macro recalc
-- Variety engine for diverse suggestions
+### Phase 5: Editing & Swapping ⚠️ PARTIAL
+- ✅ Meal swap via AI (exclude recently used recipes)
+- ✅ Variety engine (tracks `timesUsed`, `lastUsedDate`)
+- ❌ Ingredient substitution with macro recalculation
+- ❌ Lock feature to prevent grocery list reset on edit
 
-### Phase 6: Grocery List
-- Smart aggregation and rounding
-- Category grouping
-- Lock feature to prevent reset
+### Phase 6: Grocery List ✅ COMPLETE
+- Smart aggregation from meal plan recipes
+- Category grouping (8 categories)
+- Check/uncheck items with progress tracking
+- Shopping history with completion dates
 - Manual item addition
+- Share grocery list
 
-### Phase 7: Recipe Library
-- Search and favorites
-- Custom recipe creation
-- Recipe import from URL
+### Phase 7: Recipe Library ✅ MOSTLY COMPLETE
+- ✅ Search across local + Firebase recipes
+- ✅ Favorites with persistence
+- ✅ Firebase Spoonacular recipe database with pagination
+- ✅ Multi-filter support (diet, category, nutrition ranges)
+- ⚠️ Custom recipe creation (UI stub, no data flow)
+- ❌ Recipe import from URL
 
 ---
 
-## Verification Plan
+## Additional Features Implemented
 
-1. **Onboarding**: Complete flow, verify profile saves to SwiftData
-2. **API**: Generate plan, verify JSON parsing works
-3. **Meal Display**: View week, tap recipes, mark meals eaten
-4. **Editing**: Swap a meal, verify grocery list updates correctly
-5. **Grocery**: Check quantities are practical, items grouped properly
-6. **End-to-end**: Full user journey from onboarding to shopping
+### Authentication ✅
+- Sign in with Apple
+- Guest mode
+- Account deletion
+- State management (unknown, unauthenticated, guest, authenticated)
+
+### HealthKit ✅
+- Read weight, height, steps, active energy
+- Write meal nutrition (calories, protein, carbs, fat, fiber)
+- Toggle per user preference
+- Auto-adjust activity level from steps
+
+### Firebase ✅
+- App Check (App Attest + Debug provider)
+- Firestore recipe database
+- Anonymous auth for recipe access
+- Recipe image matching disabled for AI recipes (gradient placeholders instead)
+
+### CloudKit ⚠️ PARTIAL
+- ModelContainer configured with iCloud container
+- Sync manager with status tracking
+- Relies on SwiftData's passive CloudKit sync
+- No active sync logic
+
+### Notifications ⚠️ PARTIAL
+- Local notification manager with read/unread tracking
+- Notification permission step in onboarding
+- No push notification backend
+- No scheduled notification triggers
+
+### Subscription & Paywall ⚠️ PARTIAL
+- ✅ Free trial system (first plan free)
+- ✅ Paywall UI (monthly $9.99 / annual $59.99)
+- ✅ Superwall SDK analytics (paywall funnel tracking)
+- ✅ SubscriptionManager service (environment object)
+- ❌ StoreKit 2 product fetching & transaction handling
+- ❌ Receipt validation
+- ❌ Server-side subscription verification
+
+### Design System ✅
+- Mint-green + purple accent palette
+- Glass morphism modifiers
+- Comprehensive component library
+- Dark mode support
+- Appearance mode settings (system/light/dark)
+
+---
+
+## Remaining Work
+
+### High Priority (Required for App Store)
+1. **StoreKit 2 Integration** - Real subscription purchase flow, product catalog, transaction verification
+2. **Receipt Validation** - Server-side or on-device receipt verification
+3. **Accessibility Audit** - VoiceOver labels, Dynamic Type testing, contrast ratios
+
+### Medium Priority (Post-Launch)
+4. **Push Notifications** - APNs setup, meal reminders, trial expiry alerts
+5. **Ingredient Substitution** - AI-powered swap with macro recalculation
+6. **Custom Recipe Creation** - Complete the data flow from UI stub
+7. **CloudKit Active Sync** - Verify cross-device data sync works reliably
+8. **Unit & UI Tests** - Test coverage for critical paths
+
+### Low Priority (Future)
+9. **Recipe Import from URL** - AI parsing of web recipes
+10. **Grocery Lock Feature** - Prevent list reset on meal edits
+11. **Advanced Analytics** - Comprehensive event tracking beyond paywall
+12. **Widgets** - Home screen widgets for today's meals
+13. **Apple Watch** - Quick meal logging companion app
+
+---
+
+## Backend Service ✅
+
+```
+Platform: Firebase Cloud Functions (us-central1)
+Base URL: https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api
+
+Endpoints:
+POST /api/generateMealPlan  → Claude Sonnet 4, returns full plan JSON  ✅
+POST /api/swapMeal          → Single meal replacement                  ✅
+POST /api/substitute        → Ingredient substitution                  ❌
+
+Security:
+- Firebase App Check (App Attest in production)
+- Rate limiting per device
+- API key held server-side
+```
 
 ---
 
 ## Key Technical Decisions
 
 - **Architecture**: MVVM with @Observable pattern
-- **Persistence**: SwiftData (local-first, offline support)
-- **AI Model**: Claude Haiku (fast, cost-effective)
-- **API Approach**: Backend proxy (users don't need their own API key)
+- **Persistence**: SwiftData with CloudKit backing
+- **AI Model**: Claude 3.5 Haiku (cost-efficient, ~12x cheaper than Sonnet)
+- **API Approach**: Firebase Cloud Functions proxy
 - **Measurements**: Dual display (volume + weight)
-- **Offline**: Generated plans cached locally, app works without internet
-
----
-
-## Backend Service (Simple)
-
-A lightweight backend to proxy Claude API requests:
-
-```
-Backend Options:
-1. Cloudflare Workers (free tier, serverless)
-2. Vercel Edge Functions (free tier)
-3. AWS Lambda (pay per use)
-
-Endpoints:
-POST /api/generate-plan    → Proxies to Claude, returns meal plan
-POST /api/swap-meal        → Generates alternative meals
-POST /api/substitute       → Ingredient substitution suggestions
-
-Security:
-- App includes a bundled API key or uses app attestation
-- Rate limiting per device
-- No user accounts needed initially
-```
-
-The iOS app will call your backend, which holds the Claude API key securely.
-
----
-
-## UI Color Scheme & Design
-
-- Primary: Fresh green (#4CAF50)
-- Secondary: Warm orange (#FF9800)
-- Background: Light cream (#FFF8E1)
-- Accent: Deep teal (#00796B)
-- Typography: SF Pro with clear hierarchy
+- **Offline**: Generated plans cached locally
+- **Analytics**: Superwall for paywall funnel, Firebase Analytics available
+- **Auth**: Sign in with Apple + guest mode
