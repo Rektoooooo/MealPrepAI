@@ -480,6 +480,69 @@ actor APIService {
         }
     }
 
+    // MARK: - Substitute Ingredient
+    func substituteIngredient(
+        ingredientName: String,
+        ingredientQuantity: Double,
+        ingredientUnit: String,
+        recipeContext: SubstituteRecipeContext,
+        dietaryRestrictions: [String],
+        allergies: [String]
+    ) async throws -> SubstituteIngredientResponse {
+        print("[DEBUG:API] ========== SUBSTITUTE INGREDIENT START ==========")
+        print("[DEBUG:API] Ingredient: \(ingredientName)")
+
+        let urlString = "\(apiConfigBaseURL)/v1/substitute-ingredient"
+
+        guard let url = URL(string: urlString) else {
+            throw APIError.invalidURL
+        }
+
+        let deviceId = await DeviceIdentifier.shared.deviceId
+
+        let requestBody = SubstituteIngredientRequest(
+            ingredientName: ingredientName,
+            ingredientQuantity: ingredientQuantity,
+            ingredientUnit: ingredientUnit,
+            recipeContext: recipeContext,
+            dietaryRestrictions: dietaryRestrictions,
+            allergies: allergies,
+            deviceId: deviceId
+        )
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(requestBody)
+
+        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
+            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+        }
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        switch httpResponse.statusCode {
+        case 200...299:
+            let apiResponse = try decoder.decode(SubstituteIngredientResponse.self, from: data)
+            print("[DEBUG:API] SUCCESS: \(apiResponse.substitutes?.count ?? 0) substitutes")
+            return apiResponse
+        case 403:
+            throw APIError.subscriptionRequired
+        case 429:
+            throw APIError.rateLimited
+        default:
+            if let errorResponse = try? decoder.decode(SubstituteIngredientResponse.self, from: data),
+               let errorMessage = errorResponse.error {
+                throw APIError.serverError(errorMessage)
+            }
+            throw APIError.httpError(statusCode: httpResponse.statusCode)
+        }
+    }
+
     // MARK: - Verify Subscription
     func verifySubscription(deviceId: String, signedTransactionJWS: String) async throws -> VerifySubscriptionResponse {
         let urlString = "\(apiConfigBaseURL)/v1/verify-subscription"
@@ -637,6 +700,53 @@ struct SwapMealRequest: Codable, Sendable {
 struct SwapMealAPIResponse: Codable, Sendable {
     let success: Bool
     let recipe: APIRecipeDTO?
+    let error: String?
+    let rateLimitInfo: RateLimitInfo?
+}
+
+// MARK: - Substitute Ingredient Types
+
+struct SubstituteRecipeContext: Codable, Sendable {
+    let recipeName: String
+    let totalCalories: Int
+    let totalProtein: Int
+    let totalCarbs: Int
+    let totalFat: Int
+    let otherIngredients: [String]
+}
+
+struct SubstituteIngredientRequest: Codable, Sendable {
+    let ingredientName: String
+    let ingredientQuantity: Double
+    let ingredientUnit: String
+    let recipeContext: SubstituteRecipeContext
+    let dietaryRestrictions: [String]
+    let allergies: [String]
+    let deviceId: String
+}
+
+struct SubstituteOption: Codable, Sendable, Identifiable {
+    let name: String
+    let reason: String
+    let quantity: Double
+    let unit: String
+    let quantityGrams: Double
+    let category: String
+    let caloriesPer100g: Double
+    let proteinPer100g: Double
+    let carbsPer100g: Double
+    let fatPer100g: Double
+    let totalCalories: Double
+    let totalProtein: Double
+    let totalCarbs: Double
+    let totalFat: Double
+
+    var id: String { name }
+}
+
+struct SubstituteIngredientResponse: Codable, Sendable {
+    let success: Bool
+    let substitutes: [SubstituteOption]?
     let error: String?
     let rateLimitInfo: RateLimitInfo?
 }

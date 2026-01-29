@@ -5,7 +5,6 @@ struct RecipeDetailView: View {
 
     @State private var isFavorite = false
     @State private var servings = 2
-    @State private var showingSwapSheet = false
 
     // Sample data
     private let sampleIngredients = [
@@ -80,9 +79,6 @@ struct RecipeDetailView: View {
                     }
                 }
             }
-        }
-        .sheet(isPresented: $showingSwapSheet) {
-            IngredientSwapSheet()
         }
     }
 
@@ -209,15 +205,8 @@ struct RecipeDetailView: View {
     // MARK: - Ingredients Section
     private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Ingredients")
-                    .font(.headline)
-                Spacer()
-                Button("Swap") {
-                    showingSwapSheet = true
-                }
-                .font(.subheadline)
-            }
+            Text("Ingredients")
+                .font(.headline)
 
             VStack(spacing: 8) {
                 ForEach(sampleIngredients, id: \.0) { name, amount, grams in
@@ -308,106 +297,6 @@ struct InstructionRow: View {
                 .foregroundStyle(isCompleted ? .secondary : .primary)
                 .strikethrough(isCompleted)
         }
-    }
-}
-
-// MARK: - Ingredient Swap Sheet
-struct IngredientSwapSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedIngredient = "Chicken Breast"
-    @State private var searchText = ""
-
-    private let alternatives = [
-        ("Turkey Breast", "Similar protein, leaner", 450, 45),
-        ("Tofu", "Plant-based option", 350, 25),
-        ("Salmon", "More omega-3s", 520, 38),
-        ("Tempeh", "Fermented, high protein", 400, 30)
-    ]
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                // Current ingredient
-                HStack {
-                    Text("Swapping:")
-                        .foregroundStyle(.secondary)
-                    Text(selectedIngredient)
-                        .fontWeight(.semibold)
-                }
-                .font(.subheadline)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(Color(.secondarySystemGroupedBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal)
-
-                // Alternatives
-                ScrollView {
-                    VStack(spacing: 12) {
-                        ForEach(alternatives, id: \.0) { name, reason, calories, protein in
-                            SwapOptionRow(
-                                name: name,
-                                reason: reason,
-                                calories: calories,
-                                protein: protein
-                            ) {
-                                dismiss()
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-            }
-            .navigationTitle("Swap Ingredient")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-struct SwapOptionRow: View {
-    let name: String
-    let reason: String
-    let calories: Int
-    let protein: Int
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(name)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                    Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    HStack(spacing: 12) {
-                        Label("\(calories) cal", systemImage: "flame")
-                        Label("\(protein)g protein", systemImage: "p.circle")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "arrow.right.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.green)
-            }
-            .padding()
-            .background(Color(.secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
     }
 }
 

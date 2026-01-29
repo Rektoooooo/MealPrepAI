@@ -11,9 +11,11 @@ struct RecipeDetailSheet: View {
 
     let recipe: Recipe
 
+    @Query private var userProfiles: [UserProfile]
     @State private var showingAddToPlan = false
     @State private var showingEditSheet = false
     @State private var showingShareSheet = false
+    @State private var ingredientToSwap: RecipeIngredient?
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -170,24 +172,34 @@ struct RecipeDetailSheet: View {
                             NewSectionHeader(title: "Ingredients")
                             VStack(spacing: Design.Spacing.sm) {
                                 ForEach(ingredients, id: \.id) { recipeIngredient in
-                                    HStack {
-                                        Image(systemName: "circle.fill")
-                                            .font(.system(size: 6))
-                                            .foregroundStyle(Color.accentPurple)
+                                    Button {
+                                        ingredientToSwap = recipeIngredient
+                                    } label: {
+                                        HStack {
+                                            Image(systemName: "circle.fill")
+                                                .font(.system(size: 6))
+                                                .foregroundStyle(Color.accentPurple)
 
-                                        Text(recipeIngredient.ingredient?.name ?? "Unknown")
-                                            .font(.body)
-                                            .foregroundStyle(.primary)
+                                            Text(recipeIngredient.ingredient?.name ?? "Unknown")
+                                                .font(.body)
+                                                .foregroundStyle(.primary)
 
-                                        Spacer()
+                                            Spacer()
 
-                                        Text(formattedQuantity(for: recipeIngredient))
-                                            .font(.subheadline)
-                                            .fontWeight(.medium)
-                                            .foregroundStyle(.secondary)
+                                            Text(formattedQuantity(for: recipeIngredient))
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(.secondary)
+
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                                .font(.caption)
+                                                .foregroundStyle(Color.accentPurple.opacity(0.6))
+                                        }
                                     }
+                                    .buttonStyle(.plain)
                                     .accessibilityElement(children: .combine)
                                     .accessibilityLabel("\(formattedQuantity(for: recipeIngredient)) \(recipeIngredient.ingredient?.name ?? "Unknown")")
+                                    .accessibilityHint("Double tap to swap this ingredient")
                                     .padding(.vertical, Design.Spacing.sm)
                                     .padding(.horizontal, Design.Spacing.md)
                                     .background(
@@ -282,6 +294,15 @@ struct RecipeDetailSheet: View {
             }
             .sheet(isPresented: $showingShareSheet) {
                 ShareRecipeSheet(recipe: recipe)
+            }
+            .sheet(item: $ingredientToSwap) { ingredient in
+                if let profile = userProfiles.first {
+                    IngredientSubstitutionSheet(
+                        recipe: recipe,
+                        recipeIngredient: ingredient,
+                        userProfile: profile
+                    )
+                }
             }
         }
     }

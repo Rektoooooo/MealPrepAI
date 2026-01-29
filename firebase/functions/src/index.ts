@@ -16,6 +16,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { handleGeneratePlan } from './api/generatePlan';
 import { handleSwapMeal } from './api/swapMeal';
+import { handleSubstituteIngredient } from './api/substituteIngredient';
 import { handleVerifySubscription } from './api/verifySubscription';
 import { handleAppStoreWebhook } from './api/appStoreWebhook';
 import { cleanupExpiredRateLimits } from './utils/rateLimiter';
@@ -599,6 +600,26 @@ app.post('/v1/swap-meal', verifyAppCheck, requireSubscription, async (req: Reque
     res.json(result);
   } catch (error) {
     console.error('Error in swap-meal endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    });
+  }
+});
+
+app.post('/v1/substitute-ingredient', verifyAppCheck, requireSubscription, async (req: Request, res: Response) => {
+  try {
+    const result = await handleSubstituteIngredient(req.body);
+
+    if (!result.success) {
+      const status = result.error?.includes('Rate limit') ? 429 : 400;
+      res.status(status).json(result);
+      return;
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error in substitute-ingredient endpoint:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error',
