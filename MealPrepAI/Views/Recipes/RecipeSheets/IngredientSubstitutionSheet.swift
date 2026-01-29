@@ -13,6 +13,23 @@ struct IngredientSubstitutionSheet: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var selectedIndex: Int?
+    @State private var swapCompleted = false
+
+    // Loading animation state
+    @State private var loadingProgress: Double = 0
+    @State private var loadingMessage = "Analyzing ingredient..."
+    @State private var loadingAppeared = false
+    @State private var foodIndex = 0
+    @State private var resultsAppeared = false
+
+    private let loadingMessages = [
+        "Analyzing ingredient...",
+        "Checking dietary needs...",
+        "Finding best substitutes...",
+        "Calculating nutrition..."
+    ]
+
+    private let foods = ["🥦", "🍗", "🧀", "🥕", "🫘", "🥩", "🍳", "🥑", "🫑", "🍠"]
 
     private var ingredientName: String {
         recipeIngredient.ingredient?.name ?? "Unknown"
@@ -40,24 +57,18 @@ struct IngredientSubstitutionSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: Design.Spacing.lg) {
-                    // Header: current ingredient
-                    currentIngredientHeader
+            ZStack {
+                Color.backgroundPrimary.ignoresSafeArea()
 
-                    if isLoading {
-                        loadingView
-                    } else if let error = errorMessage {
-                        errorView(error)
-                    } else {
-                        substitutesList
-                    }
+                if isLoading {
+                    loadingAnimationView
+                } else if let error = errorMessage {
+                    errorView(error)
+                } else {
+                    resultsView
                 }
-                .padding(.horizontal, Design.Spacing.lg)
-                .padding(.bottom, Design.Spacing.md)
             }
-            .background(Color.backgroundPrimary)
-            .navigationTitle("Swap Ingredient")
+            .navigationTitle(isLoading ? "" : "Swap Ingredient")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -65,18 +76,195 @@ struct IngredientSubstitutionSheet: View {
                         .foregroundStyle(Color.accentPurple)
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                if !substitutes.isEmpty {
-                    confirmButton
-                }
-            }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(20)
         .task {
             await loadSubstitutes()
         }
+    }
+
+    // MARK: - Loading Animation View
+
+    private var loadingAnimationView: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Progress ring
+            ZStack {
+                Circle()
+                    .stroke(Color.accentPurple.opacity(0.15), lineWidth: 10)
+                    .frame(width: 130, height: 130)
+
+                Circle()
+                    .trim(from: 0, to: loadingProgress)
+                    .stroke(
+                        Color.accentPurple,
+                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                    )
+                    .frame(width: 130, height: 130)
+                    .rotationEffect(.degrees(-90))
+
+                Text("\(Int(loadingProgress * 100))%")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundStyle(Color.accentPurple)
+            }
+            .opacity(loadingAppeared ? 1 : 0)
+            .scaleEffect(loadingAppeared ? 1 : 0.7)
+
+            Spacer().frame(height: Design.Spacing.xxl)
+
+            // Title
+            VStack(spacing: Design.Spacing.sm) {
+                Text("Finding Substitutes")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.primary)
+
+                Text("for \(ingredientName)")
+                    .font(.headline)
+                    .foregroundStyle(Color.accentPurple)
+            }
+            .opacity(loadingAppeared ? 1 : 0)
+
+            Spacer().frame(height: Design.Spacing.lg)
+
+            // Dynamic message
+            Text(loadingMessage)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .animation(.easeInOut, value: loadingMessage)
+                .opacity(loadingAppeared ? 1 : 0)
+
+            Spacer().frame(height: Design.Spacing.xxl)
+
+            // Current ingredient card
+            HStack(spacing: Design.Spacing.md) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Current")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(ingredientName)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                }
+                Spacer()
+                Text(recipeIngredient.displayQuantity)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(Design.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.lg)
+                    .fill(Color.backgroundSecondary)
+            )
+            .padding(.horizontal, Design.Spacing.xl)
+            .opacity(loadingAppeared ? 1 : 0)
+
+            Spacer().frame(height: Design.Spacing.xxl)
+
+            // Food emoji carousel
+            HStack(spacing: Design.Spacing.md) {
+                ForEach(0..<5, id: \.self) { index in
+                    let actualIndex = (foodIndex + index) % foods.count
+                    Text(foods[actualIndex])
+                        .font(.system(size: 36))
+                        .frame(width: 52, height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.Radius.md)
+                                .fill(Color.backgroundSecondary)
+                        )
+                }
+            }
+            .opacity(loadingAppeared ? 1 : 0)
+
+            Spacer()
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
+                loadingAppeared = true
+            }
+            startLoadingAnimation()
+        }
+    }
+
+    // MARK: - Results View
+
+    private var resultsView: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: Design.Spacing.lg) {
+                    // Header
+                    currentIngredientHeader
+                        .opacity(resultsAppeared ? 1 : 0)
+                        .offset(y: resultsAppeared ? 0 : 20)
+
+                    // Substitutes
+                    VStack(spacing: Design.Spacing.sm) {
+                        ForEach(Array(substitutes.enumerated()), id: \.offset) { index, option in
+                            substituteCard(option: option, index: index)
+                                .opacity(resultsAppeared ? 1 : 0)
+                                .offset(y: resultsAppeared ? 0 : 30)
+                                .animation(
+                                    .spring(response: 0.5, dampingFraction: 0.75)
+                                        .delay(Double(index) * 0.1 + 0.15),
+                                    value: resultsAppeared
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal, Design.Spacing.lg)
+                .padding(.bottom, 100)
+            }
+
+            // Confirm button pinned to bottom
+            if !substitutes.isEmpty {
+                confirmButton
+                    .opacity(resultsAppeared ? 1 : 0)
+                    .offset(y: resultsAppeared ? 0 : 40)
+                    .animation(
+                        .spring(response: 0.5, dampingFraction: 0.75).delay(0.4),
+                        value: resultsAppeared
+                    )
+            }
+        }
+        .overlay {
+            if swapCompleted {
+                swapSuccessOverlay
+            }
+        }
+        .onAppear {
+            resultsAppeared = true
+        }
+    }
+
+    // MARK: - Swap Success Overlay
+
+    private var swapSuccessOverlay: some View {
+        ZStack {
+            Color.backgroundPrimary.opacity(0.9)
+                .ignoresSafeArea()
+
+            VStack(spacing: Design.Spacing.lg) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 70))
+                    .foregroundStyle(Color.brandGreen)
+                    .symbolEffect(.bounce, value: swapCompleted)
+
+                Text("Ingredient Swapped!")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("Recipe macros updated")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .scaleEffect(swapCompleted ? 1 : 0.5)
+            .opacity(swapCompleted ? 1 : 0)
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Current Ingredient Header
@@ -109,51 +297,33 @@ struct IngredientSubstitutionSheet: View {
         )
     }
 
-    // MARK: - Loading View
-
-    private var loadingView: some View {
-        VStack(spacing: Design.Spacing.md) {
-            ForEach(0..<3, id: \.self) { _ in
-                RoundedRectangle(cornerRadius: Design.Radius.md)
-                    .fill(Color.backgroundSecondary)
-                    .frame(height: 90)
-                    .shimmer()
-            }
-        }
-        .padding(.top, Design.Spacing.md)
-    }
-
     // MARK: - Error View
 
     private func errorView(_ error: String) -> some View {
         VStack(spacing: Design.Spacing.md) {
+            Spacer()
+
             Image(systemName: "exclamationmark.triangle")
-                .font(.largeTitle)
+                .font(.system(size: 50))
                 .foregroundStyle(.orange)
 
             Text(error)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, Design.Spacing.xl)
 
             Button("Retry") {
                 Task { await loadSubstitutes() }
             }
             .buttonStyle(.borderedProminent)
             .tint(Color.accentPurple)
-        }
-        .padding(.top, Design.Spacing.xl)
-    }
 
-    // MARK: - Substitutes List
-
-    private var substitutesList: some View {
-        VStack(spacing: Design.Spacing.sm) {
-            ForEach(Array(substitutes.enumerated()), id: \.offset) { index, option in
-                substituteCard(option: option, index: index)
-            }
+            Spacer()
         }
     }
+
+    // MARK: - Substitute Card
 
     private func substituteCard(option: SubstituteOption, index: Int) -> some View {
         let isSelected = selectedIndex == index
@@ -161,19 +331,28 @@ struct IngredientSubstitutionSheet: View {
         let proteinDelta = Int(option.totalProtein) - Int(oldProtein)
 
         return Button {
-            withAnimation(Design.Animation.quick) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                 selectedIndex = index
             }
         } label: {
             HStack(spacing: Design.Spacing.md) {
                 // Radio indicator
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? Color.accentPurple : .secondary)
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.accentPurple : Color.secondary.opacity(0.3), lineWidth: 2)
+                        .frame(width: 28, height: 28)
+
+                    if isSelected {
+                        Circle()
+                            .fill(Color.accentPurple)
+                            .frame(width: 18, height: 18)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(option.name)
-                        .font(.subheadline)
+                        .font(.body)
                         .fontWeight(.semibold)
                         .foregroundStyle(.primary)
 
@@ -199,12 +378,12 @@ struct IngredientSubstitutionSheet: View {
             }
             .padding(Design.Spacing.md)
             .background(
-                RoundedRectangle(cornerRadius: Design.Radius.md)
+                RoundedRectangle(cornerRadius: Design.Radius.lg)
                     .fill(isSelected ? Color.accentPurple.opacity(0.08) : Color.backgroundSecondary)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Design.Radius.md)
-                    .stroke(isSelected ? Color.accentPurple : Color.clear, lineWidth: 1.5)
+                RoundedRectangle(cornerRadius: Design.Radius.lg)
+                    .stroke(isSelected ? Color.accentPurple : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(.plain)
@@ -213,20 +392,26 @@ struct IngredientSubstitutionSheet: View {
     // MARK: - Confirm Button
 
     private var confirmButton: some View {
-        Button {
-            performSwap()
-        } label: {
-            Text("Swap Ingredient")
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                performSwap()
+            } label: {
+                HStack(spacing: Design.Spacing.sm) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                    Text("Swap Ingredient")
+                }
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Design.Spacing.md)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.accentPurple)
+            .disabled(selectedIndex == nil)
+            .padding(.horizontal, Design.Spacing.lg)
+            .padding(.vertical, Design.Spacing.sm)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(Color.accentPurple)
-        .disabled(selectedIndex == nil)
-        .padding(.horizontal, Design.Spacing.lg)
-        .padding(.bottom, Design.Spacing.sm)
-        .background(.ultraThinMaterial)
+        .background(Color.backgroundPrimary)
     }
 
     // MARK: - Helpers
@@ -254,6 +439,35 @@ struct IngredientSubstitutionSheet: View {
         value.truncatingRemainder(dividingBy: 1) == 0
             ? String(format: "%.0f", value)
             : String(format: "%.1f", value)
+    }
+
+    // MARK: - Loading Animation
+
+    private func startLoadingAnimation() {
+        // Progress ring animation
+        withAnimation(.linear(duration: 4.0)) {
+            loadingProgress = 0.9
+        }
+
+        // Message cycling
+        for (index, message) in loadingMessages.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.85) {
+                withAnimation {
+                    loadingMessage = message
+                }
+            }
+        }
+
+        // Food carousel rotation
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+            if !isLoading {
+                timer.invalidate()
+                return
+            }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                foodIndex = (foodIndex + 1) % foods.count
+            }
+        }
     }
 
     // MARK: - Network
@@ -289,9 +503,19 @@ struct IngredientSubstitutionSheet: View {
             )
 
             if response.success, let subs = response.substitutes {
+                // Complete progress ring before showing results
+                withAnimation(.easeOut(duration: 0.3)) {
+                    loadingProgress = 1.0
+                }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+
                 substitutes = subs
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isLoading = false
+                }
             } else {
                 errorMessage = response.error ?? "Failed to load substitutes."
+                isLoading = false
             }
         } catch let apiError as APIError {
             switch apiError {
@@ -304,11 +528,11 @@ struct IngredientSubstitutionSheet: View {
             default:
                 errorMessage = apiError.localizedDescription
             }
+            isLoading = false
         } catch {
             errorMessage = "Something went wrong. Please try again."
+            isLoading = false
         }
-
-        isLoading = false
     }
 
     // MARK: - SwiftData Update
@@ -317,7 +541,7 @@ struct IngredientSubstitutionSheet: View {
         guard let index = selectedIndex, index < substitutes.count else { return }
         let option = substitutes[index]
 
-        // Create or find new ingredient
+        // Create new ingredient
         let newIngredient = Ingredient(
             name: option.name,
             category: GroceryCategory(rawValue: option.category) ?? .other,
@@ -341,6 +565,13 @@ struct IngredientSubstitutionSheet: View {
         recipeIngredient.unitRaw = option.unit
         recipeIngredient.quantityGrams = option.quantityGrams
 
-        dismiss()
+        // Show success animation then dismiss
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            swapCompleted = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            dismiss()
+        }
     }
 }

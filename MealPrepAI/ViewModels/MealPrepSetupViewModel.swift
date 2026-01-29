@@ -135,11 +135,11 @@ final class MealPrepSetupViewModel {
 
     // MARK: - Initialization
 
-    init(preferencesStore: MealPrepPreferencesStore = .shared, skipWelcome: Bool = false) {
-        self.preferencesStore = preferencesStore
+    init(preferencesStore: MealPrepPreferencesStore? = nil, skipWelcome: Bool = false) {
+        self.preferencesStore = preferencesStore ?? .shared
         self.skipWelcome = skipWelcome
         // Start with a copy of saved preferences
-        self.preferences = preferencesStore.preferences
+        self.preferences = self.preferencesStore.preferences
         // If skipping welcome, start at weeklyFocus
         if skipWelcome {
             self.currentStep = .weeklyFocus

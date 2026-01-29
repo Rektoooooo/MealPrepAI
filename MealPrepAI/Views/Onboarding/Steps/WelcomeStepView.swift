@@ -73,10 +73,12 @@ struct WelcomeStepView: View {
                 Button {
                     onLogin()
                 } label: {
-                    Text("Already have an account? ")
-                        .foregroundStyle(OnboardingDesign.Colors.textSecondary)
-                    + Text("Login")
-                        .foregroundStyle(OnboardingDesign.Colors.accent)
+                    HStack(spacing: 0) {
+                        Text("Already have an account? ")
+                            .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                        Text("Login")
+                            .foregroundStyle(OnboardingDesign.Colors.accent)
+                    }
                 }
                 .font(OnboardingDesign.Typography.subheadline)
             }

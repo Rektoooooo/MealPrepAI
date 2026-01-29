@@ -948,22 +948,76 @@ struct SwapMealSheet: View {
 
     @State private var selectedMeal: Meal?
     @State private var isSwapping = false
+    @State private var swapRingProgress: CGFloat = 0
+    @State private var swapMessageIndex = 0
+    @State private var swapEmojiOffset: CGFloat = 0
+
+    private let swapMessages = [
+        "Finding the perfect recipe...",
+        "Checking your preferences...",
+        "Balancing the macros...",
+        "Crafting something delicious...",
+        "Almost ready..."
+    ]
+
+    private let foodEmojis = ["🍳", "🥗", "🍲", "🥩", "🍝", "🥑", "🍜", "🫕", "🥘", "🍱"]
 
     var body: some View {
         NavigationStack {
             VStack(spacing: Design.Spacing.lg) {
-                if generator.isGenerating {
+                if generator.isGenerating || isSwapping {
                     Spacer()
-                    VStack(spacing: Design.Spacing.md) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(Color.accentPurple)
 
-                        Text(generator.progress)
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
+                    // Animated progress ring
+                    ZStack {
+                        Circle()
+                            .stroke(Color.accentPurple.opacity(0.15), lineWidth: 6)
+                            .frame(width: 130, height: 130)
+
+                        Circle()
+                            .trim(from: 0, to: swapRingProgress)
+                            .stroke(
+                                AngularGradient(
+                                    colors: [Color.accentPurple, Color.brandGreen, Color.accentPurple],
+                                    center: .center
+                                ),
+                                style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                            )
+                            .frame(width: 130, height: 130)
+                            .rotationEffect(.degrees(-90))
+
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 40, weight: .medium))
+                            .foregroundStyle(Color.accentPurple)
+                            .symbolEffect(.rotate, options: .repeating)
                     }
+                    .padding(.bottom, Design.Spacing.lg)
+
+                    // Cycling messages
+                    Text(swapMessages[swapMessageIndex % swapMessages.count])
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+                        .contentTransition(.numericText())
+                        .animation(.easeInOut, value: swapMessageIndex)
+
+                    // Food emoji carousel
+                    HStack(spacing: Design.Spacing.md) {
+                        ForEach(0..<5, id: \.self) { i in
+                            Text(foodEmojis[(i + Int(swapEmojiOffset)) % foodEmojis.count])
+                                .font(.title)
+                                .scaleEffect(i == 2 ? 1.3 : 0.8)
+                                .opacity(i == 2 ? 1 : 0.5)
+                        }
+                    }
+                    .padding(.top, Design.Spacing.sm)
+
                     Spacer()
+
+                    Text(generator.progress.isEmpty ? "Preparing your swap..." : generator.progress)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .padding(.bottom, Design.Spacing.xl)
+
                 } else if meals.isEmpty {
                     Spacer()
                     VStack(spacing: Design.Spacing.md) {
@@ -1021,12 +1075,43 @@ struct SwapMealSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+        .onChange(of: generator.isGenerating) { _, isGen in
+            if isGen { startSwapAnimations() }
+        }
+        .onChange(of: isSwapping) { _, swapping in
+            if swapping { startSwapAnimations() }
+        }
+    }
+
+    private func startSwapAnimations() {
+        swapRingProgress = 0
+        swapMessageIndex = 0
+        swapEmojiOffset = 0
+
+        withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: false)) {
+            swapRingProgress = 0.85
+        }
+
+        Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [generator] timer in
+            Task { @MainActor in
+                if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
+                withAnimation(.easeInOut(duration: 0.5)) { swapMessageIndex += 1 }
+            }
+        }
+
+        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [generator] timer in
+            Task { @MainActor in
+                if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { swapEmojiOffset += 1 }
+            }
+        }
     }
 
     private func swapSelectedMeal() {
         guard let meal = selectedMeal, let profile = userProfile else { return }
 
+        isSwapping = true
         Task {
             do {
                 let existingRecipeNames = meals.compactMap { $0.recipe?.name }
@@ -1037,13 +1122,15 @@ struct SwapMealSheet: View {
                     modelContext: modelContext
                 )
 
-                // Update the meal with new recipe
                 meal.recipe = result.recipe
                 try modelContext.save()
 
+                // Brief success pause then dismiss
+                try? await Task.sleep(for: .seconds(0.5))
                 dismiss()
             } catch {
                 print("Failed to swap meal: \(error)")
+                isSwapping = false
             }
         }
     }

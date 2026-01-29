@@ -145,7 +145,7 @@ final class SubscriptionManager {
     /// Non-fatal on failure — local StoreKit remains the primary source of truth.
     private func syncJWSToBackend(_ jws: String) async {
         do {
-            let deviceId = await DeviceIdentifier.shared.deviceId
+            let deviceId = DeviceIdentifier.shared.deviceId
             _ = try await APIService.shared.verifySubscription(
                 deviceId: deviceId,
                 signedTransactionJWS: jws
