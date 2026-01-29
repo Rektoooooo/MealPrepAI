@@ -54,7 +54,7 @@ struct IngredientSubstitutionSheet: View {
                     }
                 }
                 .padding(.horizontal, Design.Spacing.lg)
-                .padding(.bottom, Design.Spacing.xxl)
+                .padding(.bottom, Design.Spacing.md)
             }
             .background(Color.backgroundPrimary)
             .navigationTitle("Swap Ingredient")
@@ -72,6 +72,8 @@ struct IngredientSubstitutionSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(20)
         .task {
             await loadSubstitutes()
         }
@@ -291,8 +293,19 @@ struct IngredientSubstitutionSheet: View {
             } else {
                 errorMessage = response.error ?? "Failed to load substitutes."
             }
+        } catch let apiError as APIError {
+            switch apiError {
+            case .httpError(let code) where code == 401:
+                errorMessage = "Unable to verify app. Please restart the app and try again."
+            case .subscriptionRequired:
+                errorMessage = "A subscription is required to swap ingredients."
+            case .rateLimited:
+                errorMessage = "Too many requests. Please try again later."
+            default:
+                errorMessage = apiError.localizedDescription
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "Something went wrong. Please try again."
         }
 
         isLoading = false
