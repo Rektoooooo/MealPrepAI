@@ -100,6 +100,8 @@ struct GroceryHistoryDetailSheet: View {
                         y: Design.Shadow.sm.y
                     )
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Completed \(completedDateString), \(groceryList.totalCount) total items")
         }
         .padding(.top, Design.Spacing.sm)
     }
@@ -124,6 +126,8 @@ struct GroceryHistoryDetailSheet: View {
         .padding(.vertical, Design.Spacing.xs)
         .padding(.horizontal, Design.Spacing.xxs)
         .background(Color.backgroundMint.opacity(0.95))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(category.rawValue), \(count) items")
     }
 }
 
@@ -149,6 +153,7 @@ struct HistoryItemRow: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white)
             }
+            .accessibilityHidden(true)
 
             // Item Details
             VStack(alignment: .leading, spacing: 2) {
@@ -170,6 +175,7 @@ struct HistoryItemRow: View {
                 Image(systemName: category.icon)
                     .font(.system(size: 14))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    .accessibilityHidden(true)
             }
         }
         .padding(Design.Spacing.md)
@@ -178,6 +184,8 @@ struct HistoryItemRow: View {
                 .fill(Color.cardBackground)
                 .opacity(0.6)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.displayName), \(convertedQuantity), purchased")
     }
 }
 

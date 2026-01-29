@@ -81,6 +81,7 @@ struct WeeklyFocusChip: View {
             VStack(spacing: OnboardingDesign.Spacing.xs) {
                 Text(focus.emoji)
                     .font(.system(size: 28))
+                    .accessibilityHidden(true)
 
                 Text(focus.rawValue)
                     .font(OnboardingDesign.Typography.subheadline)
@@ -104,6 +105,11 @@ struct WeeklyFocusChip: View {
                     .fill(isSelected ? OnboardingDesign.Colors.selectedBackground : OnboardingDesign.Colors.unselectedBackground)
             )
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(focus.rawValue), \(focus.shortDescription)")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint("Double tap to toggle")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .buttonStyle(OnboardingScaleButtonStyle())
     }
 

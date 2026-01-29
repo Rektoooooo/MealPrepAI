@@ -56,6 +56,7 @@ struct ProfileImagePicker: View {
         }
         .animation(.spring(response: 0.3), value: profileImageData)
         .animation(.spring(response: 0.3), value: selectedEmoji)
+        .accessibilityLabel(profileImageData != nil ? "Profile photo" : "Profile avatar, \(selectedEmoji)")
     }
 
     // MARK: - Mode Selector
@@ -138,6 +139,8 @@ struct ProfileImagePicker: View {
                     }
                     .buttonStyle(.plain)
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedEmoji)
+                    .accessibilityLabel("Avatar \(emoji)")
+                    .accessibilityAddTraits(selectedEmoji == emoji && profileImageData == nil ? .isSelected : [])
                 }
             }
             .padding(.horizontal, Design.Spacing.md)
@@ -202,6 +205,7 @@ struct ProfileImagePicker: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Remove photo")
             }
 
             Text("Choose a photo from your library to use as your profile picture")

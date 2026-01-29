@@ -22,6 +22,7 @@ struct AboutNavigationView: View {
                             .font(.system(size: 50))
                             .foregroundStyle(.white)
                     }
+                    .accessibilityHidden(true)
 
                     Text("MealPrepAI")
                         .font(.title)
@@ -84,6 +85,7 @@ struct AboutNavigationView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    .accessibilityHidden(true)
             }
             .padding(Design.Spacing.md)
             .background(
@@ -91,5 +93,6 @@ struct AboutNavigationView: View {
                     .fill(Color.cardBackground)
             )
         }
+        .accessibilityHint("Opens in browser")
     }
 }

@@ -98,6 +98,7 @@ struct DateRangePickerSheet: View {
                             .foregroundStyle(OnboardingDesign.Colors.textTertiary)
                             .font(.title2)
                     }
+                    .accessibilityLabel("Close date picker")
                 }
             }
         }
@@ -142,6 +143,8 @@ struct DateRangePickerSheet: View {
                         .fill(isSelected ? OnboardingDesign.Colors.selectedBackground : OnboardingDesign.Colors.unselectedBackground)
                 )
         }
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint("Sets start date to \(title.lowercased())")
         .buttonStyle(.plain)
     }
 
@@ -173,6 +176,7 @@ struct DateRangePickerSheet: View {
             HStack {
                 Image(systemName: "calendar")
                     .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                    .accessibilityHidden(true)
 
                 Text("Your plan: ")
                     .font(OnboardingDesign.Typography.subheadline)
@@ -200,6 +204,8 @@ struct DateRangePickerSheet: View {
                 RoundedRectangle(cornerRadius: OnboardingDesign.Radius.md)
                     .fill(OnboardingDesign.Colors.unselectedBackground)
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(isSelectingEnd ? "Select end date to complete range" : "Plan: \(dateRangePreview), \(computedDuration) \(computedDuration == 1 ? "day" : "days")")
 
             // Confirm Button
             Button(action: {

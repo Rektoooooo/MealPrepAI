@@ -78,6 +78,7 @@ struct MealPlanCalendarView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(canGoBack ? OnboardingDesign.Colors.textPrimary : OnboardingDesign.Colors.textTertiary)
                 }
+                .accessibilityLabel("Previous month")
                 .disabled(!canGoBack)
 
                 Spacer()
@@ -97,6 +98,7 @@ struct MealPlanCalendarView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(canGoForward ? OnboardingDesign.Colors.textPrimary : OnboardingDesign.Colors.textTertiary)
                 }
+                .accessibilityLabel("Next month")
                 .disabled(!canGoForward)
             }
             .padding(.horizontal, 4)
@@ -155,10 +157,12 @@ struct MealPlanCalendarView: View {
             Circle()
                 .fill(color)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(OnboardingDesign.Colors.textTertiary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Day Cell
@@ -287,10 +291,24 @@ struct MealPlanCalendarView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canTap)
+            .accessibilityLabel({
+                let formatter = DateFormatter()
+                formatter.dateStyle = .long
+                var label = formatter.string(from: date)
+                if isStartDate { label += ", start date" }
+                if isEndDate && !isStartDate { label += ", end date" }
+                if isInRange && !isStartDate && !isEndDate { label += ", in selected range" }
+                if isExisting { label += ", has existing plan" }
+                if isToday { label += ", today" }
+                return label
+            }())
+            .accessibilityHint(canTap ? (isSelectingEnd ? "Double tap to set as end date" : "Double tap to set as start date") : "")
+            .accessibilityAddTraits(isStartDate || isEndDate ? [.isSelected] : [])
         } else {
             Color.clear
                 .frame(maxWidth: .infinity)
                 .frame(height: 38)
+                .accessibilityHidden(true)
         }
     }
 

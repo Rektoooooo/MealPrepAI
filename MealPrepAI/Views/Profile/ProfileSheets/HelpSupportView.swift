@@ -54,6 +54,7 @@ struct HelpSupportNavigationView: View {
                 } label: {
                     Label("Rate on App Store", systemImage: "star")
                 }
+                .accessibilityHint("Opens the App Store rating prompt")
 
                 ShareLink(
                     item: URL(string: "https://apps.apple.com/app/mealprepai")!,

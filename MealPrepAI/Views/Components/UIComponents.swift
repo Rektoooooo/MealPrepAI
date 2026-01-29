@@ -162,7 +162,7 @@ struct NutritionRingCard: View {
 
                     VStack(spacing: 2) {
                         Text("\(consumed)")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .font(.system(.title2, design: .rounded, weight: .bold))
                             .foregroundStyle(.primary)
                         Text("/ \(target)")
                             .font(.caption)

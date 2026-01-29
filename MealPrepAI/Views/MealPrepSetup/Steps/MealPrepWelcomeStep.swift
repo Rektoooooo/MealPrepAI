@@ -35,6 +35,7 @@ struct MealPrepWelcomeStep: View {
                     .font(.system(size: 44, weight: .medium))
                     .foregroundStyle(Color.accentPurple)
             }
+            .accessibilityHidden(true)
 
             // Title & Subtitle
             VStack(spacing: OnboardingDesign.Spacing.sm) {
@@ -75,6 +76,7 @@ struct MealPrepWelcomeStep: View {
                                 .fill(OnboardingDesign.Colors.accent)
                         )
                     }
+                    .accessibilityHint("Skips customization and uses your saved preferences")
 
                     // Previous preferences summary
                     Text(MealPrepPreferencesStore.shared.summary)
@@ -97,6 +99,7 @@ struct MealPrepWelcomeStep: View {
                                     .fill(OnboardingDesign.Colors.unselectedBackground)
                             )
                     }
+                    .accessibilityHint("Opens step-by-step customization for this week's meal plan")
                 } else {
                     // First time user - single CTA
                     OnboardingCTAButton("Let's Go") {

@@ -14,7 +14,7 @@ struct EditNutritionGoalsView: View {
                 sectionCard(title: "Daily Calories", icon: "flame.fill", iconColor: Color.calorieColor) {
                     VStack(spacing: Design.Spacing.md) {
                         Text("\(profile.dailyCalorieTarget)")
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
                             .foregroundStyle(Color.textPrimary)
 
                         Text("calories per day")
@@ -23,6 +23,8 @@ struct EditNutritionGoalsView: View {
 
                         Stepper("", value: $profile.dailyCalorieTarget, in: 1000...5000, step: 50)
                             .labelsHidden()
+                            .accessibilityLabel("Daily calorie target")
+                            .accessibilityValue("\(profile.dailyCalorieTarget) calories")
 
                         HStack {
                             Button {
@@ -41,6 +43,7 @@ struct EditNutritionGoalsView: View {
                                             .fill(Color.accentPurple.opacity(0.1))
                                     )
                             }
+                            .accessibilityLabel("Decrease calories by 100")
 
                             Spacer()
 
@@ -60,6 +63,7 @@ struct EditNutritionGoalsView: View {
                                             .fill(Color.accentPurple.opacity(0.1))
                                     )
                             }
+                            .accessibilityLabel("Increase calories by 100")
                         }
                     }
                 }
@@ -120,7 +124,7 @@ struct EditNutritionGoalsView: View {
 
                             if measurementSystem == .metric {
                                 Text("\(Int(targetWeight)) kg")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -135,7 +139,7 @@ struct EditNutritionGoalsView: View {
                             } else {
                                 let lbs = targetWeight * 2.20462
                                 Text("\(Int(lbs)) lbs")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -196,6 +200,8 @@ struct EditNutritionGoalsView: View {
                     )
                 }
                 .padding(.horizontal, Design.Spacing.md)
+                .accessibilityLabel("Recalculate nutrition goals from profile")
+                .accessibilityHint("Replaces custom values with calculated ones based on your physical stats")
             }
             .padding(.horizontal, Design.Spacing.md)
             .padding(.bottom, Design.Spacing.xxl)
@@ -245,6 +251,8 @@ struct EditNutritionGoalsView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(color.opacity(0.7))
                 }
+                .accessibilityLabel("Decrease \(label)")
+                .accessibilityHint("Decreases by 5 grams")
 
                 Text("\(value.wrappedValue)g")
                     .font(.system(.headline, design: .rounded, weight: .bold))
@@ -260,6 +268,8 @@ struct EditNutritionGoalsView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(color.opacity(0.7))
                 }
+                .accessibilityLabel("Increase \(label)")
+                .accessibilityHint("Increases by 5 grams")
             }
         }
     }
@@ -274,6 +284,7 @@ struct EditNutritionGoalsView: View {
 
         return VStack(spacing: Design.Spacing.sm) {
             Divider()
+                .accessibilityHidden(true)
 
             HStack {
                 Text("Macro Calories")

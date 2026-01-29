@@ -183,11 +183,14 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $mealReminders)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Meal Reminders")
+                        .accessibilityValue(mealReminders ? "On" : "Off")
                 }
 
                 if mealReminders {
                     Divider()
                         .padding(.vertical, Design.Spacing.xxs)
+                        .accessibilityHidden(true)
 
                     // Breakfast Time
                     reminderTimeRow(
@@ -265,10 +268,13 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $groceryReminders)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Grocery Reminders")
+                        .accessibilityValue(groceryReminders ? "On" : "Off")
                 }
 
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
+                    .accessibilityHidden(true)
 
                 // Advance Prep Reminders
                 HStack(spacing: Design.Spacing.md) {
@@ -296,10 +302,13 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $prepReminders)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Advance Prep Reminders")
+                        .accessibilityValue(prepReminders ? "On" : "Off")
                 }
 
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
+                    .accessibilityHidden(true)
 
                 // Plan Expiry Reminder
                 HStack(spacing: Design.Spacing.md) {
@@ -327,6 +336,8 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $planExpiryReminder)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Plan Expiry Reminder")
+                        .accessibilityValue(planExpiryReminder ? "On" : "Off")
                 }
 
                 // Trial Expiry Reminder (only for non-subscribers)
@@ -359,11 +370,14 @@ struct NotificationSettingsView: View {
                         Toggle("", isOn: $trialExpiryReminder)
                             .labelsHidden()
                             .tint(Color.accentPurple)
+                            .accessibilityLabel("Trial Expiry Reminder")
+                            .accessibilityValue(trialExpiryReminder ? "On" : "Off")
                     }
                 }
 
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
+                    .accessibilityHidden(true)
 
                 // Weekly Digest
                 HStack(spacing: Design.Spacing.md) {
@@ -391,10 +405,13 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $weeklyDigest)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Weekly Digest")
+                        .accessibilityValue(weeklyDigest ? "On" : "Off")
                 }
 
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
+                    .accessibilityHidden(true)
 
                 // Tips & Suggestions
                 HStack(spacing: Design.Spacing.md) {
@@ -422,6 +439,8 @@ struct NotificationSettingsView: View {
                     Toggle("", isOn: $tipsAndSuggestions)
                         .labelsHidden()
                         .tint(Color.accentPurple)
+                        .accessibilityLabel("Tips and Suggestions")
+                        .accessibilityValue(tipsAndSuggestions ? "On" : "Off")
                 }
             }
             .padding(Design.Spacing.md)
@@ -458,6 +477,7 @@ struct NotificationSettingsView: View {
             DatePicker("", selection: time, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .tint(Color.accentPurple)
+                .accessibilityLabel("\(title) reminder time")
         }
     }
 

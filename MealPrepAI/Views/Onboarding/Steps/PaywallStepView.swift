@@ -24,7 +24,7 @@ struct PaywallStepView: View {
             formatter.numberStyle = .currency
             formatter.currencyCode = "USD"
             formatter.locale = Locale(identifier: "en_US")
-            formatter.roundingMode = .down
+            formatter.roundingMode = .down  
             formatter.maximumFractionDigits = 2
             return formatter.string(from: monthly as NSDecimalNumber) ?? "$4.99"
         }

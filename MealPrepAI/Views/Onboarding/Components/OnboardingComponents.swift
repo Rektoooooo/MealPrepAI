@@ -27,6 +27,9 @@ struct OnboardingProgressBar: View {
             }
         }
         .frame(height: 3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Onboarding progress")
+        .accessibilityValue("Step \(currentStep) of \(totalSteps)")
     }
 }
 
@@ -49,6 +52,7 @@ struct OnboardingBackButton: View {
                 )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityLabel("Go back")
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -86,6 +90,8 @@ struct OnboardingCTAButton: View {
                 )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityLabel(title)
+        .accessibilityHint("Double tap to continue")
         .disabled(!isEnabled)
     }
 
@@ -175,6 +181,11 @@ struct OnboardingSelectionCard: View {
             )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title + (description.map { ", " + $0 } ?? ""))
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Double tap to \(isSelected ? "deselect" : "select")")
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -219,6 +230,10 @@ struct OnboardingChip: View {
             )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -242,6 +257,7 @@ struct PrivacyNote: View {
                 .font(OnboardingDesign.Typography.caption)
         }
         .foregroundStyle(OnboardingDesign.Colors.textMuted)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -285,6 +301,8 @@ struct SocialProofCard: View {
             RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(stars) star review by \(author): \(quote)")
     }
 }
 
@@ -325,6 +343,7 @@ struct ThumbsUpDownRow: View {
                         )
                 }
                 .buttonStyle(OnboardingScaleButtonStyle())
+                .accessibilityLabel("Dislike \(title)")
 
                 // Thumbs up
                 Button {
@@ -341,6 +360,7 @@ struct ThumbsUpDownRow: View {
                         )
                 }
                 .buttonStyle(OnboardingScaleButtonStyle())
+                .accessibilityLabel("Like \(title)")
             }
         }
         .padding(OnboardingDesign.Spacing.md)
@@ -348,6 +368,19 @@ struct ThumbsUpDownRow: View {
             RoundedRectangle(cornerRadius: OnboardingDesign.Radius.md)
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title) cuisine preference")
+        .accessibilityValue(preference == .like ? "Liked" : preference == .dislike ? "Disliked" : "No preference")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                preference = preference == .dislike ? .neutral : .like
+            case .decrement:
+                preference = preference == .like ? .neutral : .dislike
+            @unknown default:
+                break
+            }
+        }
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -372,6 +405,7 @@ struct OnboardingWheelPicker<T: Hashable>: View {
         }
         .pickerStyle(.wheel)
         .frame(height: 150)
+        .accessibilityLabel("Select value")
     }
 }
 
@@ -416,6 +450,9 @@ struct AnimatedProgressRing: View {
                 animatedProgress = newValue
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Progress")
+        .accessibilityValue("\(Int(animatedProgress * 100)) percent")
     }
 }
 
@@ -449,6 +486,9 @@ struct AvatarGrid: View {
                         .animation(OnboardingDesign.Animation.bouncy, value: selectedEmoji)
                 }
                 .buttonStyle(OnboardingScaleButtonStyle())
+                .accessibilityLabel(emoji)
+                .accessibilityValue(selectedEmoji == emoji ? "Selected" : "")
+                .accessibilityHint("Double tap to select this avatar")
             }
         }
     }
@@ -524,6 +564,10 @@ struct PricingCard: View {
             )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(price) \(period)" + (badge.map { ", \($0)" } ?? ""))
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -558,6 +602,10 @@ struct FoodDislikeChip: View {
             )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(food.rawValue)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -591,6 +639,9 @@ struct OnboardingSegmentedControl: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(option)
+                .accessibilityValue(selection == index ? "Selected" : "Not selected")
+                .accessibilityAddTraits(selection == index ? .isSelected : [])
             }
         }
         .padding(4)
@@ -598,6 +649,7 @@ struct OnboardingSegmentedControl: View {
             Capsule()
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+        .accessibilityElement(children: .contain)
     }
 
     private func hapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -628,5 +680,6 @@ struct OnboardingStepHeader: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }

@@ -111,6 +111,8 @@ struct EditProfileView: View {
                         RoundedRectangle(cornerRadius: Design.Radius.md)
                             .fill(Color.cardBackground)
                     )
+                    .accessibilityLabel("Name")
+                    .accessibilityValue(editedName.isEmpty ? "Empty" : editedName)
                     .onChange(of: editedName) { _, _ in hasChanges = true }
             }
         }
@@ -167,6 +169,7 @@ struct EditProfileView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    .accessibilityHidden(true)
             }
             .padding(Design.Spacing.md)
             .background(
@@ -180,6 +183,8 @@ struct EditProfileView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens \(title) settings")
     }
 
     // MARK: - Summary Strings

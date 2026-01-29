@@ -745,7 +745,7 @@ struct ShareGroceryListSheet: View {
 
                     ScrollView {
                         Text(shareText)
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(.system(.caption, design: .monospaced))
                             .foregroundStyle(Color.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }

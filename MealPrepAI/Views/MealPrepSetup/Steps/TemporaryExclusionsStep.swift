@@ -45,6 +45,7 @@ struct TemporaryExclusionsStep: View {
                         HStack {
                             Image(systemName: "text.bubble")
                                 .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                                .accessibilityHidden(true)
                             Text("Other exclusions")
                                 .font(OnboardingDesign.Typography.subheadline)
                                 .fontWeight(.medium)

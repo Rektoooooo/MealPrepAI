@@ -42,7 +42,7 @@ struct GreetingHeader: View {
                             .font(.system(size: 24))
                     } else {
                         Text(String(userName.prefix(2)).uppercased())
-                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .font(.system(.body, design: .rounded, weight: .bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -183,7 +183,7 @@ struct PersonalizationBanner: View {
             // Left side - Text and button
             VStack(alignment: .leading, spacing: Design.Spacing.sm) {
                 Text(title)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
                     .foregroundStyle(titleColor)
 
                 Text(subtitle)
@@ -197,7 +197,7 @@ struct PersonalizationBanner: View {
 
                 Button(action: onTap) {
                     Text(buttonText)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(.body, design: .rounded, weight: .bold))
                         .foregroundStyle(buttonTextColor)
                         .padding(.horizontal, Design.Spacing.xl)
                         .padding(.vertical, Design.Spacing.md)

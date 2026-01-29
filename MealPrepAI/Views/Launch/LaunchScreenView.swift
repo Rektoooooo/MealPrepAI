@@ -13,6 +13,7 @@ struct LaunchScreenView: View {
                 // White background to prevent black bars
                 Color.white
                     .ignoresSafeArea()
+                    .accessibilityHidden(true)
 
                 // Full screen hero image as background
                 Image("meal-prep-hero")
@@ -22,6 +23,7 @@ struct LaunchScreenView: View {
                     .clipped()
                     .ignoresSafeArea()
                     .opacity(appeared ? 1 : 0)
+                    .accessibilityHidden(true)
 
                 // Content overlay
                 VStack(spacing: 0) {
@@ -48,6 +50,7 @@ struct LaunchScreenView: View {
 
                     Spacer()
                         .frame(height: 32)
+                        .accessibilityHidden(true)
 
                     // Button section
                     VStack(spacing: 16) {
@@ -67,6 +70,8 @@ struct LaunchScreenView: View {
                                 )
                         }
                         .buttonStyle(LaunchButtonStyle())
+                        .accessibilityLabel("Get Started")
+                        .accessibilityHint("Begins the onboarding process")
 
                         // Sign in link
                         Button {
@@ -81,6 +86,8 @@ struct LaunchScreenView: View {
                             }
                             .font(.system(size: 14))
                         }
+                        .accessibilityLabel("Already have an account? Sign In")
+                        .accessibilityHint("Opens the sign in screen")
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 40)

@@ -63,6 +63,7 @@ struct EditProfileSheet: View {
                 Circle()
                     .fill(color)
                     .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
                 Text(label)
                     .font(.subheadline)
                     .foregroundStyle(Color.textPrimary)
@@ -80,6 +81,7 @@ struct EditProfileSheet: View {
                         .font(.title3)
                         .foregroundStyle(value.wrappedValue > range.lowerBound ? color : Color.textSecondary)
                 }
+                .accessibilityLabel("Decrease \(label)")
 
                 Text("\(value.wrappedValue) \(unit)")
                     .font(.subheadline)
@@ -95,6 +97,7 @@ struct EditProfileSheet: View {
                         .font(.title3)
                         .foregroundStyle(value.wrappedValue < range.upperBound ? color : Color.textSecondary)
                 }
+                .accessibilityLabel("Increase \(label)")
             }
         }
         .padding(Design.Spacing.md)
@@ -102,5 +105,8 @@ struct EditProfileSheet: View {
             RoundedRectangle(cornerRadius: Design.Radius.md)
                 .fill(Color.mintLight)
         )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(label)")
+        .accessibilityValue("\(value.wrappedValue) \(unit)")
     }
 }

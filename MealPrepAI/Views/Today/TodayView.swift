@@ -570,7 +570,7 @@ struct GenerateMealPlanSheet: View {
 
                             VStack(spacing: Design.Spacing.sm) {
                                 Text("Generate Your Meal Plan")
-                                    .font(.system(size: 26, weight: .bold))
+                                    .font(.system(.title3, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Text("We'll create a personalized meal plan based on your dietary preferences and nutritional goals.")
@@ -741,7 +741,7 @@ struct ProfileStatBadge: View {
             }
 
             Text(value)
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(.body, weight: .bold))
                 .foregroundStyle(Color.textPrimary)
 
             Text(label)
@@ -850,11 +850,11 @@ struct GeneratingMealPlanView: View {
             // Progress text
             VStack(spacing: 12) {
                 Text("Creating Your Plan")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(.title2, weight: .bold))
                     .foregroundStyle(Color.black)
 
                 Text(progress.isEmpty ? tips[currentTipIndex % tips.count] : progress)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(.body, weight: .medium))
                     .foregroundStyle(Color(hex: "6B6B6B"))
                     .multilineTextAlignment(.center)
                     .frame(height: 24)
@@ -890,7 +890,7 @@ struct GeneratingMealPlanView: View {
                     Image(systemName: "clock")
                         .font(.system(size: 12, weight: .medium))
                     Text("This usually takes 30-60 seconds")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(.caption, weight: .medium))
                 }
                 .foregroundStyle(Color(hex: "9CA3AF"))
             }

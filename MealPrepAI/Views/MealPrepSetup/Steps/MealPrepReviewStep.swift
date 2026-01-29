@@ -71,12 +71,14 @@ struct MealPrepReviewStep: View {
                     HStack(spacing: OnboardingDesign.Spacing.sm) {
                         Image(systemName: "bookmark.fill")
                             .foregroundStyle(OnboardingDesign.Colors.textSecondary)
+                            .accessibilityHidden(true)
                         Text("Save as my default preferences")
                             .font(OnboardingDesign.Typography.subheadline)
                             .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                     }
                 }
                 .toggleStyle(SwitchToggleStyle(tint: OnboardingDesign.Colors.success))
+                .accessibilityValue(viewModel.saveAsDefault ? "On" : "Off")
                 .padding(.horizontal, OnboardingDesign.Spacing.lg)
 
                 // Generate Button
@@ -121,6 +123,8 @@ struct MealPrepReviewStep: View {
             RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
                 .fill(OnboardingDesign.Colors.unselectedBackground)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Plan dates: \(viewModel.formattedDateRange)")
     }
 
     // MARK: - Profile Summary Card
@@ -201,6 +205,7 @@ struct MealPrepReviewStep: View {
                     .font(.system(size: 14))
                     .foregroundStyle(color)
             }
+            .accessibilityHidden(true)
 
             Text(value)
                 .font(OnboardingDesign.Typography.subheadline)
@@ -212,6 +217,8 @@ struct MealPrepReviewStep: View {
                 .foregroundStyle(OnboardingDesign.Colors.textTertiary)
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)\(isOverridden ? ", custom" : "")")
     }
 
     // MARK: - Weekly Preferences Card
@@ -286,6 +293,8 @@ struct MealPrepReviewStep: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 
     // MARK: - Special Request Input
@@ -403,6 +412,7 @@ struct MacroEditorSheet: View {
                     .font(OnboardingDesign.Typography.subheadline)
                     .foregroundStyle(OnboardingDesign.Colors.textSecondary)
                 }
+                .accessibilityHint("Resets all macro values to your profile defaults")
                 .padding(.top)
 
                 Spacer()
@@ -444,6 +454,7 @@ struct MacroEditorSheet: View {
                     .font(.system(size: 16))
                     .foregroundStyle(color)
             }
+            .accessibilityHidden(true)
 
             Text(label)
                 .font(OnboardingDesign.Typography.body)

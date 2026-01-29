@@ -101,6 +101,7 @@ struct MealPrepSetupView: View {
                     // Placeholder for alignment
                     Color.clear
                         .frame(width: 40, height: 40)
+                        .accessibilityHidden(true)
                 }
 
                 Spacer()
@@ -116,6 +117,7 @@ struct MealPrepSetupView: View {
                                 .fill(OnboardingDesign.Colors.cardBackground)
                         )
                 }
+                .accessibilityLabel("Close meal prep setup")
                 .disabled(viewModel.isGenerating)
             }
             .padding(.horizontal, OnboardingDesign.Spacing.md)
@@ -163,10 +165,13 @@ struct MealPrepSetupView: View {
         ZStack {
             Color.black.opacity(0.5)
                 .ignoresSafeArea()
+                .accessibilityHidden(true)
 
             GeneratingMealPlanView(progress: viewModel.generationProgress)
         }
         .transition(.opacity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Generating meal plan, please wait")
     }
 
     // MARK: - Actions

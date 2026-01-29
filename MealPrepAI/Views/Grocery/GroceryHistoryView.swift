@@ -21,6 +21,7 @@ struct GroceryHistoryView: View {
                                     .onTapGesture {
                                         selectedList = list
                                     }
+                                    .accessibilityHint("Shows shopping list details")
                             }
                         }
                         .padding(.horizontal, Design.Spacing.md)
@@ -63,6 +64,8 @@ struct GroceryHistoryView: View {
                 .padding(.horizontal, Design.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No shopping history. Completed shopping lists will appear here.")
     }
 }
 
@@ -89,6 +92,7 @@ struct GroceryHistoryCard: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(.white)
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
                 Text(groceryList.dateRangeDescription)
@@ -116,6 +120,7 @@ struct GroceryHistoryCard: View {
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.textSecondary.opacity(0.5))
+                .accessibilityHidden(true)
         }
         .padding(Design.Spacing.md)
         .background(
@@ -127,6 +132,8 @@ struct GroceryHistoryCard: View {
                     y: Design.Shadow.card.y
                 )
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(groceryList.dateRangeDescription), \(groceryList.totalCount) items, completed \(relativeTimeString)")
     }
 }
 

@@ -92,6 +92,7 @@ struct NotificationsView: View {
                         .font(.system(size: 18))
                         .foregroundStyle(Color.accentPurple)
                 }
+                .accessibilityLabel("Notification options")
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -224,6 +225,7 @@ struct NotificationRow: View {
                     Circle()
                         .fill(Color.accentPurple)
                         .frame(width: 8, height: 8)
+                        .accessibilityHidden(true)
                 }
             }
             .padding(Design.Spacing.md)
@@ -238,6 +240,10 @@ struct NotificationRow: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(notification.title). \(notification.message)")
+        .accessibilityValue(notification.isRead ? "Read" : "Unread")
+        .accessibilityHint("Tap to mark as read")
     }
 }
 

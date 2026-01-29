@@ -20,6 +20,7 @@ struct AuthenticationView: View {
             // Background gradient
             LinearGradient.mintBackgroundGradient
                 .ignoresSafeArea()
+                .accessibilityHidden(true)
 
             VStack(spacing: 0) {
                 Spacer()
@@ -41,6 +42,7 @@ struct AuthenticationView: View {
                             .font(.system(size: 60))
                             .foregroundStyle(.white)
                     }
+                    .accessibilityHidden(true)
                     .scaleEffect(animateContent ? 1 : 0.8)
                     .opacity(animateContent ? 1 : 0)
 
@@ -84,6 +86,8 @@ struct AuthenticationView: View {
                     .cornerRadius(Design.Radius.md)
                     .disabled(isSigningIn)
                     .opacity(isSigningIn ? 0.6 : 1)
+                    .accessibilityLabel("Sign in with Apple")
+                    .accessibilityHint("Signs in using your Apple ID")
 
                     // Continue as Guest Button
                     Button(action: {
@@ -102,6 +106,8 @@ struct AuthenticationView: View {
                             )
                     }
                     .disabled(isSigningIn)
+                    .accessibilityLabel("Continue as guest")
+                    .accessibilityHint("Uses the app without signing in. Data will only be stored on this device.")
 
                     // Privacy Info
                     Text("Sign in to sync your data across devices. Guest mode keeps data on this device only.")
@@ -124,6 +130,7 @@ struct AuthenticationView: View {
                         ProgressView()
                             .scaleEffect(1.5)
                             .tint(.white)
+                            .accessibilityLabel("Signing in")
                     }
             }
         }
@@ -154,6 +161,7 @@ struct AuthenticationView: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Sign In Handler

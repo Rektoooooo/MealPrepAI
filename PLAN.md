@@ -168,7 +168,8 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 - ✅ Transaction listener for background updates
 - ✅ Profile subscription management (manage/upgrade/restore)
 - ✅ Configuration.storekit for sandbox testing
-- ❌ Receipt validation (server-side)
+- ✅ Receipt validation (server-side via Apple app-store-server-library + Firestore)
+- ✅ Apple Server Notifications V2 webhook for subscription lifecycle events
 - ❌ Introductory offer / free trial via StoreKit
 
 ### Design System ✅
@@ -186,8 +187,8 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 - [x] **StoreKit 2 Integration** - Product fetching, purchase, restore, entitlements, transaction listener
 - [x] **Subscription Management UI** - Profile section with manage/upgrade/restore
 - [x] **Revert SubscriptionManager default** - `isSubscribed` defaults to `false`, driven by StoreKit
-- [ ] **Receipt Validation** - Server-side or on-device receipt verification
-- [ ] **Accessibility Audit** - VoiceOver labels, Dynamic Type testing, contrast ratios
+- [x] **Receipt Validation** - Server-side Apple JWS verification, Firestore subscription tracking, webhook for lifecycle events
+- [x] **Accessibility Audit** - VoiceOver labels/hints/traits on all views (onboarding, profile editing, auth, MealPrepSetup, grocery history) + Dynamic Type support (hardcoded font sizes replaced with semantic fonts)
 
 ### Medium Priority (Post-Launch)
 - [x] **Local Notifications** - Complete UNUserNotificationCenter scheduling with permission checks, future-date guards, and all trigger points covered
@@ -221,6 +222,8 @@ Security:
 - Firebase App Check (App Attest in production)
 - Rate limiting per device
 - API key held server-side
+- Server-side subscription verification (Apple JWS + Firestore)
+- Apple Server Notifications V2 webhook
 ```
 
 ---

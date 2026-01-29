@@ -44,7 +44,7 @@ struct EditPhysicalStatsView: View {
                             // Metric: cm
                             VStack(spacing: Design.Spacing.xs) {
                                 Text("\(Int(profile.heightCm)) cm")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -53,6 +53,8 @@ struct EditPhysicalStatsView: View {
                                     step: 1
                                 )
                                 .tint(Color.accentPurple)
+                                .accessibilityLabel("Height")
+                                .accessibilityValue("\(Int(profile.heightCm)) centimeters")
 
                                 HStack {
                                     Text("120 cm")
@@ -63,6 +65,7 @@ struct EditPhysicalStatsView: View {
                                         .font(.caption)
                                         .foregroundStyle(Color.textSecondary)
                                 }
+                                .accessibilityHidden(true)
                             }
                         } else {
                             // Imperial: feet and inches
@@ -72,7 +75,7 @@ struct EditPhysicalStatsView: View {
 
                             VStack(spacing: Design.Spacing.xs) {
                                 Text("\(feet)' \(inches)\"")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -81,6 +84,8 @@ struct EditPhysicalStatsView: View {
                                     step: 2.54
                                 )
                                 .tint(Color.accentPurple)
+                                .accessibilityLabel("Height")
+                                .accessibilityValue("\(feet) feet \(inches) inches")
 
                                 HStack {
                                     Text("3' 11\"")
@@ -91,6 +96,7 @@ struct EditPhysicalStatsView: View {
                                         .font(.caption)
                                         .foregroundStyle(Color.textSecondary)
                                 }
+                                .accessibilityHidden(true)
                             }
                         }
                     }
@@ -103,7 +109,7 @@ struct EditPhysicalStatsView: View {
                             // Metric: kg
                             VStack(spacing: Design.Spacing.xs) {
                                 Text("\(Int(profile.weightKg)) kg")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -112,6 +118,8 @@ struct EditPhysicalStatsView: View {
                                     step: 1
                                 )
                                 .tint(Color.accentPurple)
+                                .accessibilityLabel("Weight")
+                                .accessibilityValue("\(Int(profile.weightKg)) kilograms")
 
                                 HStack {
                                     Text("30 kg")
@@ -122,6 +130,7 @@ struct EditPhysicalStatsView: View {
                                         .font(.caption)
                                         .foregroundStyle(Color.textSecondary)
                                 }
+                                .accessibilityHidden(true)
                             }
                         } else {
                             // Imperial: lbs
@@ -129,7 +138,7 @@ struct EditPhysicalStatsView: View {
 
                             VStack(spacing: Design.Spacing.xs) {
                                 Text("\(Int(lbs)) lbs")
-                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .font(.system(.title, design: .rounded, weight: .bold))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Slider(
@@ -138,6 +147,8 @@ struct EditPhysicalStatsView: View {
                                     step: 0.45359237
                                 )
                                 .tint(Color.accentPurple)
+                                .accessibilityLabel("Weight")
+                                .accessibilityValue("\(Int(lbs)) pounds")
 
                                 HStack {
                                     Text("66 lbs")
@@ -148,6 +159,7 @@ struct EditPhysicalStatsView: View {
                                         .font(.caption)
                                         .foregroundStyle(Color.textSecondary)
                                 }
+                                .accessibilityHidden(true)
                             }
                         }
                     }
@@ -225,6 +237,7 @@ struct EditPhysicalStatsView: View {
                 Image(systemName: icon)
                     .font(.system(size: 14))
                     .foregroundStyle(Color.accentPurple)
+                    .accessibilityHidden(true)
                 Text(title)
                     .font(.headline)
                     .foregroundStyle(Color.textPrimary)
@@ -242,6 +255,8 @@ struct EditPhysicalStatsView: View {
                     y: Design.Shadow.card.y
                 )
         )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 }
 

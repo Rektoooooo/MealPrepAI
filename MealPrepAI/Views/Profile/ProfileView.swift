@@ -879,7 +879,7 @@ struct ProfileView: View {
                                         .font(.caption)
                                         .fontWeight(.medium)
                                     Text(system.description)
-                                        .font(.system(size: 9))
+                                        .font(.system(.caption2))
                                         .foregroundStyle(measurementSystem == system ? Color.textSecondary : Color.textSecondary.opacity(0.7))
                                 }
                                 .foregroundStyle(measurementSystem == system ? Color.textPrimary : Color.textSecondary)

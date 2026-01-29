@@ -193,6 +193,7 @@ struct EditDietaryPrefsView: View {
                 .fontWeight(.medium)
                 .foregroundStyle(Color.textPrimary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Section Card Builder

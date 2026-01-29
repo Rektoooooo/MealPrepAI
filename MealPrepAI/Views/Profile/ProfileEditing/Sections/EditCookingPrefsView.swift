@@ -131,7 +131,7 @@ struct EditCookingPrefsView: View {
                     .font(.system(size: 24))
 
                 Text(cuisine.rawValue)
-                    .font(.system(size: 10))
+                    .font(.system(.caption2))
                     .foregroundStyle(preference == .neutral ? Color.textSecondary : .white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -148,6 +148,9 @@ struct EditCookingPrefsView: View {
             )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityLabel("\(cuisine.rawValue) cuisine")
+        .accessibilityValue(preference.accessibilityDescription)
+        .accessibilityHint("Tap to cycle preference")
     }
 
     private func backgroundColor(for preference: CuisinePreference) -> Color {
@@ -177,10 +180,12 @@ struct EditCookingPrefsView: View {
             Circle()
                 .fill(color)
                 .frame(width: 10, height: 10)
+                .accessibilityHidden(true)
             Text(label)
                 .font(.caption)
                 .foregroundStyle(Color.textSecondary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Section Card Builder
@@ -213,6 +218,17 @@ struct EditCookingPrefsView: View {
                     y: Design.Shadow.card.y
                 )
         )
+    }
+}
+
+// MARK: - CuisinePreference Accessibility
+private extension CuisinePreference {
+    var accessibilityDescription: String {
+        switch self {
+        case .like: return "Liked"
+        case .dislike: return "Disliked"
+        case .neutral: return "Neutral"
+        }
     }
 }
 

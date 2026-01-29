@@ -40,6 +40,7 @@ struct CookingAvailabilityStep: View {
             OnboardingCTAButton(viewModel.ctaButtonTitle) {
                 viewModel.goToNextStep()
             }
+            .accessibilityHint("Proceeds to the next step")
             .padding(.horizontal, OnboardingDesign.Spacing.lg)
             .padding(.bottom, OnboardingDesign.Spacing.xxl)
         }
