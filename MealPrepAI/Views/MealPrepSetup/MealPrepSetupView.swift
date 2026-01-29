@@ -7,6 +7,7 @@ struct MealPrepSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(SubscriptionManager.self) var subscriptionManager
+    @Environment(NotificationManager.self) var notificationManager
     @Query private var userProfiles: [UserProfile]
 
     @State private var viewModel: MealPrepSetupViewModel
@@ -176,7 +177,8 @@ struct MealPrepSetupView: View {
             for: profile,
             isSubscribed: subscriptionManager.isSubscribed,
             generator: generator,
-            modelContext: modelContext
+            modelContext: modelContext,
+            notificationManager: notificationManager
         ) {
             dismiss()
         }

@@ -29,6 +29,9 @@ final class Recipe {
     var sourceURL: String?
     var createdAt: Date = Date()
 
+    /// Manually flagged as requiring advance prep (overnight marinating, soaking, etc.)
+    var requiresAdvancePrep: Bool = false
+
     // Firebase Sync Fields
     /// Firebase document ID for recipes synced from Firestore
     var firebaseId: String?
@@ -75,6 +78,18 @@ final class Recipe {
 
     var totalTimeMinutes: Int {
         prepTimeMinutes + cookTimeMinutes
+    }
+
+    /// Infers advance prep from instruction keywords (overnight, marinate, soak, etc.)
+    var inferredAdvancePrep: Bool {
+        let keywords = ["overnight", "marinate", "refrigerate for", "soak", "chill for", "rest overnight", "freeze for"]
+        let text = instructions.joined(separator: " ").lowercased()
+        return keywords.contains { text.contains($0) }
+    }
+
+    /// Whether this recipe needs advance prep (explicit flag or inferred from instructions)
+    var needsAdvancePrep: Bool {
+        requiresAdvancePrep || inferredAdvancePrep
     }
 
     var totalTimeFormatted: String {

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import UserNotifications
 
 struct NotificationSettingsView: View {
@@ -6,13 +7,22 @@ struct NotificationSettingsView: View {
     @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @State private var isCheckingPermission = true
 
+    @Environment(NotificationManager.self) private var notificationManager
+    @Environment(SubscriptionManager.self) private var subscriptionManager
+
     @AppStorage("mealReminders") private var mealReminders = true
     @AppStorage("groceryReminders") private var groceryReminders = true
     @AppStorage("weeklyDigest") private var weeklyDigest = false
     @AppStorage("tipsAndSuggestions") private var tipsAndSuggestions = true
+    @AppStorage("prepReminders") private var prepReminders = true
+    @AppStorage("planExpiryReminder") private var planExpiryReminder = true
+    @AppStorage("trialExpiryReminder") private var trialExpiryReminder = true
     @AppStorage("breakfastReminderTime") private var breakfastReminderTime = Calendar.current.date(from: DateComponents(hour: 7, minute: 30)) ?? Date()
     @AppStorage("lunchReminderTime") private var lunchReminderTime = Calendar.current.date(from: DateComponents(hour: 12, minute: 0)) ?? Date()
     @AppStorage("dinnerReminderTime") private var dinnerReminderTime = Calendar.current.date(from: DateComponents(hour: 18, minute: 30)) ?? Date()
+
+    @Query(filter: #Predicate<MealPlan> { $0.isActive }) private var activePlans: [MealPlan]
+    @Query private var userProfiles: [UserProfile]
 
     var body: some View {
         ScrollView {
@@ -38,6 +48,14 @@ struct NotificationSettingsView: View {
         .onAppear {
             checkNotificationPermission()
         }
+        .onChange(of: mealReminders) { _, _ in triggerReschedule() }
+        .onChange(of: groceryReminders) { _, _ in triggerReschedule() }
+        .onChange(of: prepReminders) { _, _ in triggerReschedule() }
+        .onChange(of: planExpiryReminder) { _, _ in triggerReschedule() }
+        .onChange(of: trialExpiryReminder) { _, _ in triggerReschedule() }
+        .onChange(of: breakfastReminderTime) { _, _ in triggerReschedule() }
+        .onChange(of: lunchReminderTime) { _, _ in triggerReschedule() }
+        .onChange(of: dinnerReminderTime) { _, _ in triggerReschedule() }
     }
 
     // MARK: - Permission Section
@@ -252,6 +270,101 @@ struct NotificationSettingsView: View {
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
 
+                // Advance Prep Reminders
+                HStack(spacing: Design.Spacing.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.accentYellow.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Color.accentYellow)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Advance Prep Reminders")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Text("8 PM alert for meals needing overnight prep")
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $prepReminders)
+                        .labelsHidden()
+                        .tint(Color.accentPurple)
+                }
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
+
+                // Plan Expiry Reminder
+                HStack(spacing: Design.Spacing.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.accentPurple.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.system(size: 16))
+                            .foregroundStyle(Color.accentPurple)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Plan Expiry Reminder")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Text("Remind when your meal plan is ending")
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $planExpiryReminder)
+                        .labelsHidden()
+                        .tint(Color.accentPurple)
+                }
+
+                // Trial Expiry Reminder (only for non-subscribers)
+                if !subscriptionManager.isSubscribed {
+                    Divider()
+                        .padding(.vertical, Design.Spacing.xxs)
+
+                    HStack(spacing: Design.Spacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(hex: "FF6B6B").opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "hourglass")
+                                .font(.system(size: 16))
+                                .foregroundStyle(Color(hex: "FF6B6B"))
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Trial Expiry Reminder")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textPrimary)
+
+                            Text("Remind before your free trial ends")
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: $trialExpiryReminder)
+                            .labelsHidden()
+                            .tint(Color.accentPurple)
+                    }
+                }
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
+
                 // Weekly Digest
                 HStack(spacing: Design.Spacing.md) {
                     ZStack {
@@ -413,10 +526,23 @@ struct NotificationSettingsView: View {
             UIApplication.shared.open(url)
         }
     }
+
+    private func triggerReschedule() {
+        let plan = activePlans.first
+        let profile = userProfiles.first
+        notificationManager.rescheduleAllNotifications(
+            activePlan: plan,
+            isSubscribed: subscriptionManager.isSubscribed,
+            trialStartDate: profile?.createdAt
+        )
+    }
 }
 
 #Preview {
     NavigationStack {
         NotificationSettingsView()
     }
+    .environment(NotificationManager())
+    .environment(SubscriptionManager())
+    .modelContainer(for: [MealPlan.self, UserProfile.self], inMemory: true)
 }

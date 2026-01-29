@@ -102,6 +102,25 @@ struct MealPrepAIApp: App {
         _firebaseRecipeService = State(initialValue: FirebaseRecipeService())
     }
 
+    @MainActor
+    private func rescheduleNotificationsOnLaunch() async {
+        let context = sharedModelContainer.mainContext
+        let planDescriptor = FetchDescriptor<MealPlan>(
+            predicate: #Predicate { $0.isActive },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let profileDescriptor = FetchDescriptor<UserProfile>()
+
+        let activePlan = try? context.fetch(planDescriptor).first
+        let profile = try? context.fetch(profileDescriptor).first
+
+        notificationManager.rescheduleAllNotifications(
+            activePlan: activePlan,
+            isSubscribed: subscriptionManager.isSubscribed,
+            trialStartDate: profile?.createdAt
+        )
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -118,6 +137,9 @@ struct MealPrepAIApp: App {
                         .environment(notificationManager)
                         .environment(firebaseRecipeService)
                         .environment(subscriptionManager)
+                        .task {
+                            await rescheduleNotificationsOnLaunch()
+                        }
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.authState)

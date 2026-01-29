@@ -1,7 +1,8 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
-/// Manages in-app notifications with persistence
+/// Manages in-app notifications with persistence and iOS local notification scheduling
 @MainActor @Observable
 final class NotificationManager {
 
@@ -21,10 +22,20 @@ final class NotificationManager {
 
     private let storageKey = "com.mealprepai.notifications"
     private let readStatusKey = "com.mealprepai.notificationReadStatus"
+    private let center = UNUserNotificationCenter.current()
 
     // MARK: - Initialization
 
     init() {
+        // Register defaults so bool reads return true when not yet set by @AppStorage
+        let defaults: [String: Any] = [
+            "mealReminders": true,
+            "groceryReminders": true,
+            "prepReminders": true,
+            "planExpiryReminder": true,
+            "trialExpiryReminder": true
+        ]
+        UserDefaults.standard.register(defaults: defaults)
         loadNotifications()
     }
 
@@ -58,7 +69,183 @@ final class NotificationManager {
         saveReadStatus()
     }
 
-    // MARK: - Private Methods
+    // MARK: - Local Notification Scheduling
+
+    /// Clears all pending notifications and re-schedules based on current settings and plan data
+    func rescheduleAllNotifications(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) {
+        center.removeAllPendingNotificationRequests()
+
+        let defaults = UserDefaults.standard
+        let mealReminders = defaults.bool(forKey: "mealReminders")
+        let groceryReminders = defaults.bool(forKey: "groceryReminders")
+        let prepReminders = defaults.bool(forKey: "prepReminders")
+        let planExpiryReminder = defaults.bool(forKey: "planExpiryReminder")
+        let trialExpiryReminder = defaults.bool(forKey: "trialExpiryReminder")
+
+        // Trial expiry (only for non-subscribers)
+        if !isSubscribed && trialExpiryReminder, let trialStart = trialStartDate {
+            scheduleTrialExpiryReminder(trialStartDate: trialStart)
+        }
+
+        guard let plan = activePlan else { return }
+
+        if planExpiryReminder {
+            schedulePlanExpiryReminder(for: plan)
+        }
+        if groceryReminders {
+            scheduleGroceryReminder(for: plan)
+        }
+        if prepReminders {
+            schedulePrepReminders(for: plan)
+        }
+        if mealReminders {
+            scheduleMealReminders(for: plan)
+        }
+
+        #if DEBUG
+        center.getPendingNotificationRequests { requests in
+            print("📬 [NotificationManager] Scheduled \(requests.count) pending notifications")
+            for req in requests {
+                print("  - \(req.identifier): \(req.content.title)")
+            }
+        }
+        #endif
+    }
+
+    /// Schedule trial expiry reminder — 2 days before 7-day trial ends (i.e. 5 days after trial start)
+    func scheduleTrialExpiryReminder(trialStartDate: Date) {
+        let calendar = Calendar.current
+        guard let fireDate = calendar.date(byAdding: .day, value: 5, to: trialStartDate) else { return }
+
+        // Only schedule if in the future
+        var components = calendar.dateComponents([.year, .month, .day], from: fireDate)
+        components.hour = 10
+        components.minute = 0
+
+        let content = UNMutableNotificationContent()
+        content.title = "Free Trial Ending Soon"
+        content.body = "Your free trial ends in 2 days. Subscribe to keep creating meal plans!"
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: "trial-expiry", content: content, trigger: trigger)
+        center.add(request)
+    }
+
+    /// Schedule plan expiry reminder — 9 AM on the plan's last day
+    func schedulePlanExpiryReminder(for plan: MealPlan) {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: plan.endDate)
+        components.hour = 9
+        components.minute = 0
+
+        let content = UNMutableNotificationContent()
+        content.title = "Meal Plan Ending Today"
+        content.body = "Create a new plan to stay on track with your goals!"
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: "plan-expiry-\(plan.id)", content: content, trigger: trigger)
+        center.add(request)
+    }
+
+    /// Schedule advance prep reminders — 8 PM the night before meals needing advance prep
+    func schedulePrepReminders(for plan: MealPlan) {
+        let calendar = Calendar.current
+        for day in plan.sortedDays {
+            for meal in day.sortedMeals {
+                guard let recipe = meal.recipe, recipe.needsAdvancePrep else { continue }
+
+                // Night before this day
+                guard let nightBefore = calendar.date(byAdding: .day, value: -1, to: day.date) else { continue }
+                var components = calendar.dateComponents([.year, .month, .day], from: nightBefore)
+                components.hour = 20
+                components.minute = 0
+
+                let content = UNMutableNotificationContent()
+                content.title = "Prep Reminder"
+                content.body = "\(recipe.name) needs advance prep for tomorrow's \(meal.mealType.rawValue.lowercased())."
+                content.sound = .default
+
+                let dateString = Self.dateString(from: day.date)
+                let identifier = "prep-\(dateString)-\(meal.mealType.rawValue)"
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+                center.add(request)
+            }
+        }
+    }
+
+    /// Schedule grocery reminder — 10 AM on plan start date
+    func scheduleGroceryReminder(for plan: MealPlan) {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day], from: plan.weekStartDate)
+        components.hour = 10
+        components.minute = 0
+
+        let content = UNMutableNotificationContent()
+        content.title = "Grocery List Ready"
+        content.body = "Your grocery list is ready — time to shop for the week!"
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: "grocery-\(plan.id)", content: content, trigger: trigger)
+        center.add(request)
+    }
+
+    /// Schedule daily meal reminders at user-configured times
+    func scheduleMealReminders(for plan: MealPlan) {
+        let calendar = Calendar.current
+        let defaults = UserDefaults.standard
+
+        // Read user-configured reminder times (stored as TimeInterval by @AppStorage)
+        let breakfastTime = defaults.double(forKey: "breakfastReminderTime")
+        let lunchTime = defaults.double(forKey: "lunchReminderTime")
+        let dinnerTime = defaults.double(forKey: "dinnerReminderTime")
+
+        let mealTimes: [(MealType, TimeInterval)] = [
+            (.breakfast, breakfastTime),
+            (.lunch, lunchTime),
+            (.dinner, dinnerTime)
+        ]
+
+        for day in plan.sortedDays {
+            let meals = day.sortedMeals
+            for (mealType, timeInterval) in mealTimes {
+                guard let meal = meals.first(where: { $0.mealType == mealType }),
+                      let recipe = meal.recipe else { continue }
+
+                // Convert stored Date (as TimeInterval) to hour/minute
+                let storedDate = Date(timeIntervalSinceReferenceDate: timeInterval)
+                let timeComponents = calendar.dateComponents([.hour, .minute], from: storedDate)
+
+                var components = calendar.dateComponents([.year, .month, .day], from: day.date)
+                components.hour = timeComponents.hour
+                components.minute = timeComponents.minute
+
+                let content = UNMutableNotificationContent()
+                content.title = "\(mealType.rawValue) Time"
+                content.body = "Today's \(mealType.rawValue.lowercased()): \(recipe.name)"
+                content.sound = .default
+
+                let dateString = Self.dateString(from: day.date)
+                let identifier = "meal-\(dateString)-\(mealType.rawValue)"
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+                center.add(request)
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private static func dateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    // MARK: - Private Methods (In-App Notifications)
 
     private func loadNotifications() {
         // Load sample notifications

@@ -222,6 +222,7 @@ final class MealPrepSetupViewModel {
         isSubscribed: Bool,
         generator: MealPlanGenerator,
         modelContext: ModelContext,
+        notificationManager: NotificationManager? = nil,
         onComplete: @escaping () -> Void
     ) {
         isGenerating = true
@@ -267,6 +268,21 @@ final class MealPrepSetupViewModel {
                 if !isSubscribed {
                     profile.hasUsedFreeTrial = true
                     SuperwallTracker.trackFreeTrialStarted()
+                }
+
+                // Reschedule local notifications for the new plan
+                if let nm = notificationManager {
+                    // Fetch the active plan from the context
+                    let descriptor = FetchDescriptor<MealPlan>(
+                        predicate: #Predicate { $0.isActive },
+                        sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+                    )
+                    let activePlan = try? modelContext.fetch(descriptor).first
+                    nm.rescheduleAllNotifications(
+                        activePlan: activePlan,
+                        isSubscribed: isSubscribed,
+                        trialStartDate: profile.createdAt
+                    )
                 }
 
                 isGenerating = false
