@@ -223,6 +223,7 @@ final class MealPrepSetupViewModel {
         generator: MealPlanGenerator,
         modelContext: ModelContext,
         notificationManager: NotificationManager? = nil,
+        measurementSystem: String = "Metric",
         onComplete: @escaping () -> Void
     ) {
         isGenerating = true
@@ -261,6 +262,7 @@ final class MealPrepSetupViewModel {
                     weeklyPreferences: weeklyPrefsString,
                     macroOverrides: macroOverrides,
                     duration: planDuration,
+                    measurementSystem: measurementSystem,
                     modelContext: modelContext
                 )
 

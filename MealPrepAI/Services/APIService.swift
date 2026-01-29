@@ -606,6 +606,7 @@ struct GeneratePlanUserProfile: Codable, Sendable {
     let barriers: [String]   // Time constraints, budget, etc.
     let primaryGoals: [String]  // planMeals, eatHealthy, saveMoney, etc.
     let goalPace: String  // Gradual, Moderate, Aggressive
+    let measurementSystem: String  // "Metric" or "Imperial"
 }
 
 struct GeneratePlanRequest: Codable, Sendable {
@@ -687,6 +688,7 @@ struct SwapMealUserProfile: Codable, Sendable {
     let cookingSkill: String
     let maxCookingTimeMinutes: Int
     let simpleModeEnabled: Bool
+    let measurementSystem: String  // "Metric" or "Imperial"
 }
 
 struct SwapMealRequest: Codable, Sendable {

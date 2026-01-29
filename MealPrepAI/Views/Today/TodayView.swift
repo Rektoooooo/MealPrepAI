@@ -18,6 +18,7 @@ struct TodayView: View {
     @State private var showingNotifications = false
     @State private var selectedRecipe: Recipe?
     @State private var generator = MealPlanGenerator()
+    @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -518,6 +519,7 @@ struct GenerateMealPlanSheet: View {
     @Environment(SubscriptionManager.self) var subscriptionManager
     @Query private var userProfiles: [UserProfile]
     @Bindable var generator: MealPlanGenerator
+    @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
     /// Weekly preferences text input for custom requests
     @State private var weeklyPreferences: String = ""
@@ -698,6 +700,7 @@ struct GenerateMealPlanSheet: View {
                     for: profile,
                     startDate: Date(),
                     weeklyPreferences: preferences.isEmpty ? nil : preferences,
+                    measurementSystem: measurementSystem.rawValue,
                     modelContext: modelContext
                 )
 
@@ -946,6 +949,7 @@ struct SwapMealSheet: View {
     @Bindable var generator: MealPlanGenerator
     let userProfile: UserProfile?
 
+    @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @State private var selectedMeal: Meal?
     @State private var isSwapping = false
     @State private var swapRingProgress: CGFloat = 0
@@ -1119,6 +1123,7 @@ struct SwapMealSheet: View {
                     for: meal.mealType,
                     profile: profile,
                     excludeRecipes: existingRecipeNames,
+                    measurementSystem: measurementSystem.rawValue,
                     modelContext: modelContext
                 )
 
@@ -1214,6 +1219,7 @@ struct AddMealToTodaySheet: View {
     @Bindable var generator: MealPlanGenerator
     let userProfile: UserProfile?
 
+    @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @State private var selectedMealType: MealType = .lunch
 
     var body: some View {
@@ -1308,6 +1314,7 @@ struct AddMealToTodaySheet: View {
                     for: selectedMealType,
                     profile: profile,
                     excludeRecipes: existingRecipeNames,
+                    measurementSystem: measurementSystem.rawValue,
                     modelContext: modelContext
                 )
 

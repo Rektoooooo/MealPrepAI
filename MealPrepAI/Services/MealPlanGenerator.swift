@@ -32,6 +32,7 @@ class MealPlanGenerator {
         weeklyPreferences: String? = nil,
         macroOverrides: MacroOverrides? = nil,
         duration: Int = 7,
+        measurementSystem: String = "Metric",
         modelContext: ModelContext
     ) async throws -> MealPlan {
         let generationStartTime = Date()
@@ -55,7 +56,7 @@ class MealPlanGenerator {
         do {
             // Build API user profile from SwiftData profile
             print("[DEBUG:Generator] Building API user profile...")
-            let apiProfile = buildAPIUserProfile(from: profile, overrides: macroOverrides)
+            let apiProfile = buildAPIUserProfile(from: profile, overrides: macroOverrides, measurementSystem: measurementSystem)
 
             progress = "Generating recipes with AI..."
             print("[DEBUG:Generator] Calling generateMealPlan API...")
@@ -176,7 +177,7 @@ class MealPlanGenerator {
     }
 
     // MARK: - Build API User Profile
-    private func buildAPIUserProfile(from profile: UserProfile, overrides: MacroOverrides?) -> GeneratePlanUserProfile {
+    private func buildAPIUserProfile(from profile: UserProfile, overrides: MacroOverrides?, measurementSystem: String = "Metric") -> GeneratePlanUserProfile {
         // Extract disliked cuisines from cuisinePreferencesMap
         let dislikedCuisines = profile.cuisinePreferencesMap
             .filter { $0.value == .dislike }
@@ -216,7 +217,8 @@ class MealPlanGenerator {
             pantryLevel: profile.pantryLevel.rawValue,
             barriers: profile.barriers.map { $0.rawValue },
             primaryGoals: profile.primaryGoals.map { $0.rawValue },
-            goalPace: profile.goalPace.rawValue
+            goalPace: profile.goalPace.rawValue,
+            measurementSystem: measurementSystem
         )
     }
 
@@ -260,6 +262,7 @@ class MealPlanGenerator {
         for mealType: MealType,
         profile: UserProfile,
         excludeRecipes: [String] = [],
+        measurementSystem: String = "Metric",
         modelContext: ModelContext
     ) async throws -> (recipe: Recipe, ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
         let swapStartTime = Date()
@@ -292,7 +295,8 @@ class MealPlanGenerator {
                 preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
                 cookingSkill: profile.cookingSkill.rawValue,
                 maxCookingTimeMinutes: profile.maxCookingTime.maxMinutes,
-                simpleModeEnabled: profile.simpleModeEnabled
+                simpleModeEnabled: profile.simpleModeEnabled,
+                measurementSystem: measurementSystem
             )
 
             print("[DEBUG:Generator] Calling swapMeal API...")

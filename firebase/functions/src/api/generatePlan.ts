@@ -43,6 +43,7 @@ interface UserProfile {
   barriers: string[];   // Time constraints, budget, etc.
   primaryGoals: string[];  // planMeals, eatHealthy, saveMoney, etc.
   goalPace: string;  // Gradual, Moderate, Aggressive
+  measurementSystem: string; // "Metric" or "Imperial"
 }
 
 interface GeneratePlanRequest {
@@ -198,6 +199,19 @@ SNACKS (no-cook, 5 min):
 - If user is dairy-free/vegan, use available protein sources
 
 ═══════════════════════════════════════════════════════════════
+INSTRUCTION RULES (CRITICAL)
+═══════════════════════════════════════════════════════════════
+
+- Each step: ONE clear action, easy to understand
+- Include quantities and times inline (e.g. "Cook 200g chicken breast 6 min per side")
+- Start each step with a direct verb: "Add", "Cook", "Mix", "Heat", "Slice", "Combine"
+- NO filler words like "Now", "Then", "Next", "After that"
+- Include temperature and cook time where relevant
+- Never say "season to taste" — specify amounts (e.g. "Add 1/2 tsp salt and 1/4 tsp pepper")
+- Cover every action needed — don't skip steps or assume the user knows what to do
+- Every ingredient mentioned MUST be in the ingredients list
+
+═══════════════════════════════════════════════════════════════
 RESTRICTIONS
 ═══════════════════════════════════════════════════════════════
 
@@ -290,6 +304,8 @@ function buildUserPrompt(
   const cuisines = profile.preferredCuisines.join(', ') || 'Varied';
   const dislikedCuisines = profile.dislikedCuisines?.join(', ') || 'None';
   const excludeList = excludeRecipeNames?.join(', ') || '';
+
+  const isMetric = (profile.measurementSystem || 'Metric') === 'Metric';
 
   const mealTypes = profile.includeSnacks
     ? 'breakfast, morning snack, lunch, afternoon snack, and dinner (5 meals total)'
@@ -444,6 +460,13 @@ ${weeklyPreferences ? `═══ THIS WEEK ═══\n${weeklyPreferences}` : ''
 ${excludeList ? `═══ AVOID THESE RECIPES ═══\n${excludeList}` : ''}
 
 Each day: ${mealTypes}
+
+═══ MEASUREMENT SYSTEM ═══
+${isMetric
+  ? '- Use METRIC units: grams (g), kilograms (kg), milliliters (ml), liters (L), Celsius (°C)'
+  : '- Use IMPERIAL units: ounces (oz), pounds (lb), cups, tablespoons, teaspoons, Fahrenheit (°F)'}
+- Temperatures: ${isMetric ? '°C (e.g. 180°C, 200°C)' : '°F (e.g. 350°F, 400°F)'}
+- Weights: ${isMetric ? 'grams for ingredients (e.g. 200g chicken)' : 'ounces/pounds for ingredients (e.g. 6oz chicken)'}
 
 ═══ INGREDIENT RULES ═══
 - MAX 4-5 ingredients per recipe

@@ -12,6 +12,7 @@ struct MealPrepSetupView: View {
 
     @State private var viewModel: MealPrepSetupViewModel
     @Bindable var generator: MealPlanGenerator
+    @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @State private var showingPaywall = false
 
     /// If true, skips the welcome screen and goes straight to customization
@@ -183,7 +184,8 @@ struct MealPrepSetupView: View {
             isSubscribed: subscriptionManager.isSubscribed,
             generator: generator,
             modelContext: modelContext,
-            notificationManager: notificationManager
+            notificationManager: notificationManager,
+            measurementSystem: measurementSystem.rawValue
         ) {
             dismiss()
         }

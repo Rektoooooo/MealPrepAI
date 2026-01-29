@@ -28,6 +28,7 @@ interface UserProfile {
   cookingSkill: string;
   maxCookingTimeMinutes: number;
   simpleModeEnabled: boolean;
+  measurementSystem: string; // "Metric" or "Imperial"
 }
 
 interface SwapMealRequest {
@@ -105,7 +106,16 @@ Guidelines:
 - Include practical, easy-to-find ingredients
 - Provide accurate nutritional information
 - Keep prep and cook times realistic
-- CRITICAL: Every ingredient mentioned in instructions MUST be in the ingredients list (including oil, sauces, seasonings, cornstarch, etc.)`;
+- CRITICAL: Every ingredient mentioned in instructions MUST be in the ingredients list (including oil, sauces, seasonings, cornstarch, etc.)
+
+INSTRUCTION RULES:
+- Each step: ONE clear action, easy to understand
+- Include quantities and times inline (e.g. "Cook 200g chicken breast 6 min per side")
+- Start each step with a direct verb: "Add", "Cook", "Mix", "Heat", "Slice", "Combine"
+- NO filler words like "Now", "Then", "Next", "After that"
+- Include temperature and cook time where relevant
+- Never say "season to taste" — specify amounts
+- Cover every action needed — don't skip steps or assume the user knows what to do`;
 }
 
 /**
@@ -140,6 +150,8 @@ function buildUserPrompt(
     ? 'MAX 5 minutes total (no-cook or minimal prep: fruit, nuts, yogurt, cheese)'
     : `Up to ${config.maxTime} minutes`;
 
+  const isMetric = (profile.measurementSystem || 'Metric') === 'Metric';
+
   return `Create a single ${mealType} recipe for a person with:
 
 MEAL TARGETS (approximately):
@@ -147,6 +159,8 @@ MEAL TARGETS (approximately):
 - Protein: ~${mealProtein}g
 
 TIME CONSTRAINT: ${timeConstraint}
+
+MEASUREMENT SYSTEM: ${isMetric ? 'METRIC — use grams, kg, ml, L, °C' : 'IMPERIAL — use oz, lb, cups, tbsp, tsp, °F'}
 
 DIETARY RESTRICTIONS: ${restrictions}
 ALLERGIES (STRICT - NEVER include): ${allergies}
