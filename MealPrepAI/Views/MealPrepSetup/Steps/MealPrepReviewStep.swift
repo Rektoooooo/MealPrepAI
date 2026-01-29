@@ -6,6 +6,7 @@ import SwiftData
 struct MealPrepReviewStep: View {
     @Bindable var viewModel: MealPrepSetupViewModel
     let userProfile: UserProfile?
+    let isSubscribed: Bool
     let onGenerate: () -> Void
 
     @Query(sort: \MealPlan.createdAt, order: .reverse)
@@ -57,7 +58,7 @@ struct MealPrepReviewStep: View {
                     selectedDate: $viewModel.selectedStartDate,
                     planDuration: $viewModel.planDuration,
                     existingPlanRanges: existingPlanRanges,
-                    maxDuration: viewModel.maxDuration(for: userProfile)
+                    maxDuration: viewModel.maxDuration(isSubscribed: isSubscribed)
                 )
             }
 
@@ -518,6 +519,7 @@ struct MacroEditorSheet: View {
     MealPrepReviewStep(
         viewModel: MealPrepSetupViewModel(),
         userProfile: nil,
+        isSubscribed: false,
         onGenerate: {}
     )
     .onboardingBackground()

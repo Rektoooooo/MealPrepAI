@@ -5,7 +5,7 @@ import StoreKit
 @Observable
 final class SubscriptionManager {
     // MARK: - Properties
-    var isSubscribed: Bool = true  // TODO: Revert to false before release
+    var isSubscribed: Bool = false
     var products: [Product] = []
     var isLoading: Bool = false
     var purchaseError: String?

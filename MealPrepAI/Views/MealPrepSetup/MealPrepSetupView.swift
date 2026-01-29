@@ -6,6 +6,7 @@ import SwiftData
 struct MealPrepSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(SubscriptionManager.self) var subscriptionManager
     @Query private var userProfiles: [UserProfile]
 
     @State private var viewModel: MealPrepSetupViewModel
@@ -51,17 +52,11 @@ struct MealPrepSetupView: View {
         }
         .interactiveDismissDisabled(viewModel.isGenerating)
         .onAppear {
-            // TESTING: Force subscription status for existing profiles
-            if let profile = userProfile {
-                profile.subscriptionStatus = "subscribed"
-            }
-
-            if let profile = userProfile, !profile.canCreatePlan {
+            if !subscriptionManager.isSubscribed && (userProfile?.hasUsedFreeTrial == true) {
                 showingPaywall = true
                 SuperwallTracker.trackPaywallShown()
             }
-            // Lock free users to 7-day duration
-            if let profile = userProfile, !profile.isSubscribed {
+            if !subscriptionManager.isSubscribed {
                 viewModel.planDuration = 7
             }
         }
@@ -72,14 +67,21 @@ struct MealPrepSetupView: View {
         PaywallStepView(
             onSubscribe: { plan in
                 SuperwallTracker.trackPaywallSubscribeTapped(plan: plan.rawValue)
-                // For now, just simulate subscription
-                if let profile = userProfile {
-                    profile.subscriptionStatus = "subscribed"
+                Task {
+                    let success = await subscriptionManager.purchase(plan: plan)
+                    if success {
+                        showingPaywall = false
+                    }
                 }
-                showingPaywall = false
             },
             onRestorePurchases: {
                 SuperwallTracker.trackRestoreTapped()
+                Task {
+                    await subscriptionManager.restore()
+                    if subscriptionManager.isSubscribed {
+                        showingPaywall = false
+                    }
+                }
             }
         )
     }
@@ -149,6 +151,7 @@ struct MealPrepSetupView: View {
             MealPrepReviewStep(
                 viewModel: viewModel,
                 userProfile: userProfile,
+                isSubscribed: subscriptionManager.isSubscribed,
                 onGenerate: generatePlan
             )
         }
@@ -171,6 +174,7 @@ struct MealPrepSetupView: View {
 
         viewModel.generateMealPlan(
             for: profile,
+            isSubscribed: subscriptionManager.isSubscribed,
             generator: generator,
             modelContext: modelContext
         ) {

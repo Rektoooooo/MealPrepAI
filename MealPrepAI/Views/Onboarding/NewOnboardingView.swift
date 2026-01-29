@@ -111,6 +111,7 @@ enum OnboardingStep: Int, CaseIterable {
 struct NewOnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthenticationManager.self) private var authManager
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(CloudKitSyncManager.self) private var syncManager
     @State private var viewModel = NewOnboardingViewModel()
     @State private var currentStep: OnboardingStep = .socialProof  // Skip launch - shown by RootView
@@ -384,16 +385,30 @@ struct NewOnboardingView: View {
         case .paywall:
             PaywallStepView(
                 onSubscribe: { plan in
-                    // Handle subscription (for now, just complete)
-                    let success = viewModel.saveProfile(modelContext: modelContext)
-                    if success {
-                        onComplete?()
-                    } else {
-                        showSaveErrorAlert = true
+                    Task {
+                        let success = await subscriptionManager.purchase(plan: plan)
+                        if success {
+                            let saved = viewModel.saveProfile(modelContext: modelContext)
+                            if saved {
+                                onComplete?()
+                            } else {
+                                showSaveErrorAlert = true
+                            }
+                        }
                     }
                 },
                 onRestorePurchases: {
-                    // Handle restore purchases
+                    Task {
+                        await subscriptionManager.restore()
+                        if subscriptionManager.isSubscribed {
+                            let saved = viewModel.saveProfile(modelContext: modelContext)
+                            if saved {
+                                onComplete?()
+                            } else {
+                                showSaveErrorAlert = true
+                            }
+                        }
+                    }
                 }
             )
         }

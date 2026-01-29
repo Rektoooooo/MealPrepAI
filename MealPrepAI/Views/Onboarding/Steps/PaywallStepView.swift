@@ -5,14 +5,31 @@ struct PaywallStepView: View {
     let onSubscribe: (SubscriptionPlan) -> Void
     let onRestorePurchases: () -> Void
 
+    @Environment(SubscriptionManager.self) var subscriptionManager
     @State private var appeared = false
     @State private var selectedPlan: SubscriptionPlan = .annual
     @State private var timelineAnimated = false
 
-    // Pricing
-    private let annualPrice = "$59.99"
-    private let annualMonthlyPrice = "$4.99"
-    private let monthlyPrice = "$9.99"
+    // Fallback pricing (shown while products load)
+    private var annualPrice: String {
+        subscriptionManager.annualProduct?.displayPrice ?? "$59.99"
+    }
+    private var monthlyPrice: String {
+        subscriptionManager.monthlyProduct?.displayPrice ?? "$9.99"
+    }
+    private var annualMonthlyPrice: String {
+        if let product = subscriptionManager.annualProduct {
+            let monthly = product.price / 12
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .currency
+            formatter.currencyCode = "USD"
+            formatter.locale = Locale(identifier: "en_US")
+            formatter.roundingMode = .down
+            formatter.maximumFractionDigits = 2
+            return formatter.string(from: monthly as NSDecimalNumber) ?? "$4.99"
+        }
+        return "$4.99"
+    }
 
     private var selectedPriceText: String {
         switch selectedPlan {
@@ -112,16 +129,24 @@ struct PaywallStepView: View {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     onSubscribe(selectedPlan)
                 } label: {
-                    Text("Start My 7-Day Free Trial")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: 28)
-                                .fill(Color.black)
-                        )
+                    Group {
+                        if subscriptionManager.isLoading {
+                            ProgressView()
+                                .tint(.white)
+                        } else {
+                            Text("Start My 7-Day Free Trial")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 28)
+                            .fill(Color.black)
+                    )
                 }
+                .disabled(subscriptionManager.isLoading)
                 .buttonStyle(OnboardingScaleButtonStyle())
 
                 // Price info
@@ -382,6 +407,7 @@ private struct CalAIPlanPill: View {
                 }
                 .padding(.horizontal, OnboardingDesign.Spacing.md)
                 .padding(.vertical, OnboardingDesign.Spacing.md)
+                .frame(minHeight: 70)
                 .background(
                     RoundedRectangle(cornerRadius: OnboardingDesign.Radius.lg)
                         .fill(isSelected ? Color.black : Color.white)
@@ -421,4 +447,5 @@ enum SubscriptionPlan: String, CaseIterable {
         onSubscribe: { _ in },
         onRestorePurchases: {}
     )
+    .environment(SubscriptionManager())
 }

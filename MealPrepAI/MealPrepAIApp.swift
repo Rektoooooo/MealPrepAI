@@ -73,6 +73,7 @@ struct MealPrepAIApp: App {
     @State private var syncManager = CloudKitSyncManager()
     @State private var healthKitManager = HealthKitManager()
     @State private var notificationManager = NotificationManager()
+    @State private var subscriptionManager = SubscriptionManager()
 
     // Firebase Recipe Services - initialized after Firebase is configured
     @State private var firebaseRecipeService: FirebaseRecipeService
@@ -116,6 +117,7 @@ struct MealPrepAIApp: App {
                         .environment(healthKitManager)
                         .environment(notificationManager)
                         .environment(firebaseRecipeService)
+                        .environment(subscriptionManager)
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.authState)

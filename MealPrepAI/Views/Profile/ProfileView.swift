@@ -9,6 +9,7 @@ struct ProfileView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(CloudKitSyncManager.self) var syncManager
     @Environment(HealthKitManager.self) var healthKitManager
+    @Environment(SubscriptionManager.self) var subscriptionManager
     @Query private var userProfiles: [UserProfile]
     @Query private var recipes: [Recipe]
 
@@ -17,6 +18,8 @@ struct ProfileView: View {
     @State private var showingOnboardingPreview = false
     @State private var showingDeleteAccountAlert = false
     @State private var animateContent = false
+    @State private var showingPaywall = false
+    @State private var showingManageSubscription = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
@@ -294,6 +297,172 @@ struct ProfileView: View {
                         )
                 }
             }
+        }
+    }
+
+    // MARK: - Subscription Section
+    private func makeSubscriptionSection() -> some View {
+        VStack(alignment: .leading, spacing: Design.Spacing.md) {
+            NewSectionHeader(
+                title: "Subscription",
+                icon: "crown.fill",
+                iconColor: subscriptionManager.isSubscribed ? Color.accentYellow : Color.textSecondary
+            )
+
+            VStack(spacing: Design.Spacing.sm) {
+                // Status Row
+                HStack(spacing: Design.Spacing.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(subscriptionManager.isSubscribed ? Color.accentYellow.opacity(0.15) : Color.textSecondary.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: subscriptionManager.isSubscribed ? "crown.fill" : "lock.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(subscriptionManager.isSubscribed ? Color.accentYellow : Color.textSecondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(subscriptionManager.isSubscribed ? "Premium" : "Free Plan")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Text(subscriptionManager.isSubscribed ? "Full access to all features" : "Upgrade for unlimited meal plans")
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    Spacer()
+
+                    if subscriptionManager.isSubscribed {
+                        Text("Active")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.mintVibrant)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.mintVibrant.opacity(0.15))
+                            )
+                    }
+                }
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
+
+                if subscriptionManager.isSubscribed {
+                    // Manage Subscription
+                    Button {
+                        showingManageSubscription = true
+                    } label: {
+                        HStack(spacing: Design.Spacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.accentPurple.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "creditcard.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.accentPurple)
+                            }
+
+                            Text("Manage Subscription")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textPrimary)
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.textSecondary.opacity(0.5))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .manageSubscriptionsSheet(isPresented: $showingManageSubscription)
+                } else {
+                    // Upgrade Button
+                    Button {
+                        showingPaywall = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "sparkles")
+                            Text("Upgrade to Premium")
+                                .fontWeight(.semibold)
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient.purpleButtonGradient
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .sheet(isPresented: $showingPaywall) {
+                        PaywallStepView(
+                            onSubscribe: { plan in
+                                Task {
+                                    let success = await subscriptionManager.purchase(plan: plan)
+                                    if success {
+                                        showingPaywall = false
+                                    }
+                                }
+                            },
+                            onRestorePurchases: {
+                                Task {
+                                    await subscriptionManager.restore()
+                                    if subscriptionManager.isSubscribed {
+                                        showingPaywall = false
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    Divider()
+                        .padding(.vertical, Design.Spacing.xxs)
+
+                    // Restore Purchases
+                    Button {
+                        Task { await subscriptionManager.restore() }
+                    } label: {
+                        HStack(spacing: Design.Spacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.mintVibrant.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(Color.mintVibrant)
+                            }
+
+                            Text("Restore Purchases")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textPrimary)
+
+                            Spacer()
+
+                            if subscriptionManager.isLoading {
+                                ProgressView()
+                                    .tint(Color.textSecondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(subscriptionManager.isLoading)
+                }
+            }
+            .padding(Design.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.card)
+                    .fill(Color.cardBackground)
+                    .shadow(
+                        color: Design.Shadow.card.color,
+                        radius: Design.Shadow.card.radius,
+                        y: Design.Shadow.card.y
+                    )
+            )
         }
     }
 
@@ -622,6 +791,9 @@ struct ProfileView: View {
     // MARK: - Settings Section
     private var settingsSection: some View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
+            // Subscription Section
+            makeSubscriptionSection()
+
             // Account Section
             makeAccountSection(syncManager: syncManager)
 
@@ -1177,5 +1349,6 @@ struct OnboardingPreviewWrapper: View {
         .environment(AuthenticationManager())
         .environment(CloudKitSyncManager())
         .environment(HealthKitManager())
+        .environment(SubscriptionManager())
         .modelContainer(for: [UserProfile.self, Recipe.self], inMemory: true)
 }

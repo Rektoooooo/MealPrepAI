@@ -103,8 +103,8 @@ final class MealPrepSetupViewModel {
     }
 
     /// Maximum duration allowed based on subscription
-    func maxDuration(for profile: UserProfile?) -> Int {
-        profile?.isSubscribed == true ? 14 : 7
+    func maxDuration(isSubscribed: Bool) -> Int {
+        isSubscribed ? 14 : 7
     }
 
     /// End date for the selected plan
@@ -219,6 +219,7 @@ final class MealPrepSetupViewModel {
 
     func generateMealPlan(
         for profile: UserProfile,
+        isSubscribed: Bool,
         generator: MealPlanGenerator,
         modelContext: ModelContext,
         onComplete: @escaping () -> Void
@@ -263,7 +264,7 @@ final class MealPrepSetupViewModel {
                 )
 
                 // Mark free trial as used for free users
-                if !profile.isSubscribed {
+                if !isSubscribed {
                     profile.hasUsedFreeTrial = true
                     SuperwallTracker.trackFreeTrialStarted()
                 }

@@ -46,15 +46,7 @@ final class UserProfile {
 
     // Subscription & Trial
     var hasUsedFreeTrial: Bool = false
-    var subscriptionStatus: String = "subscribed"  // "free" or "subscribed" — hardcoded for testing
-
-    var isSubscribed: Bool {
-        subscriptionStatus == "subscribed"
-    }
-
-    var canCreatePlan: Bool {
-        isSubscribed || !hasUsedFreeTrial
-    }
+    var subscriptionStatus: String = "free"  // Legacy field — kept to avoid migration
 
     // Onboarding
     var hasCompletedOnboarding: Bool = false

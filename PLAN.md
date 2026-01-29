@@ -167,26 +167,27 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 
 ---
 
-## Remaining Work
+## TODO — Remaining Work
 
 ### High Priority (Required for App Store)
-1. **StoreKit 2 Integration** - Real subscription purchase flow, product catalog, transaction verification
-2. **Receipt Validation** - Server-side or on-device receipt verification
-3. **Accessibility Audit** - VoiceOver labels, Dynamic Type testing, contrast ratios
+- [ ] **StoreKit 2 Integration** - Real subscription purchase flow, product catalog, transaction verification
+- [ ] **Receipt Validation** - Server-side or on-device receipt verification
+- [ ] **Accessibility Audit** - VoiceOver labels, Dynamic Type testing, contrast ratios
+- [ ] **Revert SubscriptionManager default** - Change `isSubscribed = true` back to `false` before release
 
 ### Medium Priority (Post-Launch)
-4. **Push Notifications** - APNs setup, meal reminders, trial expiry alerts
-5. **Ingredient Substitution** - AI-powered swap with macro recalculation
-6. **Custom Recipe Creation** - Complete the data flow from UI stub
-7. **CloudKit Active Sync** - Verify cross-device data sync works reliably
-8. **Unit & UI Tests** - Test coverage for critical paths
+- [ ] **Push Notifications** - APNs setup, meal reminders, trial expiry alerts
+- [ ] **Ingredient Substitution** - AI-powered swap with macro recalculation
+- [ ] **Custom Recipe Creation** - Complete the data flow from UI stub
+- [ ] **CloudKit Active Sync** - Verify cross-device data sync works reliably
+- [ ] **Unit & UI Tests** - Test coverage for critical paths
 
 ### Low Priority (Future)
-9. **Recipe Import from URL** - AI parsing of web recipes
-10. **Grocery Lock Feature** - Prevent list reset on meal edits
-11. **Advanced Analytics** - Comprehensive event tracking beyond paywall
-12. **Widgets** - Home screen widgets for today's meals
-13. **Apple Watch** - Quick meal logging companion app
+- [ ] **Recipe Import from URL** - AI parsing of web recipes
+- [ ] **Grocery Lock Feature** - Prevent list reset on meal edits
+- [ ] **Advanced Analytics** - Comprehensive event tracking beyond paywall
+- [ ] **Widgets** - Home screen widgets for today's meals
+- [ ] **Apple Watch** - Quick meal logging companion app
 
 ---
 
