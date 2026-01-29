@@ -13,6 +13,7 @@ enum APIError: LocalizedError, Sendable {
     case decodingError(Error)
     case networkError(Error)
     case rateLimited
+    case subscriptionRequired
     case serverError(String)
 
     nonisolated var errorDescription: String? {
@@ -29,6 +30,8 @@ enum APIError: LocalizedError, Sendable {
             return "Network error: \(error.localizedDescription)"
         case .rateLimited:
             return "Too many requests. Please try again later."
+        case .subscriptionRequired:
+            return "A subscription is required. Please subscribe to continue."
         case .serverError(let message):
             return message
         }
@@ -355,6 +358,9 @@ actor APIService {
             print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
             print("[DEBUG:API] ========== GENERATE MEAL PLAN SUCCESS ==========")
             return apiResponse
+        case 403:
+            print("[DEBUG:API] ERROR: Subscription required")
+            throw APIError.subscriptionRequired
         case 429:
             print("[DEBUG:API] ERROR: Rate limited")
             throw APIError.rateLimited
@@ -454,6 +460,9 @@ actor APIService {
             print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
             print("[DEBUG:API] ========== SWAP MEAL SUCCESS ==========")
             return apiResponse
+        case 403:
+            print("[DEBUG:API] ERROR: Subscription required")
+            throw APIError.subscriptionRequired
         case 429:
             print("[DEBUG:API] ERROR: Rate limited")
             throw APIError.rateLimited
@@ -469,6 +478,41 @@ actor APIService {
             }
             throw APIError.httpError(statusCode: httpResponse.statusCode)
         }
+    }
+
+    // MARK: - Verify Subscription
+    func verifySubscription(deviceId: String, signedTransactionJWS: String) async throws -> VerifySubscriptionResponse {
+        let urlString = "\(apiConfigBaseURL)/v1/verify-subscription"
+
+        guard let url = URL(string: urlString) else {
+            throw APIError.invalidURL
+        }
+
+        let requestBody = VerifySubscriptionRequest(
+            deviceId: deviceId,
+            signedTransactionJWS: signedTransactionJWS
+        )
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = try encoder.encode(requestBody)
+
+        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
+            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+        }
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.httpError(statusCode: httpResponse.statusCode)
+        }
+
+        return try decoder.decode(VerifySubscriptionResponse.self, from: data)
     }
 }
 
@@ -595,6 +639,18 @@ struct SwapMealAPIResponse: Codable, Sendable {
     let recipe: APIRecipeDTO?
     let error: String?
     let rateLimitInfo: RateLimitInfo?
+}
+
+// MARK: - Subscription Verification Types
+struct VerifySubscriptionRequest: Codable, Sendable {
+    let deviceId: String
+    let signedTransactionJWS: String
+}
+
+struct VerifySubscriptionResponse: Codable, Sendable {
+    let success: Bool
+    let subscriptionStatus: String?
+    let expiresDate: String?
 }
 
 // MARK: - Mock Data

@@ -16,7 +16,11 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { handleGeneratePlan } from './api/generatePlan';
 import { handleSwapMeal } from './api/swapMeal';
+import { handleVerifySubscription } from './api/verifySubscription';
+import { handleAppStoreWebhook } from './api/appStoreWebhook';
 import { cleanupExpiredRateLimits } from './utils/rateLimiter';
+import { requireSubscription } from './utils/subscriptionMiddleware';
+import { incrementPlansGenerated } from './utils/subscriptionVerifier';
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -539,7 +543,7 @@ const verifyAppCheck = async (req: Request, res: Response, next: express.NextFun
  * Generate a full 7-day meal plan
  * Protected by App Check verification
  */
-app.post('/v1/generate-plan', verifyAppCheck, async (req: Request, res: Response) => {
+app.post('/v1/generate-plan', verifyAppCheck, requireSubscription, async (req: Request, res: Response) => {
   try {
     const result = await handleGeneratePlan(req.body);
 
@@ -547,6 +551,16 @@ app.post('/v1/generate-plan', verifyAppCheck, async (req: Request, res: Response
       const status = result.error?.includes('Rate limit') ? 429 : 400;
       res.status(status).json(result);
       return;
+    }
+
+    // Track plan generation for free trial gating
+    const deviceId = req.body?.deviceId;
+    if (deviceId && result.success) {
+      try {
+        await incrementPlansGenerated(deviceId);
+      } catch (err) {
+        console.error('Failed to increment plansGenerated:', err);
+      }
     }
 
     res.json(result);
@@ -564,7 +578,15 @@ app.post('/v1/generate-plan', verifyAppCheck, async (req: Request, res: Response
  * Generate a single replacement meal
  * Protected by App Check verification
  */
-app.post('/v1/swap-meal', verifyAppCheck, async (req: Request, res: Response) => {
+app.post('/v1/verify-subscription', verifyAppCheck, async (req: Request, res: Response) => {
+  await handleVerifySubscription(req, res);
+});
+
+app.post('/v1/apple-notifications', async (req: Request, res: Response) => {
+  await handleAppStoreWebhook(req, res);
+});
+
+app.post('/v1/swap-meal', verifyAppCheck, requireSubscription, async (req: Request, res: Response) => {
   try {
     const result = await handleSwapMeal(req.body);
 

@@ -77,6 +77,7 @@ final class SubscriptionManager {
                 let transaction = try checkVerified(verification)
                 await transaction.finish()
                 await checkEntitlements()
+                await syncJWSToBackend(verification.jwsRepresentation)
                 return true
 
             case .userCancelled:
@@ -118,6 +119,8 @@ final class SubscriptionManager {
             if case .verified(let transaction) = result,
                transaction.revocationDate == nil {
                 hasActiveSubscription = true
+                // Sync latest entitlement to backend on app launch
+                await syncJWSToBackend(result.jwsRepresentation)
             }
         }
 
@@ -131,8 +134,25 @@ final class SubscriptionManager {
                 if case .verified(let transaction) = result {
                     await transaction.finish()
                     await self?.checkEntitlements()
+                    await self?.syncJWSToBackend(result.jwsRepresentation)
                 }
             }
+        }
+    }
+
+    // MARK: - Backend Sync
+    /// Fire-and-forget sync of a verified transaction JWS to the backend.
+    /// Non-fatal on failure — local StoreKit remains the primary source of truth.
+    private func syncJWSToBackend(_ jws: String) async {
+        do {
+            let deviceId = await DeviceIdentifier.shared.deviceId
+            _ = try await APIService.shared.verifySubscription(
+                deviceId: deviceId,
+                signedTransactionJWS: jws
+            )
+            print("[SubscriptionManager] Backend sync succeeded")
+        } catch {
+            print("[SubscriptionManager] Backend sync failed (non-fatal): \(error)")
         }
     }
 
