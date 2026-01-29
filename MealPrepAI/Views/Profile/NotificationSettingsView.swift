@@ -517,6 +517,9 @@ struct NotificationSettingsView: View {
             DispatchQueue.main.async {
                 self.authorizationStatus = granted ? .authorized : .denied
                 self.notificationsEnabled = granted
+                if granted {
+                    self.triggerReschedule()
+                }
             }
         }
     }

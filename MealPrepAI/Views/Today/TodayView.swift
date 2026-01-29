@@ -504,6 +504,8 @@ struct TodayMealCard: View {
 struct GenerateMealPlanSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(NotificationManager.self) var notificationManager
+    @Environment(SubscriptionManager.self) var subscriptionManager
     @Query private var userProfiles: [UserProfile]
     @Bindable var generator: MealPlanGenerator
 
@@ -688,6 +690,19 @@ struct GenerateMealPlanSheet: View {
                     weeklyPreferences: preferences.isEmpty ? nil : preferences,
                     modelContext: modelContext
                 )
+
+                // Reschedule notifications for the new plan
+                let descriptor = FetchDescriptor<MealPlan>(
+                    predicate: #Predicate { $0.isActive },
+                    sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+                )
+                let activePlan = try? modelContext.fetch(descriptor).first
+                notificationManager.rescheduleAllNotifications(
+                    activePlan: activePlan,
+                    isSubscribed: subscriptionManager.isSubscribed,
+                    trialStartDate: profile.createdAt
+                )
+
                 dismiss()
             } catch {
                 print("Failed to generate meal plan: \(error)")

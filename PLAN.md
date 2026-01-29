@@ -143,20 +143,33 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 - Relies on SwiftData's passive CloudKit sync
 - No active sync logic
 
-### Notifications ⚠️ PARTIAL
-- Local notification manager with read/unread tracking
-- Notification permission step in onboarding
-- No push notification backend
-- No scheduled notification triggers
+### Notifications ✅ COMPLETE
+- ✅ In-app notification manager with read/unread tracking
+- ✅ Notification permission step in onboarding
+- ✅ Local notification scheduling (UNUserNotificationCenter)
+- ✅ Trial expiry reminder (2 days before trial ends)
+- ✅ Plan expiry reminder (morning of last day)
+- ✅ Advance prep reminders (8 PM night before)
+- ✅ Grocery list reminder (morning of plan start)
+- ✅ Daily meal reminders (user-configured times)
+- ✅ Settings toggles for all notification types
+- ✅ Auto-reschedule on app launch, plan generation, and settings change
+- ✅ Permission check before scheduling (skips if not authorized)
+- ✅ Future-date guards (no past-date notifications scheduled)
+- ✅ Reschedule on first permission grant
+- ✅ All plan generation paths trigger reschedule (setup flow + quick generate)
 
-### Subscription & Paywall ⚠️ PARTIAL
+### Subscription & Paywall ✅ MOSTLY COMPLETE
 - ✅ Free trial system (first plan free)
 - ✅ Paywall UI (monthly $9.99 / annual $59.99)
 - ✅ Superwall SDK analytics (paywall funnel tracking)
 - ✅ SubscriptionManager service (environment object)
-- ❌ StoreKit 2 product fetching & transaction handling
-- ❌ Receipt validation
-- ❌ Server-side subscription verification
+- ✅ StoreKit 2 product fetching, purchase, restore, entitlement checking
+- ✅ Transaction listener for background updates
+- ✅ Profile subscription management (manage/upgrade/restore)
+- ✅ Configuration.storekit for sandbox testing
+- ❌ Receipt validation (server-side)
+- ❌ Introductory offer / free trial via StoreKit
 
 ### Design System ✅
 - Mint-green + purple accent palette
@@ -170,13 +183,15 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 ## TODO — Remaining Work
 
 ### High Priority (Required for App Store)
-- [ ] **StoreKit 2 Integration** - Real subscription purchase flow, product catalog, transaction verification
+- [x] **StoreKit 2 Integration** - Product fetching, purchase, restore, entitlements, transaction listener
+- [x] **Subscription Management UI** - Profile section with manage/upgrade/restore
+- [x] **Revert SubscriptionManager default** - `isSubscribed` defaults to `false`, driven by StoreKit
 - [ ] **Receipt Validation** - Server-side or on-device receipt verification
 - [ ] **Accessibility Audit** - VoiceOver labels, Dynamic Type testing, contrast ratios
-- [ ] **Revert SubscriptionManager default** - Change `isSubscribed = true` back to `false` before release
 
 ### Medium Priority (Post-Launch)
-- [ ] **Push Notifications** - APNs setup, meal reminders, trial expiry alerts
+- [x] **Local Notifications** - Complete UNUserNotificationCenter scheduling with permission checks, future-date guards, and all trigger points covered
+- [ ] **Remote Push Notifications** - APNs backend for server-triggered notifications (optional, not required for launch)
 - [ ] **Ingredient Substitution** - AI-powered swap with macro recalculation
 - [ ] **Custom Recipe Creation** - Complete the data flow from UI stub
 - [ ] **CloudKit Active Sync** - Verify cross-device data sync works reliably

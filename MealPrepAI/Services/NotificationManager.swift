@@ -75,6 +75,16 @@ final class NotificationManager {
     func rescheduleAllNotifications(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) {
         center.removeAllPendingNotificationRequests()
 
+        // Only schedule if the user has granted notification permission
+        center.getNotificationSettings { [weak self] settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
+            Task { @MainActor in
+                self?.scheduleAll(activePlan: activePlan, isSubscribed: isSubscribed, trialStartDate: trialStartDate)
+            }
+        }
+    }
+
+    private func scheduleAll(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) {
         let defaults = UserDefaults.standard
         let mealReminders = defaults.bool(forKey: "mealReminders")
         let groceryReminders = defaults.bool(forKey: "groceryReminders")
@@ -115,9 +125,9 @@ final class NotificationManager {
     /// Schedule trial expiry reminder — 2 days before 7-day trial ends (i.e. 5 days after trial start)
     func scheduleTrialExpiryReminder(trialStartDate: Date) {
         let calendar = Calendar.current
-        guard let fireDate = calendar.date(byAdding: .day, value: 5, to: trialStartDate) else { return }
+        guard let fireDate = calendar.date(byAdding: .day, value: 5, to: trialStartDate),
+              fireDate > Date() else { return }
 
-        // Only schedule if in the future
         var components = calendar.dateComponents([.year, .month, .day], from: fireDate)
         components.hour = 10
         components.minute = 0
@@ -135,6 +145,7 @@ final class NotificationManager {
     /// Schedule plan expiry reminder — 9 AM on the plan's last day
     func schedulePlanExpiryReminder(for plan: MealPlan) {
         let calendar = Calendar.current
+        guard plan.endDate >= calendar.startOfDay(for: Date()) else { return }
         var components = calendar.dateComponents([.year, .month, .day], from: plan.endDate)
         components.hour = 9
         components.minute = 0
@@ -156,8 +167,9 @@ final class NotificationManager {
             for meal in day.sortedMeals {
                 guard let recipe = meal.recipe, recipe.needsAdvancePrep else { continue }
 
-                // Night before this day
-                guard let nightBefore = calendar.date(byAdding: .day, value: -1, to: day.date) else { continue }
+                // Night before this day — skip if already past
+                guard let nightBefore = calendar.date(byAdding: .day, value: -1, to: day.date),
+                      nightBefore >= calendar.startOfDay(for: Date()) else { continue }
                 var components = calendar.dateComponents([.year, .month, .day], from: nightBefore)
                 components.hour = 20
                 components.minute = 0
@@ -179,6 +191,7 @@ final class NotificationManager {
     /// Schedule grocery reminder — 10 AM on plan start date
     func scheduleGroceryReminder(for plan: MealPlan) {
         let calendar = Calendar.current
+        guard plan.weekStartDate >= calendar.startOfDay(for: Date()) else { return }
         var components = calendar.dateComponents([.year, .month, .day], from: plan.weekStartDate)
         components.hour = 10
         components.minute = 0
@@ -209,7 +222,9 @@ final class NotificationManager {
             (.dinner, dinnerTime)
         ]
 
+        let today = calendar.startOfDay(for: Date())
         for day in plan.sortedDays {
+            guard day.date >= today else { continue }
             let meals = day.sortedMeals
             for (mealType, timeInterval) in mealTimes {
                 guard let meal = meals.first(where: { $0.mealType == mealType }),
