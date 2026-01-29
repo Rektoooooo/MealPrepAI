@@ -123,6 +123,41 @@ class MealPlanGenerator {
                 modelContext.insert(meal)
             }
 
+            // Migrate non-overlapping days from old active plans into the new plan
+            let newPlanDates = Set(result.days.map { Calendar.current.startOfDay(for: $0.date) })
+            let newPlan = result.mealPlan
+
+            let fetchDescriptor = FetchDescriptor<MealPlan>(
+                predicate: #Predicate<MealPlan> { $0.isActive },
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            )
+            let existingPlans = (try? modelContext.fetch(fetchDescriptor)) ?? []
+
+            for oldPlan in existingPlans where oldPlan.id != newPlan.id {
+                let oldDays = oldPlan.days ?? []
+                for oldDay in oldDays {
+                    let oldDayDate = Calendar.current.startOfDay(for: oldDay.date)
+                    if !newPlanDates.contains(oldDayDate) {
+                        // Move this day to the new plan
+                        oldDay.mealPlan = newPlan
+                        print("[DEBUG:Generator] Migrated day \(oldDay.dayName) (\(oldDay.date)) from old plan to new plan")
+                    }
+                }
+                // Deactivate old plan (remaining overlapping days will cascade-delete with it, which is fine)
+                oldPlan.isActive = false
+                print("[DEBUG:Generator] Deactivated old plan \(oldPlan.id)")
+            }
+
+            // Update new plan's duration to cover all days
+            let allNewPlanDays = newPlan.days ?? []
+            if let earliest = allNewPlanDays.min(by: { $0.date < $1.date }),
+               let latest = allNewPlanDays.max(by: { $0.date < $1.date }) {
+                let totalDays = Calendar.current.dateComponents([.day], from: earliest.date, to: latest.date).day! + 1
+                newPlan.weekStartDate = earliest.date
+                newPlan.planDuration = totalDays
+                print("[DEBUG:Generator] Updated plan range: \(totalDays) days from \(earliest.date) to \(latest.date)")
+            }
+
             print("[DEBUG:Generator] Saving context...")
             try modelContext.save()
             print("[DEBUG:Generator] Context saved successfully")

@@ -13,7 +13,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit } from '../utils/rateLimiter';
-// import { matchRecipeImage } from '../utils/imageMatch';  // TODO: Re-enable later
+// Image matching disabled — AI-generated recipes use gradient placeholders on iOS
+// import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipesIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
 // Types
@@ -691,14 +692,13 @@ export async function handleGeneratePlan(
     const totalMeals = mealPlan.days.reduce((acc, day) => acc + day.meals.length, 0);
     console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
 
-    // Prepare recipes for storage (image matching disabled for now)
+    // AI-generated recipes don't get images — iOS shows gradient placeholders
     const allRecipes: GeneratedRecipeDTO[] = [];
 
     for (const day of mealPlan.days) {
       for (const meal of day.meals) {
         const recipe = meal.recipe;
 
-        // Prepare for storage (no image matching)
         allRecipes.push({
           name: recipe.name,
           description: recipe.description,
@@ -715,7 +715,7 @@ export async function handleGeneratePlan(
           servings: recipe.servings,
           ingredients: recipe.ingredients,
           instructions: recipe.instructions,
-          matchedImageUrl: null,  // TODO: Re-enable image matching later
+          matchedImageUrl: null,
         });
       }
     }

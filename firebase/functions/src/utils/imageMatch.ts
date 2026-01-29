@@ -2,7 +2,7 @@
  * Image Matching Utility
  *
  * Match AI-generated recipes to existing Spoonacular images using
- * ingredient similarity (Jaccard coefficient).
+ * ingredient similarity (Jaccard coefficient) + title matching + diversity.
  */
 
 import * as admin from 'firebase-admin';
@@ -32,67 +32,118 @@ interface MatchedRecipe {
 }
 
 /**
- * Calculate Jaccard similarity between two sets of ingredient names
- * Returns a value between 0 (no overlap) and 1 (identical)
+ * Normalize an ingredient name to its core words
+ */
+function normalizeIngredient(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\b(fresh|dried|ground|chopped|minced|sliced|diced|whole|boneless|skinless|lean|extra|large|small|medium|raw|cooked|canned|frozen)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extract individual words from an ingredient name for fuzzy matching
+ */
+function getIngredientWords(name: string): string[] {
+  return normalizeIngredient(name)
+    .split(' ')
+    .filter((w) => w.length > 2); // skip tiny words like "of"
+}
+
+/**
+ * Calculate ingredient similarity using fuzzy word-level matching.
+ * If "chicken breast" is in set A and "chicken" is in set B, that's a partial match.
  */
 export function calculateIngredientSimilarity(
   ingredientsA: string[],
   ingredientsB: string[]
 ): number {
-  // Normalize ingredient names: lowercase, trim, remove common words
-  const normalize = (name: string): string => {
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/\b(fresh|dried|ground|chopped|minced|sliced|diced|whole)\b/gi, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
+  const wordsA = new Set(ingredientsA.flatMap(getIngredientWords));
+  const wordsB = new Set(ingredientsB.flatMap(getIngredientWords));
 
-  const setA = new Set(ingredientsA.map(normalize).filter((s) => s.length > 0));
-  const setB = new Set(ingredientsB.map(normalize).filter((s) => s.length > 0));
-
-  if (setA.size === 0 || setB.size === 0) {
+  if (wordsA.size === 0 || wordsB.size === 0) {
     return 0;
   }
 
-  // Calculate intersection
-  const intersection = [...setA].filter((x) => setB.has(x));
+  const intersection = [...wordsA].filter((w) => wordsB.has(w));
+  const union = new Set([...wordsA, ...wordsB]);
 
-  // Calculate union
-  const union = new Set([...setA, ...setB]);
-
-  // Jaccard coefficient
   return intersection.length / union.size;
+}
+
+/**
+ * Calculate title similarity between two recipe titles using word overlap
+ */
+function calculateTitleSimilarity(titleA: string, titleB: string): number {
+  const wordsA = new Set(
+    titleA
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+  const wordsB = new Set(
+    titleB
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 2)
+  );
+
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  const intersection = [...wordsA].filter((w) => wordsB.has(w));
+  const union = new Set([...wordsA, ...wordsB]);
+
+  return intersection.length / union.size;
+}
+
+/**
+ * Shuffle an array in place (Fisher-Yates)
+ */
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 /**
  * Match an AI-generated recipe to an existing image in the recipes collection
  *
- * @param recipe - The generated recipe with cuisineType, mealType, and ingredients
- * @param minScore - Minimum similarity score to accept a match (default 0.3)
+ * @param recipe - The generated recipe with title, cuisineType, mealType, and ingredients
+ * @param excludeImageUrls - Image URLs already used in this plan (for diversity)
+ * @param minScore - Minimum similarity score to accept a match (default 0.15)
  * @returns Matched image URL or null if no good match found
  */
 export async function matchRecipeImage(
   recipe: {
+    title?: string;
+    name?: string;
     cuisineType: string;
     mealType: string;
     ingredients: Array<{ name: string }>;
   },
-  minScore: number = 0.3
+  excludeImageUrls: Set<string> = new Set(),
+  minScore: number = 0.15
 ): Promise<string | null> {
+  const recipeTitle = recipe.title || recipe.name || '';
   console.log('[DEBUG:ImageMatch] Starting image match for:', {
+    title: recipeTitle,
     cuisineType: recipe.cuisineType,
     mealType: recipe.mealType,
     ingredientCount: recipe.ingredients.length,
+    excludeCount: excludeImageUrls.size,
   });
 
   try {
     const ingredientNames = recipe.ingredients.map((i) => i.name);
-    console.log('[DEBUG:ImageMatch] Ingredients:', ingredientNames.slice(0, 5).join(', '), ingredientNames.length > 5 ? '...' : '');
 
     // First, try to find recipes with the same cuisine type
-    console.log('[DEBUG:ImageMatch] Querying recipes by cuisine:', recipe.cuisineType.toLowerCase());
     let recipesQuery = getDb()
       .collection('recipes')
       .where('cuisineType', '==', recipe.cuisineType.toLowerCase())
@@ -103,7 +154,6 @@ export async function matchRecipeImage(
 
     // If no matches for cuisine, try meal type
     if (recipesSnapshot.empty) {
-      console.log('[DEBUG:ImageMatch] No cuisine matches, trying meal type:', recipe.mealType.toLowerCase());
       recipesQuery = getDb()
         .collection('recipes')
         .where('mealType', '==', recipe.mealType.toLowerCase())
@@ -115,7 +165,6 @@ export async function matchRecipeImage(
 
     // If still no matches, get any recipes
     if (recipesSnapshot.empty) {
-      console.log('[DEBUG:ImageMatch] No meal type matches, getting any recipes');
       recipesQuery = getDb().collection('recipes').limit(50);
       recipesSnapshot = await recipesQuery.get();
       console.log('[DEBUG:ImageMatch] General query returned:', recipesSnapshot.size, 'recipes');
@@ -126,7 +175,7 @@ export async function matchRecipeImage(
       return null;
     }
 
-    // Score each recipe by ingredient similarity
+    // Score each recipe by ingredient similarity + title similarity
     const matches: MatchedRecipe[] = [];
 
     for (const doc of recipesSnapshot.docs) {
@@ -139,10 +188,17 @@ export async function matchRecipeImage(
       const recipeIngredients = (recipeData.ingredients || []).map(
         (i) => i.name
       );
-      const score = calculateIngredientSimilarity(
+      const ingredientScore = calculateIngredientSimilarity(
         ingredientNames,
         recipeIngredients
       );
+
+      // Title similarity as secondary signal (weighted at 30%)
+      const titleScore = recipeTitle
+        ? calculateTitleSimilarity(recipeTitle, recipeData.title || '')
+        : 0;
+
+      const score = ingredientScore * 0.7 + titleScore * 0.3;
 
       matches.push({
         imageUrl: recipeData.imageUrl,
@@ -159,35 +215,50 @@ export async function matchRecipeImage(
     if (matches.length > 0) {
       console.log('[DEBUG:ImageMatch] Top 3 matches:', matches.slice(0, 3).map(m => ({
         title: m.title,
-        score: m.score.toFixed(2)
+        score: m.score.toFixed(3)
       })));
     }
 
-    // Return best match if it meets minimum score
-    const best = matches[0];
-    if (best && best.score >= minScore) {
-      console.log('[DEBUG:ImageMatch] MATCH FOUND:', best.title, 'score:', best.score.toFixed(2));
-      return best.imageUrl;
+    // Try to find the best match that isn't already used
+    for (const match of matches) {
+      if (match.score >= minScore && !excludeImageUrls.has(match.imageUrl)) {
+        console.log('[DEBUG:ImageMatch] MATCH FOUND:', match.title, 'score:', match.score.toFixed(3));
+        return match.imageUrl;
+      }
     }
 
-    console.log('[DEBUG:ImageMatch] Best score', best?.score?.toFixed(2) || 'N/A', 'below threshold', minScore);
-
-    // Fallback: return any image from same cuisine if available
-    const sameCuisine = recipesSnapshot.docs.find((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-      const data = doc.data() as RecipeDoc;
-      return (
-        data.imageUrl &&
-        data.cuisineType === recipe.cuisineType.toLowerCase()
-      );
-    });
-
-    if (sameCuisine) {
-      const data = sameCuisine.data() as RecipeDoc;
-      console.log('[DEBUG:ImageMatch] FALLBACK cuisine match:', data.title);
-      return data.imageUrl;
+    // If all good matches are excluded, allow reuse of the best one
+    const bestAboveThreshold = matches.find((m) => m.score >= minScore);
+    if (bestAboveThreshold) {
+      console.log('[DEBUG:ImageMatch] All good matches excluded, reusing best:', bestAboveThreshold.title);
+      return bestAboveThreshold.imageUrl;
     }
 
-    // Fallback: return any image
+    console.log('[DEBUG:ImageMatch] Best score', matches[0]?.score?.toFixed(3) || 'N/A', 'below threshold', minScore);
+
+    // Fallback: pick a random image from same cuisine (not already used)
+    const cuisineMatches = recipesSnapshot.docs
+      .map((doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data() as RecipeDoc)
+      .filter((data) => data.imageUrl && data.cuisineType === recipe.cuisineType.toLowerCase() && !excludeImageUrls.has(data.imageUrl));
+
+    if (cuisineMatches.length > 0) {
+      const pick = cuisineMatches[Math.floor(Math.random() * cuisineMatches.length)];
+      console.log('[DEBUG:ImageMatch] FALLBACK random cuisine match:', pick.title);
+      return pick.imageUrl;
+    }
+
+    // Fallback: pick a random image from any available (not already used)
+    const anyMatches = recipesSnapshot.docs
+      .map((doc: FirebaseFirestore.QueryDocumentSnapshot) => doc.data() as RecipeDoc)
+      .filter((data) => data.imageUrl && !excludeImageUrls.has(data.imageUrl));
+
+    if (anyMatches.length > 0) {
+      const shuffled = shuffleArray(anyMatches);
+      console.log('[DEBUG:ImageMatch] FALLBACK random any image:', shuffled[0].title);
+      return shuffled[0].imageUrl;
+    }
+
+    // Last resort: any image at all (even if already used)
     const anyImage = recipesSnapshot.docs.find((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
       const data = doc.data() as RecipeDoc;
       return !!data.imageUrl;
@@ -195,7 +266,7 @@ export async function matchRecipeImage(
 
     if (anyImage) {
       const data = anyImage.data() as RecipeDoc;
-      console.log('[DEBUG:ImageMatch] FALLBACK any image:', data.title);
+      console.log('[DEBUG:ImageMatch] FALLBACK last resort (reuse):', data.title);
       return data.imageUrl;
     }
 
@@ -208,25 +279,27 @@ export async function matchRecipeImage(
 }
 
 /**
- * Batch match images for multiple recipes
+ * Batch match images for multiple recipes with diversity tracking
  */
 export async function matchRecipeImages(
   recipes: Array<{
+    title?: string;
+    name?: string;
     cuisineType: string;
     mealType: string;
     ingredients: Array<{ name: string }>;
   }>
 ): Promise<(string | null)[]> {
-  // Process in parallel but limit concurrency
-  const BATCH_SIZE = 5;
+  const usedImageUrls = new Set<string>();
   const results: (string | null)[] = [];
 
-  for (let i = 0; i < recipes.length; i += BATCH_SIZE) {
-    const batch = recipes.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(
-      batch.map((recipe) => matchRecipeImage(recipe))
-    );
-    results.push(...batchResults);
+  // Process sequentially to track used images for diversity
+  for (const recipe of recipes) {
+    const imageUrl = await matchRecipeImage(recipe, usedImageUrls);
+    if (imageUrl) {
+      usedImageUrls.add(imageUrl);
+    }
+    results.push(imageUrl);
   }
 
   return results;

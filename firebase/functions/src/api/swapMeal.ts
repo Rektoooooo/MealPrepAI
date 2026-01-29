@@ -12,7 +12,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit } from '../utils/rateLimiter';
-import { matchRecipeImage } from '../utils/imageMatch';
+// Image matching disabled — AI-generated recipes use gradient placeholders on iOS
+// import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipeIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
 // Types
@@ -33,6 +34,7 @@ interface SwapMealRequest {
   userProfile: UserProfile;
   mealType: string; // breakfast, lunch, dinner, snack
   excludeRecipeNames?: string[];
+  excludeImageUrls?: string[];
   weeklyPreferences?: string;
   deviceId: string;
 }
@@ -335,21 +337,8 @@ export async function handleSwapMeal(
       ingredientCount: recipe.ingredients.length,
     }));
 
-    // Match image
-    console.log('[DEBUG] Matching image for:', recipe.name, '(', recipe.cuisineType, mealType, ')');
-    const matchedImageUrl = await matchRecipeImage({
-      cuisineType: recipe.cuisineType,
-      mealType: mealType,
-      ingredients: recipe.ingredients,
-    });
-
-    if (matchedImageUrl) {
-      console.log('[DEBUG] Image matched:', matchedImageUrl.substring(0, 50) + '...');
-    } else {
-      console.log('[DEBUG] No image match found');
-    }
-
-    recipe.matchedImageUrl = matchedImageUrl;
+    // AI-generated recipes don't get images — iOS shows gradient placeholders
+    recipe.matchedImageUrl = null;
 
     // Save recipe to database
     console.log('[DEBUG] Saving recipe to database...');
@@ -369,7 +358,7 @@ export async function handleSwapMeal(
       servings: recipe.servings,
       ingredients: recipe.ingredients,
       instructions: recipe.instructions,
-      matchedImageUrl,
+      matchedImageUrl: null,
     };
 
     const saveResult = await saveRecipeIfUnique(recipeDTO);
