@@ -12,7 +12,7 @@ Last updated: January 29, 2026
 |---------|-----------|--------------|--------|
 | Recipes too complicated | Mealime | "Simple Mode" toggle, complexity scoring | ✅ Done |
 | Can't modify meals without resetting grocery list | Mealime | Granular editing with "lock" feature | ⚠️ Partial |
-| Can't swap individual ingredients | MealPrepPro | AI ingredient substitution with macro recalculation | ❌ Not started |
+| Can't swap individual ingredients | MealPrepPro | AI ingredient substitution with macro recalculation | ✅ Done |
 | Only uses ounces | MealPrepPro | Dual measurements (cups/tbsp + grams) | ✅ Done |
 | No search or favorites | MealPrepPro | Full search, favorites, recipe history | ✅ Done |
 | Recipes repeat constantly | Eat This Much | Variety engine tracking usage, enforcing diversity | ✅ Done |
@@ -26,7 +26,7 @@ Last updated: January 29, 2026
 1. **Onboarding** - 29-step comprehensive flow ✅
 2. **AI Meal Plan Generation** - Claude Sonnet 4 via Cloud Functions backend ✅
 3. **Daily View** - Today's meals with progress tracking, mark meals eaten ✅
-4. **Plan Editing** - Meal swap with variety engine ✅ (ingredient substitution ❌)
+4. **Plan Editing** - Meal swap with variety engine ✅, ingredient substitution ✅
 5. **Smart Grocery List** - Auto-generated, grouped by category, shopping features ✅
 
 ---
@@ -96,7 +96,7 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 ### Phase 5: Editing & Swapping ⚠️ PARTIAL
 - ✅ Meal swap via AI (exclude recently used recipes)
 - ✅ Variety engine (tracks `timesUsed`, `lastUsedDate`)
-- ❌ Ingredient substitution with macro recalculation
+- ✅ Ingredient substitution with macro recalculation (Claude 3.5 Haiku, 3 suggestions per swap)
 - ❌ Lock feature to prevent grocery list reset on edit
 
 ### Phase 6: Grocery List ✅ COMPLETE
@@ -193,7 +193,7 @@ Tab 5: Profile     → Settings, goals, dietary preferences, account
 ### Medium Priority (Post-Launch)
 - [x] **Local Notifications** - Complete UNUserNotificationCenter scheduling with permission checks, future-date guards, and all trigger points covered
 - [ ] **Remote Push Notifications** - APNs backend for server-triggered notifications (optional, not required for launch)
-- [ ] **Ingredient Substitution** - AI-powered swap with macro recalculation
+- [x] **Ingredient Substitution** - AI-powered swap with macro recalculation
 - [ ] **Custom Recipe Creation** - Complete the data flow from UI stub
 - [ ] **CloudKit Active Sync** - Verify cross-device data sync works reliably
 - [ ] **Unit & UI Tests** - Test coverage for critical paths
@@ -216,7 +216,7 @@ Base URL: https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api
 Endpoints:
 POST /api/generateMealPlan  → Claude Sonnet 4, returns full plan JSON  ✅
 POST /api/swapMeal          → Single meal replacement                  ✅
-POST /api/substitute        → Ingredient substitution                  ❌
+POST /api/substitute-ingredient → Ingredient substitution              ✅
 
 Security:
 - Firebase App Check (App Attest in production)
