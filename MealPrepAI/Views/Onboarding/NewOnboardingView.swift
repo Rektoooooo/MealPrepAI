@@ -112,7 +112,6 @@ struct NewOnboardingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(SubscriptionManager.self) private var subscriptionManager
-    @Environment(CloudKitSyncManager.self) private var syncManager
     @State private var viewModel = NewOnboardingViewModel()
     @State private var currentStep: OnboardingStep = .socialProof  // Skip launch - shown by RootView
     @State private var showSaveErrorAlert = false
@@ -370,11 +369,6 @@ struct NewOnboardingView: View {
                         viewModel.userName = [givenName, familyName]
                             .filter { !$0.isEmpty }
                             .joined(separator: " ")
-                    }
-
-                    // Enable CloudKit sync for signed-in users
-                    if authManager.hasAppleID, let userID = authManager.currentUserID {
-                        syncManager.enableSync(for: userID)
                     }
 
                     goToNext()

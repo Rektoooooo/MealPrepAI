@@ -7,9 +7,10 @@
 
 import Foundation
 import CloudKit
+import CoreData
 import SwiftUI
 
-/// Manages iCloud sync state and operations
+/// Manages iCloud sync state by listening to real CloudKit sync events
 @MainActor @Observable
 final class CloudKitSyncManager {
 
@@ -28,7 +29,7 @@ final class CloudKitSyncManager {
             case .syncing: return "Syncing..."
             case .success: return "Synced"
             case .error(let message): return "Error: \(message)"
-            case .disabled: return "Sync disabled"
+            case .disabled: return "iCloud unavailable"
             }
         }
 
@@ -61,46 +62,70 @@ final class CloudKitSyncManager {
         case temporarilyUnavailable
     }
 
-    // MARK: - Published Properties
+    // MARK: - Properties
 
     private(set) var syncStatus: SyncStatus = .idle
     private(set) var lastSyncDate: Date?
     private(set) var cloudKitAvailability: CloudKitAvailability = .couldNotDetermine
-    var isSyncEnabled: Bool = false {
-        didSet {
-            UserDefaults.standard.set(isSyncEnabled, forKey: syncEnabledKey)
-            if isSyncEnabled {
-                syncStatus = .idle
-            } else {
-                syncStatus = .disabled
-            }
-        }
-    }
 
     // MARK: - Private Properties
 
-    private let syncEnabledKey = "com.mealprepai.iCloudSyncEnabled"
     private let lastSyncKey = "com.mealprepai.lastSyncDate"
     private let containerIdentifier = "iCloud.com.mealprepai.MealPrepAI"
+    private var eventObserver: NSObjectProtocol?
 
     // MARK: - Initialization
 
     init() {
-        isSyncEnabled = UserDefaults.standard.bool(forKey: syncEnabledKey)
         lastSyncDate = UserDefaults.standard.object(forKey: lastSyncKey) as? Date
+        startMonitoring()
+    }
 
-        // If sync is enabled but no lastSyncDate, set it now
-        if isSyncEnabled && lastSyncDate == nil {
+    deinit {
+        stopMonitoring()
+    }
+
+    // MARK: - Sync Event Monitoring
+
+    private func startMonitoring() {
+        eventObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NSPersistentCloudKitContainer.eventChangedNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleSyncEvent(notification)
+            }
+        }
+    }
+
+    nonisolated func stopMonitoring() {
+        // Cannot remove on MainActor from deinit; use nonisolated
+        MainActor.assumeIsolated {
+            if let observer = eventObserver {
+                NotificationCenter.default.removeObserver(observer)
+                eventObserver = nil
+            }
+        }
+    }
+
+    private func handleSyncEvent(_ notification: Notification) {
+        // NSPersistentCloudKitContainer.Event is available via the userInfo
+        guard let event = notification.userInfo?["event"] as? NSPersistentCloudKitContainer.Event else {
+            return
+        }
+
+        if event.endDate == nil {
+            // Event started
+            syncStatus = .syncing
+        } else if event.succeeded {
+            // Event finished successfully
             lastSyncDate = Date()
             UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
+            syncStatus = .success
+        } else if let error = event.error {
+            syncStatus = .error(error.localizedDescription)
         }
-
-        if !isSyncEnabled {
-            syncStatus = .disabled
-        }
-
-        // Don't check CloudKit availability in init - defer to avoid crashes during app startup
-        // Views should call checkCloudKitAvailability() when needed
     }
 
     // MARK: - Public Methods
@@ -109,10 +134,22 @@ final class CloudKitSyncManager {
     func checkCloudKitAvailability() {
         Task { @MainActor in
             await fetchCloudKitAvailability()
+            if cloudKitAvailability != .available {
+                syncStatus = .disabled
+            } else if syncStatus == .disabled {
+                syncStatus = .idle
+            }
         }
     }
 
-    /// Fetch CloudKit availability using async/await
+    /// Handle remote notification for CloudKit changes
+    func handleRemoteNotification() {
+        lastSyncDate = Date()
+        UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
+    }
+
+    // MARK: - Private Methods
+
     @MainActor
     private func fetchCloudKitAvailability() async {
         do {
@@ -137,77 +174,6 @@ final class CloudKitSyncManager {
         }
     }
 
-    /// Enable iCloud sync for the given user
-    func enableSync(for userID: String) {
-        guard cloudKitAvailability == .available else {
-            syncStatus = .error("iCloud not available")
-            return
-        }
-
-        isSyncEnabled = true
-        syncStatus = .idle
-
-        // Set initial sync date when enabled
-        lastSyncDate = Date()
-        UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
-
-        // Note: With SwiftData's native CloudKit integration,
-        // sync is handled automatically when the ModelContainer
-        // is configured with cloudKitDatabase. This manager
-        // primarily tracks state and provides UI feedback.
-    }
-
-    /// Disable iCloud sync
-    func disableSync() {
-        isSyncEnabled = false
-        syncStatus = .disabled
-    }
-
-    /// Force a sync refresh (UI feedback only - SwiftData handles actual sync)
-    func forceSync() async {
-        guard isSyncEnabled else {
-            syncStatus = .disabled
-            return
-        }
-
-        guard cloudKitAvailability == .available else {
-            syncStatus = .error("iCloud not available")
-            return
-        }
-
-        syncStatus = .syncing
-
-        // SwiftData with CloudKit syncs automatically.
-        // This simulates the feedback for user-initiated refresh.
-        do {
-            // Small delay to show syncing status
-            try await Task.sleep(nanoseconds: 1_500_000_000)
-
-            lastSyncDate = Date()
-            UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
-            syncStatus = .success
-
-            // Reset to idle after a delay
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-            if syncStatus == .success {
-                syncStatus = .idle
-            }
-        } catch {
-            // Task was cancelled
-            syncStatus = .idle
-        }
-    }
-
-    /// Handle remote notification for CloudKit changes
-    func handleRemoteNotification() {
-        guard isSyncEnabled else { return }
-
-        // SwiftData handles the actual data sync.
-        // Update our tracking state.
-        lastSyncDate = Date()
-        UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
-    }
-
     // MARK: - Computed Properties
 
     /// User-friendly message about iCloud availability
@@ -226,11 +192,6 @@ final class CloudKitSyncManager {
         }
     }
 
-    /// Whether the user can enable sync
-    var canEnableSync: Bool {
-        cloudKitAvailability == .available
-    }
-
     /// Formatted last sync date
     var lastSyncDescription: String? {
         guard let date = lastSyncDate else { return nil }
@@ -243,12 +204,10 @@ final class CloudKitSyncManager {
     // MARK: - Delete CloudKit Zone
 
     /// Delete the SwiftData CloudKit zone to remove all synced data
-    /// This is the most reliable way to clear CloudKit data for SwiftData
     func deleteCloudKitZone() async {
         let container = CKContainer(identifier: containerIdentifier)
         let privateDatabase = container.privateCloudDatabase
 
-        // SwiftData uses a zone named "com.apple.coredata.cloudkit.zone"
         let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
 
         print("[CloudKit] Deleting CloudKit zone: \(zoneID.zoneName)...")
@@ -257,7 +216,6 @@ final class CloudKitSyncManager {
             try await privateDatabase.deleteRecordZone(withID: zoneID)
             print("[CloudKit] Successfully deleted CloudKit zone")
         } catch {
-            // Zone might not exist, which is fine
             if let ckError = error as? CKError {
                 switch ckError.code {
                 case .zoneNotFound:

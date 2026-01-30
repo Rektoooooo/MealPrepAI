@@ -505,66 +505,38 @@ struct ProfileView: View {
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
 
-                // iCloud Sync Toggle (only for authenticated users)
-                if authManager.hasAppleID {
-                    HStack(spacing: Design.Spacing.md) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(syncManager.isSyncEnabled ? Color.mintVibrant.opacity(0.15) : Color.accentPurple.opacity(0.15))
-                                .frame(width: 36, height: 36)
-                            Image(systemName: syncManager.isSyncEnabled ? "checkmark.icloud.fill" : "icloud")
-                                .font(.system(size: 16))
-                                .foregroundStyle(syncManager.isSyncEnabled ? Color.mintVibrant : Color.accentPurple)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("iCloud Sync")
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textPrimary)
-
-                            Text(syncManager.isSyncEnabled ? "Connected" : syncManager.availabilityMessage)
-                                .font(.caption)
-                                .foregroundStyle(syncManager.isSyncEnabled ? Color.mintVibrant : Color.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Toggle("", isOn: Binding(
-                            get: { syncManager.isSyncEnabled },
-                            set: { newValue in
-                                if newValue {
-                                    syncManager.enableSync(for: authManager.currentUserID ?? "")
-                                } else {
-                                    syncManager.disableSync()
-                                }
-                            }
-                        ))
-                            .labelsHidden()
-                            .tint(Color.accentPurple)
-                            .disabled(!syncManager.canEnableSync)
+                // iCloud Sync Status (always-on for iCloud users)
+                HStack(spacing: Design.Spacing.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(syncManager.syncStatus.color.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: syncManager.syncStatus.icon)
+                            .font(.system(size: 16))
+                            .foregroundStyle(syncManager.syncStatus.color)
                     }
 
-                    // Show last sync time when sync is enabled
-                    if syncManager.isSyncEnabled {
-                        Divider()
-                            .padding(.vertical, Design.Spacing.xxs)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("iCloud Sync")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textPrimary)
 
-                        HStack {
-                            Image(systemName: "clock")
-                                .font(.caption)
-                                .foregroundStyle(Color.textSecondary)
-
-                            Text(syncManager.lastSyncDescription ?? "Syncing...")
-                                .font(.caption)
-                                .foregroundStyle(Color.textSecondary)
-
-                            Spacer()
-                        }
+                        Text(syncManager.syncStatus == .disabled ? syncManager.availabilityMessage : syncManager.syncStatus.description)
+                            .font(.caption)
+                            .foregroundStyle(syncManager.syncStatus.color)
                     }
 
-                    Divider()
-                        .padding(.vertical, Design.Spacing.xxs)
+                    Spacer()
+
+                    if let lastSync = syncManager.lastSyncDescription {
+                        Text(lastSync)
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
 
                 // Sign In / Sign Out Button
                 if authManager.hasAppleID {
@@ -1251,9 +1223,6 @@ struct ProfileView: View {
             print("🔐 [Firebase Auth] Sign out error: \(error.localizedDescription)")
         }
 
-        // Disable iCloud sync first to prevent data from syncing back
-        syncManager.disableSync()
-
         // Clear meal prep preferences
         MealPrepPreferencesStore.shared.clearAll()
 
@@ -1291,10 +1260,7 @@ struct ProfileView: View {
                 // Update auth manager
                 authManager.upgradeFromGuest(credential: credential)
 
-                // Enable sync after successful sign in
-                if syncManager.canEnableSync {
-                    syncManager.enableSync(for: credential.user)
-                }
+                // Sync is automatic — no manual enable needed
             }
         case .failure(let error):
             // Don't show error for user cancellation
@@ -1307,9 +1273,6 @@ struct ProfileView: View {
     }
 
     private func handleSignOut() {
-        // Clear sync settings
-        syncManager.disableSync()
-
         // Unlink Apple ID from profile
         if let existingProfile = profile {
             existingProfile.unlinkAppleID()
