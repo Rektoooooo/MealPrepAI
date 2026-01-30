@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Featured Recipe Card
 struct FeaturedRecipeCard: View {
@@ -12,14 +13,23 @@ struct FeaturedRecipeCard: View {
                 // Background Image
                 ZStack(alignment: .bottom) {
                     // Real image or colorful food-themed gradient placeholder
-                    FoodImagePlaceholder(
-                        style: recipe.cuisineType?.foodStyle ?? .random,
-                        height: 220,
-                        cornerRadius: Design.Radius.featured,
-                        showIcon: recipe.imageURL == nil,
-                        iconSize: 60,
-                        imageName: recipe.highResImageURL ?? recipe.imageURL
-                    )
+                    if let imageData = recipe.localImageData,
+                       let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 220)
+                            .clipShape(RoundedRectangle(cornerRadius: Design.Radius.featured))
+                    } else {
+                        FoodImagePlaceholder(
+                            style: recipe.cuisineType?.foodStyle ?? .random,
+                            height: 220,
+                            cornerRadius: Design.Radius.featured,
+                            showIcon: recipe.imageURL == nil,
+                            iconSize: 60,
+                            imageName: recipe.highResImageURL ?? recipe.imageURL
+                        )
+                    }
 
                     // Purple overlay gradient for text readability
                     LinearGradient(
@@ -124,22 +134,38 @@ struct StackedRecipeCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Image area with badges overlay
                 ZStack {
-                    FoodImagePlaceholder(
-                        style: recipe.cuisineType?.foodStyle ?? .random,
-                        height: 140,
-                        cornerRadius: 0,
-                        showIcon: recipe.imageURL == nil,
-                        iconSize: 36,
-                        imageName: recipe.highResImageURL ?? recipe.imageURL
-                    )
-                    .clipShape(
-                        UnevenRoundedRectangle(
-                            topLeadingRadius: Design.Radius.card,
-                            bottomLeadingRadius: 0,
-                            bottomTrailingRadius: 0,
-                            topTrailingRadius: Design.Radius.card
+                    if let imageData = recipe.localImageData,
+                       let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 140)
+                            .clipShape(
+                                UnevenRoundedRectangle(
+                                    topLeadingRadius: Design.Radius.card,
+                                    bottomLeadingRadius: 0,
+                                    bottomTrailingRadius: 0,
+                                    topTrailingRadius: Design.Radius.card
+                                )
+                            )
+                    } else {
+                        FoodImagePlaceholder(
+                            style: recipe.cuisineType?.foodStyle ?? .random,
+                            height: 140,
+                            cornerRadius: 0,
+                            showIcon: recipe.imageURL == nil,
+                            iconSize: 36,
+                            imageName: recipe.highResImageURL ?? recipe.imageURL
                         )
-                    )
+                        .clipShape(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: Design.Radius.card,
+                                bottomLeadingRadius: 0,
+                                bottomTrailingRadius: 0,
+                                topTrailingRadius: Design.Radius.card
+                            )
+                        )
+                    }
 
                     // Gradient overlay for badges
                     VStack {

@@ -13,6 +13,7 @@ final class Recipe {
     var complexityRaw: Int = 1
     var cuisineTypeRaw: String?
     var imageURL: String?
+    @Attribute(.externalStorage) var localImageData: Data?
 
     // Nutrition
     var calories: Int = 0
@@ -154,6 +155,14 @@ final class Recipe {
         // Handle empty instructions
         if rawInstructions.isEmpty {
             return ["No instructions available."]
+        }
+
+        // Custom recipes: return instructions as-is (user-written, no garbage filtering needed)
+        if isCustom {
+            let cleaned = rawInstructions
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            return cleaned.isEmpty ? ["No instructions available."] : cleaned
         }
 
         var steps: [String]

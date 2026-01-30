@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: - Recipe Async Image with Fallback
 struct RecipeAsyncImage: View {
@@ -9,14 +10,25 @@ struct RecipeAsyncImage: View {
     var matchedImageUrl: String?
 
     var body: some View {
-        FoodImagePlaceholder(
-            style: recipe.cuisineType?.foodStyle ?? recipe.mealType?.foodStyle ?? .random,
-            height: height,
-            cornerRadius: cornerRadius,
-            showIcon: recipe.imageURL == nil,
-            iconSize: height * 0.3,
-            imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL
-        )
+        Group {
+            if let imageData = recipe.localImageData,
+               let uiImage = UIImage(data: imageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            } else {
+                FoodImagePlaceholder(
+                    style: recipe.cuisineType?.foodStyle ?? recipe.mealType?.foodStyle ?? .random,
+                    height: height,
+                    cornerRadius: cornerRadius,
+                    showIcon: recipe.imageURL == nil,
+                    iconSize: height * 0.3,
+                    imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL
+                )
+            }
+        }
         .frame(height: height)
         .accessibilityLabel("Recipe image for \(recipe.name)")
         .accessibilityAddTraits(.isImage)

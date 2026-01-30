@@ -46,7 +46,7 @@ struct RecipesView: View {
 
     private var filteredRecipes: [Recipe] {
         // Start with recipes that have valid instructions and are from Firebase (not AI-generated)
-        var recipes = allRecipes.filter { $0.hasValidInstructions && $0.isFromFirebase }
+        var recipes = allRecipes.filter { $0.isCustom || ($0.hasValidInstructions && $0.isFromFirebase) }
 
         // Apply category filter
         if selectedCategory != .all {

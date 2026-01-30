@@ -15,6 +15,7 @@ struct RecipeDetailSheet: View {
     @State private var showingAddToPlan = false
     @State private var showingEditSheet = false
     @State private var showingShareSheet = false
+    @State private var showingDeleteConfirmation = false
     @State private var ingredientToSwap: RecipeIngredient?
 
     private var currentMealPlan: MealPlan? {
@@ -264,6 +265,27 @@ struct RecipeDetailSheet: View {
                                 }
                             }
                         }
+                        // Delete button for custom recipes
+                        if recipe.isCustom {
+                            Button(role: .destructive, action: {
+                                showingDeleteConfirmation = true
+                            }) {
+                                HStack(spacing: Design.Spacing.sm) {
+                                    Image(systemName: "trash")
+                                    Text("Delete Recipe")
+                                }
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Design.Spacing.md)
+                                .background(
+                                    RoundedRectangle(cornerRadius: Design.Radius.lg)
+                                        .fill(Color.red.opacity(0.1))
+                                )
+                            }
+                            .padding(.top, Design.Spacing.lg)
+                        }
                     }
                     .padding(.horizontal, Design.Spacing.lg)
                 }
@@ -303,6 +325,16 @@ struct RecipeDetailSheet: View {
                         userProfile: profile
                     )
                 }
+            }
+            .alert("Delete Recipe", isPresented: $showingDeleteConfirmation) {
+                Button("Delete", role: .destructive) {
+                    modelContext.delete(recipe)
+                    try? modelContext.save()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Are you sure you want to delete \"\(recipe.name)\"? This cannot be undone.")
             }
         }
     }
