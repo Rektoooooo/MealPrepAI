@@ -62,11 +62,11 @@ struct RecipesView: View {
             }
         }
 
-        // Apply search to local recipes
-        if !searchText.isEmpty {
+        // Apply search to local recipes (uses debounced text to avoid filtering on every keystroke)
+        if !debouncedSearchText.isEmpty {
             recipes = recipes.filter {
-                $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.recipeDescription.localizedCaseInsensitiveContains(searchText)
+                $0.name.localizedCaseInsensitiveContains(debouncedSearchText) ||
+                $0.recipeDescription.localizedCaseInsensitiveContains(debouncedSearchText)
             }
 
             // Merge with Firebase search results (avoiding duplicates)
@@ -100,7 +100,7 @@ struct RecipesView: View {
         if searchError != nil { return true }
 
         // Show if searching with few local results
-        return !searchText.isEmpty &&
+        return !debouncedSearchText.isEmpty &&
                filteredRecipes.count < 5 &&
                !isSearchingFirebase &&
                firebaseSearchResults.isEmpty
@@ -111,7 +111,7 @@ struct RecipesView: View {
     }
 
     private var gridRecipes: [Recipe] {
-        if let featured = featuredRecipe, selectedCategory == .all && searchText.isEmpty {
+        if let featured = featuredRecipe, selectedCategory == .all && debouncedSearchText.isEmpty {
             return filteredRecipes.filter { $0.id != featured.id }
         }
         return filteredRecipes
@@ -120,7 +120,7 @@ struct RecipesView: View {
     private var emptyStateTitle: String {
         if isLoading {
             return "Loading Recipes"
-        } else if !searchText.isEmpty {
+        } else if !debouncedSearchText.isEmpty {
             return "No Results"
         } else if selectedCategory != .all {
             return "No \(selectedCategory.rawValue) Recipes"
@@ -131,7 +131,7 @@ struct RecipesView: View {
     private var emptyStateMessage: String {
         if isLoading {
             return "Fetching delicious recipes for you..."
-        } else if !searchText.isEmpty {
+        } else if !debouncedSearchText.isEmpty {
             return "Try adjusting your search."
         } else if selectedCategory != .all {
             return "Try selecting a different category or pull down to refresh."
@@ -211,7 +211,7 @@ struct RecipesView: View {
                             .opacity(animateContent ? 1 : 0)
                     } else {
                         // Featured Recipe Card (only show when not filtering)
-                        if let featured = featuredRecipe, searchText.isEmpty && !hasActiveFilter {
+                        if let featured = featuredRecipe, debouncedSearchText.isEmpty && !hasActiveFilter {
                             VStack(alignment: .leading, spacing: Design.Spacing.md) {
                                 NewSectionHeader(title: "Featured", emoji: nil)
                                     .padding(.horizontal, Design.Spacing.lg)
@@ -231,7 +231,7 @@ struct RecipesView: View {
                         VStack(alignment: .leading, spacing: Design.Spacing.md) {
                             HStack {
                                 NewSectionHeader(
-                                    title: searchText.isEmpty ? "All Recipes" : "Results",
+                                    title: debouncedSearchText.isEmpty ? "All Recipes" : "Results",
                                     showSeeAll: false
                                 )
 
@@ -273,14 +273,14 @@ struct RecipesView: View {
                             .padding(.horizontal, Design.Spacing.lg)
 
                             // Search Firebase prompt when local results are insufficient
-                            if shouldShowSearchFirebasePrompt && searchText.count >= 2 {
+                            if shouldShowSearchFirebasePrompt && debouncedSearchText.count >= 2 {
                                 searchFirebasePromptView
                                     .padding(.horizontal, Design.Spacing.lg)
                                     .padding(.top, Design.Spacing.md)
                             }
 
                             // Load More button
-                            if searchText.isEmpty && firebaseService.hasMoreRecipes {
+                            if debouncedSearchText.isEmpty && firebaseService.hasMoreRecipes {
                                 loadMoreButton
                                     .padding(.horizontal, Design.Spacing.lg)
                                     .padding(.top, Design.Spacing.lg)
@@ -716,7 +716,7 @@ struct RecipesView: View {
                     .padding(.horizontal, Design.Spacing.xl)
             }
 
-            if !isLoading && searchText.isEmpty {
+            if !isLoading && debouncedSearchText.isEmpty {
                 VStack(spacing: Design.Spacing.sm) {
                     Button(action: {
                         Task { await refreshRecipes() }
@@ -945,9 +945,11 @@ struct RecipesView: View {
 
     /// Search recipes in Firebase database
     private func searchFirebase() async {
+        // Capture search text at call time to avoid races
+        let query = debouncedSearchText
         // Mutex: prevent concurrent operations
-        guard !searchText.isEmpty && !isSyncing else { return }
-        print("🔍 [RecipesView] Searching Firebase for: '\(searchText)'")
+        guard !query.isEmpty && !isSyncing else { return }
+        print("🔍 [RecipesView] Searching Firebase for: '\(query)'")
         isSearchingFirebase = true
         isSyncing = true
         searchError = nil
@@ -961,7 +963,7 @@ struct RecipesView: View {
         }
 
         do {
-            let searchResults = try await firebaseService.searchRecipes(query: searchText)
+            let searchResults = try await firebaseService.searchRecipes(query: query)
             print("✅ [RecipesView] Firebase search returned \(searchResults.count) results")
 
             // Convert to local Recipe objects and save (with deduplication)
@@ -1000,28 +1002,10 @@ struct RecipesView: View {
 
     /// Initial sync if cache is empty or stale
     private func initialSyncIfNeeded() async {
-        // Check filtered recipes (the ones actually shown to user)
-        let visibleRecipes = filteredRecipes.count
-        print("📋 [RecipesView] Initial sync check: \(visibleRecipes) visible recipes, lastSync: \(String(describing: lastSyncDate))")
+        let hasFirebaseRecipes = allRecipes.contains { $0.isFromFirebase }
+        print("📋 [RecipesView] Initial sync check: hasFirebaseRecipes=\(hasFirebaseRecipes)")
 
-        // Determine if we need to sync
-        let shouldSync: Bool
-        if visibleRecipes == 0 {
-            // Always sync if no visible recipes
-            print("📋 [RecipesView] No visible recipes - will sync")
-            shouldSync = true
-        } else if let lastSync = lastSyncDate {
-            // Sync if more than 1 hour since last sync
-            let hoursSinceSync = Date().timeIntervalSince(lastSync) / 3600
-            shouldSync = hoursSinceSync > 1
-            print("📋 [RecipesView] Hours since last sync: \(hoursSinceSync) - will sync: \(shouldSync)")
-        } else {
-            // Never synced before
-            print("📋 [RecipesView] Never synced before - will sync")
-            shouldSync = true
-        }
-
-        if shouldSync {
+        if !hasFirebaseRecipes {
             await refreshRecipes()
         }
     }

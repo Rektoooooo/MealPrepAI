@@ -29,6 +29,7 @@ final class FirebaseRecipeService {
     private let defaultLimit = 50
     private let searchLimit = 50
     private let pageSize = 50
+    private let initialFetchSize = 100
 
     /// Whether Firebase is properly configured
     var isFirebaseConfigured: Bool { true }
@@ -355,12 +356,12 @@ final class FirebaseRecipeService {
         // Fetch initial page
         let snapshot = try await db.collection(recipesCollection)
             .order(by: "createdAt", descending: true)
-            .limit(to: pageSize)
+            .limit(to: initialFetchSize)
             .getDocuments()
 
         // Store last document for pagination
         lastDocument = snapshot.documents.last
-        hasMoreRecipes = snapshot.documents.count >= pageSize
+        hasMoreRecipes = snapshot.documents.count >= initialFetchSize
 
         lastFetchTime = Date()
 
