@@ -7,6 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		09014F22B75CBE8AB24819DB /* MealPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4824435B5C410A67B11FAFB /* MealPlanTests.swift */; };
+		25F54C3DA35B4A27C9724EE0 /* MealPlanDTOTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53F24B0D9B5772D7EA053E5C /* MealPlanDTOTests.swift */; };
+		4FF84FE8A8071851253C8C77 /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 581C405097944EC09634F2E5 /* NotificationManagerTests.swift */; };
+		50D0417BB5F37F247276A46B /* GroceryListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB241E199CEEAB1534FF0BE /* GroceryListTests.swift */; };
+		670A44E6A7C4BA07815D52E5 /* DayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59143BBBA5B0603E37524A6 /* DayTests.swift */; };
+		7B4E4323973F2859FA4A25DE /* MealTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4FF4251BA57BC747FC8C2DE /* MealTests.swift */; };
+		83B644CAB0520384B16DBBBD /* UserProfileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A44E6A69C8E646B0342FB /* UserProfileTests.swift */; };
+		8D614000A3E105DA58A89547 /* AppEnumsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 781944E48CC6048F10719CC8 /* AppEnumsTests.swift */; };
+		9AC248A698D3A718CED3FCB5 /* APIServiceTypesEncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559146CD8D84AF269E8122D5 /* APIServiceTypesEncodingTests.swift */; };
+		B0804F8BAAD6F9592880D4DB /* SwiftDataPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E38411B9A2ED8004402DD10 /* SwiftDataPersistenceTests.swift */; };
+		CB944308AF61045664E27CBC /* NewOnboardingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3284D3FA81638023D7A6583 /* NewOnboardingViewModelTests.swift */; };
+		CDC64EB188380CB1323742F9 /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1396409598D459EA5D1676A9 /* TestHelpers.swift */; };
+		CEBD4E2CAD8060E755416B7A /* MealPrepSetupViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20D34791B38B1D14B9DDBD7C /* MealPrepSetupViewModelTests.swift */; };
+		E0554BA7ABDBE7A288C1F4ED /* GroceryItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BFF4576A2D7A1A6E37BF78B /* GroceryItemTests.swift */; };
+		E30640DD84167FD301754692 /* APIServiceTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE474DD796CA380767ED1296 /* APIServiceTypesTests.swift */; };
+		EBFA4485A87AB7CA86BAC860 /* RecipeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E3643439EC4066354323A1E /* RecipeTests.swift */; };
 		EC0FEE592F23C61500159966 /* FirebaseAI in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE582F23C61500159966 /* FirebaseAI */; };
 		EC0FEE5B2F23C61500159966 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE5A2F23C61500159966 /* FirebaseAILogic */; };
 		EC0FEE5D2F23C61500159966 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = EC0FEE5C2F23C61500159966 /* FirebaseAnalytics */; };
@@ -37,27 +53,31 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0E3643439EC4066354323A1E /* RecipeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecipeTests.swift; path = MealPrepAITests/RecipeTests.swift; sourceTree = SOURCE_ROOT; };
+		0F7A44E6A69C8E646B0342FB /* UserProfileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UserProfileTests.swift; path = MealPrepAITests/UserProfileTests.swift; sourceTree = SOURCE_ROOT; };
+		1396409598D459EA5D1676A9 /* TestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TestHelpers.swift; path = MealPrepAITests/TestHelpers.swift; sourceTree = SOURCE_ROOT; };
+		20D34791B38B1D14B9DDBD7C /* MealPrepSetupViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MealPrepSetupViewModelTests.swift; path = MealPrepAITests/MealPrepSetupViewModelTests.swift; sourceTree = SOURCE_ROOT; };
+		3BFF4576A2D7A1A6E37BF78B /* GroceryItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GroceryItemTests.swift; path = MealPrepAITests/GroceryItemTests.swift; sourceTree = SOURCE_ROOT; };
+		53F24B0D9B5772D7EA053E5C /* MealPlanDTOTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MealPlanDTOTests.swift; path = MealPrepAITests/MealPlanDTOTests.swift; sourceTree = SOURCE_ROOT; };
+		559146CD8D84AF269E8122D5 /* APIServiceTypesEncodingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIServiceTypesEncodingTests.swift; path = MealPrepAITests/APIServiceTypesEncodingTests.swift; sourceTree = SOURCE_ROOT; };
+		581C405097944EC09634F2E5 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotificationManagerTests.swift; path = MealPrepAITests/NotificationManagerTests.swift; sourceTree = SOURCE_ROOT; };
+		781944E48CC6048F10719CC8 /* AppEnumsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppEnumsTests.swift; path = MealPrepAITests/AppEnumsTests.swift; sourceTree = SOURCE_ROOT; };
+		8BB241E199CEEAB1534FF0BE /* GroceryListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = GroceryListTests.swift; path = MealPrepAITests/GroceryListTests.swift; sourceTree = SOURCE_ROOT; };
+		9E38411B9A2ED8004402DD10 /* SwiftDataPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SwiftDataPersistenceTests.swift; path = MealPrepAITests/SwiftDataPersistenceTests.swift; sourceTree = SOURCE_ROOT; };
+		A59143BBBA5B0603E37524A6 /* DayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DayTests.swift; path = MealPrepAITests/DayTests.swift; sourceTree = SOURCE_ROOT; };
+		B3284D3FA81638023D7A6583 /* NewOnboardingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NewOnboardingViewModelTests.swift; path = MealPrepAITests/NewOnboardingViewModelTests.swift; sourceTree = SOURCE_ROOT; };
+		C4FF4251BA57BC747FC8C2DE /* MealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MealTests.swift; path = MealPrepAITests/MealTests.swift; sourceTree = SOURCE_ROOT; };
+		CE474DD796CA380767ED1296 /* APIServiceTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIServiceTypesTests.swift; path = MealPrepAITests/APIServiceTypesTests.swift; sourceTree = SOURCE_ROOT; };
+		D4824435B5C410A67B11FAFB /* MealPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MealPlanTests.swift; path = MealPrepAITests/MealPlanTests.swift; sourceTree = SOURCE_ROOT; };
 		EC90E6C12F1C34A5004BE865 /* MealPrepAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MealPrepAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC90E6CE2F1C34A7004BE865 /* MealPrepAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MealPrepAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC90E6D82F1C34A7004BE865 /* MealPrepAIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MealPrepAIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		EC90E6C32F1C34A5004BE865 /* MealPrepAI */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MealPrepAI;
-			sourceTree = "<group>";
-		};
-		EC90E6D12F1C34A7004BE865 /* MealPrepAITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MealPrepAITests;
-			sourceTree = "<group>";
-		};
-		EC90E6DB2F1C34A7004BE865 /* MealPrepAIUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = MealPrepAIUITests;
-			sourceTree = "<group>";
-		};
+		EC90E6C32F1C34A5004BE865 /* MealPrepAI */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAI; sourceTree = "<group>"; };
+		EC90E6D12F1C34A7004BE865 /* MealPrepAITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAITests; sourceTree = "<group>"; };
+		EC90E6DB2F1C34A7004BE865 /* MealPrepAIUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAIUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +122,22 @@
 				EC90E6D12F1C34A7004BE865 /* MealPrepAITests */,
 				EC90E6DB2F1C34A7004BE865 /* MealPrepAIUITests */,
 				EC90E6C22F1C34A5004BE865 /* Products */,
+				1396409598D459EA5D1676A9 /* TestHelpers.swift */,
+				0E3643439EC4066354323A1E /* RecipeTests.swift */,
+				A59143BBBA5B0603E37524A6 /* DayTests.swift */,
+				D4824435B5C410A67B11FAFB /* MealPlanTests.swift */,
+				C4FF4251BA57BC747FC8C2DE /* MealTests.swift */,
+				8BB241E199CEEAB1534FF0BE /* GroceryListTests.swift */,
+				3BFF4576A2D7A1A6E37BF78B /* GroceryItemTests.swift */,
+				0F7A44E6A69C8E646B0342FB /* UserProfileTests.swift */,
+				781944E48CC6048F10719CC8 /* AppEnumsTests.swift */,
+				53F24B0D9B5772D7EA053E5C /* MealPlanDTOTests.swift */,
+				CE474DD796CA380767ED1296 /* APIServiceTypesTests.swift */,
+				B3284D3FA81638023D7A6583 /* NewOnboardingViewModelTests.swift */,
+				20D34791B38B1D14B9DDBD7C /* MealPrepSetupViewModelTests.swift */,
+				581C405097944EC09634F2E5 /* NotificationManagerTests.swift */,
+				559146CD8D84AF269E8122D5 /* APIServiceTypesEncodingTests.swift */,
+				9E38411B9A2ED8004402DD10 /* SwiftDataPersistenceTests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -280,6 +316,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CDC64EB188380CB1323742F9 /* TestHelpers.swift in Sources */,
+				EBFA4485A87AB7CA86BAC860 /* RecipeTests.swift in Sources */,
+				670A44E6A7C4BA07815D52E5 /* DayTests.swift in Sources */,
+				09014F22B75CBE8AB24819DB /* MealPlanTests.swift in Sources */,
+				7B4E4323973F2859FA4A25DE /* MealTests.swift in Sources */,
+				50D0417BB5F37F247276A46B /* GroceryListTests.swift in Sources */,
+				E0554BA7ABDBE7A288C1F4ED /* GroceryItemTests.swift in Sources */,
+				83B644CAB0520384B16DBBBD /* UserProfileTests.swift in Sources */,
+				8D614000A3E105DA58A89547 /* AppEnumsTests.swift in Sources */,
+				25F54C3DA35B4A27C9724EE0 /* MealPlanDTOTests.swift in Sources */,
+				E30640DD84167FD301754692 /* APIServiceTypesTests.swift in Sources */,
+				CB944308AF61045664E27CBC /* NewOnboardingViewModelTests.swift in Sources */,
+				CEBD4E2CAD8060E755416B7A /* MealPrepSetupViewModelTests.swift in Sources */,
+				4FF84FE8A8071851253C8C77 /* NotificationManagerTests.swift in Sources */,
+				9AC248A698D3A718CED3FCB5 /* APIServiceTypesEncodingTests.swift in Sources */,
+				B0804F8BAAD6F9592880D4DB /* SwiftDataPersistenceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
