@@ -28,12 +28,21 @@ final class NotificationManager {
 
     init() {
         // Register defaults so bool reads return true when not yet set by @AppStorage
+        // Build default reminder times matching NotificationSettingsView defaults
+        let calendar = Calendar.current
+        let breakfastDefault = calendar.date(from: DateComponents(hour: 7, minute: 30))?.timeIntervalSinceReferenceDate ?? 0
+        let lunchDefault = calendar.date(from: DateComponents(hour: 12, minute: 0))?.timeIntervalSinceReferenceDate ?? 0
+        let dinnerDefault = calendar.date(from: DateComponents(hour: 18, minute: 30))?.timeIntervalSinceReferenceDate ?? 0
+
         let defaults: [String: Any] = [
             "mealReminders": true,
             "groceryReminders": true,
             "prepReminders": true,
             "planExpiryReminder": true,
-            "trialExpiryReminder": true
+            "trialExpiryReminder": true,
+            "breakfastReminderTime": breakfastDefault,
+            "lunchReminderTime": lunchDefault,
+            "dinnerReminderTime": dinnerDefault
         ]
         UserDefaults.standard.register(defaults: defaults)
         loadNotifications()
@@ -231,12 +240,26 @@ final class NotificationManager {
                       let recipe = meal.recipe else { continue }
 
                 // Convert stored Date (as TimeInterval) to hour/minute
-                let storedDate = Date(timeIntervalSinceReferenceDate: timeInterval)
-                let timeComponents = calendar.dateComponents([.hour, .minute], from: storedDate)
+                // Fall back to sensible defaults if the value was never configured (0.0)
+                let hour: Int
+                let minute: Int
+                if timeInterval == 0 {
+                    switch mealType {
+                    case .breakfast: hour = 7; minute = 30
+                    case .lunch:     hour = 12; minute = 0
+                    case .dinner:    hour = 18; minute = 30
+                    default:         hour = 12; minute = 0
+                    }
+                } else {
+                    let storedDate = Date(timeIntervalSinceReferenceDate: timeInterval)
+                    let timeComponents = calendar.dateComponents([.hour, .minute], from: storedDate)
+                    hour = timeComponents.hour ?? 12
+                    minute = timeComponents.minute ?? 0
+                }
 
                 var components = calendar.dateComponents([.year, .month, .day], from: day.date)
-                components.hour = timeComponents.hour
-                components.minute = timeComponents.minute
+                components.hour = hour
+                components.minute = minute
 
                 let content = UNMutableNotificationContent()
                 content.title = "\(mealType.rawValue) Time"
