@@ -236,79 +236,59 @@ struct NutritionSummaryCard: View {
     let fat: Int
     let fatTarget: Int
 
-    private var progress: Double {
-        guard target > 0 else { return 0 }
-        return min(Double(consumed) / Double(target), 1.0)
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var cardBackground: Color {
+        colorScheme == .dark ? Color(hex: "2C2C2E") : Color(hex: "1C1C1E")
     }
 
     var body: some View {
-        VStack(spacing: Design.Spacing.lg) {
-            HStack(spacing: Design.Spacing.xl) {
-                // Main calorie ring
-                VStack(spacing: Design.Spacing.sm) {
-                    ZStack {
-                        Circle()
-                            .stroke(Color.surfaceOverlay, lineWidth: 10)
-                            .frame(width: 100, height: 100)
+        HStack(spacing: Design.Spacing.md) {
+            // Calories
+            HStack(spacing: 4) {
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(hex: "FF9500"))
+                Text("\(consumed)")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                Text("/ \(target)")
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.5))
+            }
 
-                        Circle()
-                            .trim(from: 0, to: progress)
-                            .stroke(
-                                LinearGradient.brandGradient,
-                                style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                            )
-                            .frame(width: 100, height: 100)
-                            .rotationEffect(.degrees(-90))
+            Spacer()
 
-                        VStack(spacing: 2) {
-                            Text("\(consumed)")
-                                .font(.system(.title2, design: .rounded, weight: .bold))
-                            Text("/ \(target)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+            // Protein
+            HStack(spacing: 3) {
+                Circle().fill(Color(hex: "FF453A")).frame(width: 6, height: 6)
+                Text("P \(protein)g")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.7))
+            }
 
-                    Text("Calories")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            // Carbs
+            HStack(spacing: 3) {
+                Circle().fill(Color(hex: "FF9F0A")).frame(width: 6, height: 6)
+                Text("C \(carbs)g")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.7))
+            }
 
-                // Macro bars
-                VStack(spacing: Design.Spacing.md) {
-                    MacroProgressBar(
-                        label: "Protein",
-                        current: protein,
-                        target: proteinTarget,
-                        color: .proteinColor,
-                        icon: "p.circle.fill"
-                    )
-
-                    MacroProgressBar(
-                        label: "Carbs",
-                        current: carbs,
-                        target: carbsTarget,
-                        color: .carbColor,
-                        icon: "c.circle.fill"
-                    )
-
-                    MacroProgressBar(
-                        label: "Fat",
-                        current: fat,
-                        target: fatTarget,
-                        color: .fatColor,
-                        icon: "f.circle.fill"
-                    )
-                }
+            // Fat
+            HStack(spacing: 3) {
+                Circle().fill(Color(hex: "0A84FF")).frame(width: 6, height: 6)
+                Text("F \(fat)g")
+                    .font(.caption2)
+                    .foregroundStyle(Color.white.opacity(0.7))
             }
         }
-        .padding(Design.Spacing.lg)
-        .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
-        .shadow(
-            color: Design.Shadow.card.color,
-            radius: Design.Shadow.card.radius,
-            y: Design.Shadow.card.y
+        .padding(.horizontal, Design.Spacing.lg)
+        .padding(.vertical, Design.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.lg)
+                .fill(cardBackground)
+                .shadow(color: Color.black.opacity(0.15), radius: 8, y: 4)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Calories: \(consumed) of \(target). Protein: \(protein) of \(proteinTarget) grams. Carbs: \(carbs) of \(carbsTarget) grams. Fat: \(fat) of \(fatTarget) grams")

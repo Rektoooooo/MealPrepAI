@@ -49,16 +49,16 @@ struct TodayView: View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Design.Spacing.lg) {
-                    // Greeting Header
-                    GreetingHeader(
-                        userName: userProfile?.name ?? "Chef",
-                        avatarEmoji: userProfile?.avatarEmoji,
-                        profileImageData: userProfile?.profileImageData
-                    )
-                    .opacity(animateCards ? 1 : 0)
-                    .offset(y: animateCards ? 0 : 20)
-
                     if currentMealPlan == nil {
+                        // Show greeting header only when no plan
+                        GreetingHeader(
+                            userName: userProfile?.name ?? "Chef",
+                            avatarEmoji: userProfile?.avatarEmoji,
+                            profileImageData: userProfile?.profileImageData
+                        )
+                        .opacity(animateCards ? 1 : 0)
+                        .offset(y: animateCards ? 0 : 20)
+
                         // No meal plan - show generate prompt
                         emptyStateView
                             .opacity(animateCards ? 1 : 0)
@@ -69,26 +69,10 @@ struct TodayView: View {
                             .opacity(animateCards ? 1 : 0)
                             .offset(y: animateCards ? 0 : 20)
 
-                        // Date Selector
+                        // Date Selector + Nutrition
                         dateSelector
                             .opacity(animateCards ? 1 : 0)
                             .offset(y: animateCards ? 0 : 20)
-
-                        // Nutrition Progress
-                        if let day = todaysDay, let profile = userProfile {
-                            NutritionSummaryCard(
-                                consumed: day.totalCalories,
-                                target: profile.dailyCalorieTarget,
-                                protein: day.totalProtein,
-                                proteinTarget: profile.proteinGrams,
-                                carbs: day.totalCarbs,
-                                carbsTarget: profile.carbsGrams,
-                                fat: day.totalFat,
-                                fatTarget: profile.fatGrams
-                            )
-                            .opacity(animateCards ? 1 : 0)
-                            .offset(y: animateCards ? 0 : 20)
-                        }
 
                         // Today's Meals
                         mealsSection
@@ -174,52 +158,79 @@ struct TodayView: View {
     // MARK: - Progress Hero Card
     private var progressHeroCard: some View {
         HStack(spacing: Design.Spacing.md) {
-            VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
-                Text(greeting)
-                    .font(Design.Typography.title3)
-                    .foregroundStyle(.white)
+            // Avatar — same style as GreetingHeader
+            ZStack {
+                Circle()
+                    .stroke(LinearGradient.purpleButtonGradient, lineWidth: 3)
+                    .frame(width: 54, height: 54)
 
-                Text("You've eaten \(mealsEaten) of \(todaysMeals.count) meals")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.85))
+                if let imageData = userProfile?.profileImageData,
+                   let uiImage = UIImage(data: imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 46, height: 46)
+                        .clipShape(Circle())
+                } else {
+                    Circle()
+                        .fill(LinearGradient.purpleButtonGradient)
+                        .frame(width: 46, height: 46)
+
+                    if let emoji = userProfile?.avatarEmoji {
+                        Text(emoji)
+                            .font(.system(size: 24))
+                    } else {
+                        Text(String((userProfile?.name ?? "C").prefix(2)).uppercased())
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Text(userProfile?.name ?? "Chef")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.primary)
+
+                HStack(spacing: 4) {
+                    Text("\(mealsEaten) of \(todaysMeals.count) meals eaten")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    // Meal dots
+                    HStack(spacing: 4) {
+                        ForEach(todaysMeals) { meal in
+                            Circle()
+                                .fill(meal.isEaten ? mealDotColor(for: meal.mealType) : Color.clear)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(mealDotColor(for: meal.mealType), lineWidth: 1.5)
+                                )
+                                .frame(width: 8, height: 8)
+                                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: meal.isEaten)
+                        }
+                    }
+                }
             }
 
             Spacer()
-
-            // Compact Circular Progress
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.3), lineWidth: 4)
-                    .frame(width: 44, height: 44)
-
-                Circle()
-                    .trim(from: 0, to: todaysMeals.isEmpty ? 0 : CGFloat(mealsEaten) / CGFloat(todaysMeals.count))
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 44, height: 44)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: mealsEaten)
-
-                Text(todaysMeals.isEmpty ? "0%" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))%")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.white)
-            }
         }
-        .padding(.horizontal, Design.Spacing.lg)
-        .padding(.vertical, Design.Spacing.md)
-        .background(
-            RoundedRectangle(cornerRadius: Design.Radius.lg)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: "34C759"), Color(hex: "30D158")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: Color(hex: "34C759").opacity(0.4), radius: 12, y: 6)
-        )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(greeting) You've eaten \(mealsEaten) of \(todaysMeals.count) meals, \(todaysMeals.isEmpty ? "0" : "\(Int((Double(mealsEaten) / Double(todaysMeals.count)) * 100))") percent complete")
+        .accessibilityLabel("\(greeting) \(userProfile?.name ?? "Chef"). You've eaten \(mealsEaten) of \(todaysMeals.count) meals")
+    }
+
+    private func mealDotColor(for mealType: MealType) -> Color {
+        switch mealType {
+        case .breakfast: return Color(hex: "FF9500")
+        case .lunch: return Color(hex: "FFCC00")
+        case .dinner: return Color(hex: "5856D6")
+        case .snack: return Color(hex: "FF2D55")
+        }
     }
 
     private var greeting: String {
@@ -236,48 +247,96 @@ struct TodayView: View {
         todaysMeals.filter { $0.isEaten }.count
     }
 
-    // MARK: - Date Selector
+    // MARK: - Date Selector + Nutrition
     private var dateSelector: some View {
-        HStack {
-            Button(action: { moveDate(by: -1) }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "212121"))
-                    .padding(Design.Spacing.sm)
-                    .background(
-                        Circle()
-                            .fill(Color(hex: "212121").opacity(0.1))
-                    )
+        VStack(spacing: Design.Spacing.sm) {
+            // Date row
+            HStack {
+                Button(action: { moveDate(by: -1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(hex: "212121"))
+                        .padding(Design.Spacing.sm)
+                        .background(
+                            Circle()
+                                .fill(Color(hex: "212121").opacity(0.1))
+                        )
+                }
+                .accessibilityLabel("Previous day")
+
+                Spacer()
+
+                VStack(spacing: 2) {
+                    Text(selectedDate.formatted(.dateTime.weekday(.wide)))
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+
+                    Text(selectedDate.formatted(.dateTime.month(.wide).day()))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+
+                Spacer()
+
+                Button(action: { moveDate(by: 1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(hex: "212121"))
+                        .padding(Design.Spacing.sm)
+                        .background(
+                            Circle()
+                                .fill(Color(hex: "212121").opacity(0.1))
+                        )
+                }
+                .accessibilityLabel("Next day")
             }
-            .accessibilityLabel("Previous day")
 
-            Spacer()
+            // Nutrition row
+            if let day = todaysDay, let profile = userProfile {
+                Divider()
 
-            VStack(spacing: 2) {
-                Text(selectedDate.formatted(.dateTime.weekday(.wide)))
-                    .font(.headline)
-                    .foregroundStyle(Color.textPrimary)
+                HStack(spacing: Design.Spacing.md) {
+                    // Calories
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color(hex: "FF9500"))
+                        Text("\(day.totalCalories)")
+                            .font(.system(.caption, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+                        Text("/ \(profile.dailyCalorieTarget)")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundStyle(Color.textSecondary)
+                    }
 
-                Text(selectedDate.formatted(.dateTime.month(.wide).day()))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
+                    Spacer()
+
+                    HStack(spacing: 3) {
+                        Circle().fill(Color(hex: "FF453A")).frame(width: 6, height: 6)
+                        Text("P \(day.totalProtein)g")
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    HStack(spacing: 3) {
+                        Circle().fill(Color(hex: "FF9F0A")).frame(width: 6, height: 6)
+                        Text("C \(day.totalCarbs)g")
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    HStack(spacing: 3) {
+                        Circle().fill(Color(hex: "0A84FF")).frame(width: 6, height: 6)
+                        Text("F \(day.totalFat)g")
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Calories: \(day.totalCalories) of \(profile.dailyCalorieTarget). Protein: \(day.totalProtein) grams. Carbs: \(day.totalCarbs) grams. Fat: \(day.totalFat) grams")
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-
-            Spacer()
-
-            Button(action: { moveDate(by: 1) }) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "212121"))
-                    .padding(Design.Spacing.sm)
-                    .background(
-                        Circle()
-                            .fill(Color(hex: "212121").opacity(0.1))
-                    )
-            }
-            .accessibilityLabel("Next day")
         }
         .padding(.vertical, Design.Spacing.sm)
         .padding(.horizontal, Design.Spacing.md)
