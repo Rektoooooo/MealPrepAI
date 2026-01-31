@@ -163,7 +163,7 @@ The ingredient list is customized based on their dietary restrictions.
 PANTRY (always available, don't list in ingredients):
 - salt, pepper, garlic powder, Italian seasoning, soy sauce, honey
 
-LIMIT: Maximum 4-5 ingredients per recipe (excluding pantry staples)
+LIMIT: 5-8 ingredients per recipe (excluding pantry staples)
 
 ═══════════════════════════════════════════════════════════════
 VARIETY REQUIREMENTS (CRITICAL)
@@ -180,7 +180,9 @@ MEAL GUIDELINES
 CRITICAL: Follow the PER-MEAL TARGETS in the user prompt exactly!
 The targets are calculated based on the user's specific protein goal.
 
-BREAKFAST (quick, ~10 min):
+BREAKFAST (MAX 15 minutes total prep+cook — this is non-negotiable):
+- prepTimeMinutes + cookTimeMinutes MUST be ≤ 15
+- Quick recipes ONLY: scrambles, oatmeal, yogurt bowls, toast, smoothies, overnight oats
 - Use available proteins: eggs, yogurt, or protein from user's list
 - Add carbs (oats, toast) for energy
 - Hit the protein target from user prompt (varies per user)
@@ -193,15 +195,34 @@ DINNER (respect user's max cooking time):
 - Use the ASSIGNED PROTEIN from the schedule + vegetables + small carb
 
 SNACKS (no-cook, 5 min):
-- Use high-protein dairy: Greek yogurt or cottage cheese (adjust portions to hit target)
-- Add fruit for carbs and flavor
+- VARY snacks across the week — do NOT repeat the same snack concept more than twice
+- Good options: nut butter + fruit, trail mix, hummus + veggies, hard boiled eggs, protein smoothie, cottage cheese + fruit, yogurt parfait, rice cakes + toppings, edamame, dark chocolate + almonds
 - Hit the snack protein target from user prompt (varies per user!)
 - If user is dairy-free/vegan, use available protein sources
+
+═══════════════════════════════════════════════════════════════
+CARB & FAT ENFORCEMENT (CRITICAL)
+═══════════════════════════════════════════════════════════════
+
+Carbs are often too low and fat too high. To fix:
+- LUNCH: Include a proper carb source (rice, potato, quinoa, pasta, bread) — at least 40-50g carbs
+- DINNER: Include a carb side — at least 30-40g carbs
+- FAT: Don't over-oil. Use 1 tbsp oil max per recipe. Avoid adding cheese/butter unless needed.
+
+═══════════════════════════════════════════════════════════════
+SKELETON PLAN
+═══════════════════════════════════════════════════════════════
+
+If a skeleton plan is provided in the user prompt, follow it exactly:
+- Use the assigned protein, cuisine, and cooking style for each meal
+- Use ingredients from the weekly grocery list
+- The skeleton ensures variety across the week — trust it
 
 ═══════════════════════════════════════════════════════════════
 INSTRUCTION RULES (CRITICAL)
 ═══════════════════════════════════════════════════════════════
 
+- Each recipe should have 5-8 clear instruction steps
 - Each step: ONE clear action, easy to understand
 - Include quantities and times inline (e.g. "Cook 200g chicken breast 6 min per side")
 - Start each step with a direct verb: "Add", "Cook", "Mix", "Heat", "Slice", "Combine"
@@ -210,6 +231,22 @@ INSTRUCTION RULES (CRITICAL)
 - Never say "season to taste" — specify amounts (e.g. "Add 1/2 tsp salt and 1/4 tsp pepper")
 - Cover every action needed — don't skip steps or assume the user knows what to do
 - Every ingredient mentioned MUST be in the ingredients list
+
+═══════════════════════════════════════════════════════════════
+MEASUREMENT CONSISTENCY (CRITICAL)
+═══════════════════════════════════════════════════════════════
+
+The user prompt specifies METRIC or IMPERIAL. You MUST use ONLY that system:
+- METRIC: grams (g), ml, °C in ALL ingredients AND instructions. Never use oz, cups, °F.
+- IMPERIAL: oz, lb, cups, tbsp, tsp, °F in ALL ingredients AND instructions. Never use g, ml, °C.
+- This applies to EVERY ingredient quantity AND every instruction step.
+
+═══════════════════════════════════════════════════════════════
+WEEKLY EXCLUSIONS (CRITICAL)
+═══════════════════════════════════════════════════════════════
+
+The user prompt may contain temporary ingredient exclusions (e.g. "avoid seafood").
+These are STRICT — treat them like allergies for this week. Do NOT use any excluded ingredients.
 
 ═══════════════════════════════════════════════════════════════
 RESTRICTIONS
@@ -229,10 +266,26 @@ function buildIngredientList(profile: UserProfile): {
   vegetables: string[];
   fruits: string[];
   dairy: string[];
+  snackIngredients: string[];
   proteinRotation: string;
 } {
   const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
-  const dislikes = (profile.foodDislikes || []).map(d => d.toLowerCase());
+  // Expand compound dislikes into individual ingredient names
+  const dislikeExpansions: Record<string, string[]> = {
+    'seafood': ['salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'crab', 'lobster', 'clam', 'mussel', 'scallop'],
+    'fish': ['salmon', 'tuna', 'cod', 'tilapia', 'trout', 'bass', 'halibut', 'mackerel'],
+    'beans': ['black beans', 'chickpeas', 'lentils', 'kidney beans'],
+    'spicy food': ['chili', 'jalapeño', 'cayenne', 'hot sauce'],
+  };
+  const rawDislikes = (profile.foodDislikes || []).map(d => d.toLowerCase());
+  const expandedDislikes: string[] = [];
+  for (const d of rawDislikes) {
+    expandedDislikes.push(d);
+    if (dislikeExpansions[d]) {
+      expandedDislikes.push(...dislikeExpansions[d]);
+    }
+  }
+  const dislikes = expandedDislikes;
   const allergies = profile.allergies.map(a => a.toLowerCase());
 
   const isVegan = restrictions.includes('vegan');
@@ -250,30 +303,33 @@ function buildIngredientList(profile: UserProfile): {
   let proteinRotation = '';
 
   if (isVegan) {
-    proteins = filterItems(['tofu', 'tempeh', 'lentils', 'chickpeas', 'black beans', 'edamame']);
-    proteinRotation = 'tofu → tempeh → lentils → chickpeas → tofu...';
+    proteins = filterItems(['tofu', 'tempeh', 'lentils', 'chickpeas', 'black beans', 'edamame', 'seitan']);
+    proteinRotation = 'tofu → tempeh → lentils → chickpeas → black beans → edamame → tofu...';
   } else if (isVegetarian) {
-    proteins = filterItems(['eggs', 'Greek yogurt', 'cottage cheese', 'tofu', 'lentils', 'chickpeas']);
-    proteinRotation = 'eggs → tofu → lentils → chickpeas → eggs...';
+    proteins = filterItems(['eggs', 'Greek yogurt', 'cottage cheese', 'tofu', 'lentils', 'chickpeas', 'black beans']);
+    proteinRotation = 'eggs → tofu → lentils → chickpeas → black beans → eggs...';
   } else if (isPescatarian) {
-    proteins = filterItems(['salmon', 'tuna', 'shrimp', 'eggs', 'Greek yogurt', 'cottage cheese', 'tofu']);
-    proteinRotation = 'salmon → tuna → shrimp → tofu → salmon...';
+    proteins = filterItems(['salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'eggs', 'Greek yogurt', 'cottage cheese', 'tofu']);
+    proteinRotation = 'salmon → tuna → shrimp → cod → tilapia → tofu → salmon...';
   } else {
     // Standard (omnivore)
-    proteins = filterItems(['chicken breast', 'ground beef', 'salmon', 'pork chop', 'eggs', 'Greek yogurt', 'cottage cheese']);
-    proteinRotation = 'chicken → beef → salmon → pork → chicken...';
+    proteins = filterItems(['chicken breast', 'ground beef', 'salmon', 'pork chop', 'turkey breast', 'ground turkey', 'shrimp', 'cod', 'tilapia', 'steak', 'eggs', 'Greek yogurt', 'cottage cheese']);
+    proteinRotation = 'chicken → beef → salmon → turkey → shrimp → pork → cod → chicken...';
   }
 
   // Build carb list
   let carbs = isGlutenFree
-    ? filterItems(['rice', 'oats', 'potato', 'quinoa', 'sweet potato'])
-    : filterItems(['rice', 'oats', 'whole wheat bread', 'potato', 'pasta']);
+    ? filterItems(['rice', 'oats', 'potato', 'quinoa', 'sweet potato', 'couscous'])
+    : filterItems(['rice', 'oats', 'whole wheat bread', 'potato', 'pasta', 'sweet potato', 'quinoa', 'couscous', 'tortilla']);
 
   // Build vegetable list
-  const vegetables = filterItems(['broccoli', 'spinach', 'bell pepper', 'onion', 'tomato', 'carrot', 'zucchini', 'mushrooms']);
+  const vegetables = filterItems(['broccoli', 'spinach', 'bell pepper', 'onion', 'tomato', 'carrot', 'zucchini', 'mushrooms', 'asparagus', 'green beans', 'cauliflower', 'cucumber', 'corn', 'kale', 'cabbage']);
 
   // Build fruit list
-  const fruits = filterItems(['banana', 'apple', 'mixed berries']);
+  const fruits = filterItems(['banana', 'apple', 'mixed berries', 'mango', 'strawberries', 'blueberries', 'pear', 'orange']);
+
+  // Build snack ingredients list
+  const snackIngredients = filterItems(['peanut butter', 'almonds', 'walnuts', 'hummus', 'hard boiled eggs', 'rice cakes', 'dark chocolate', 'trail mix', 'edamame', 'protein smoothie']);
 
   // Build dairy list
   let dairy: string[] = [];
@@ -283,7 +339,181 @@ function buildIngredientList(profile: UserProfile): {
     dairy = filterItems(['olive oil', 'almond milk', 'coconut oil']);
   }
 
-  return { proteins, carbs, vegetables, fruits, dairy, proteinRotation };
+  return { proteins, carbs, vegetables, fruits, dairy, snackIngredients, proteinRotation };
+}
+
+// Skeleton types for 2-step generation
+interface SkeletonMealConcept {
+  concept: string;
+  protein?: string;
+  cuisine?: string;
+}
+
+interface SkeletonDay {
+  day: number;
+  breakfast: SkeletonMealConcept;
+  lunch: SkeletonMealConcept;
+  dinner: SkeletonMealConcept;
+  snack1?: SkeletonMealConcept;
+  snack2?: SkeletonMealConcept;
+}
+
+interface WeekSkeleton {
+  weeklyGroceryList: string[];
+  days: SkeletonDay[];
+}
+
+/**
+ * Build the skeleton prompt for the first-pass planning call
+ */
+function buildSkeletonPrompt(
+  profile: UserProfile,
+  duration: number,
+  weeklyPreferences?: string,
+  excludeRecipeNames?: string[]
+): string {
+  const ingredients = buildIngredientList(profile);
+  const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
+  const allergies = profile.allergies.join(', ') || 'None';
+  const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
+  const cuisines = profile.preferredCuisines.length > 0
+    ? profile.preferredCuisines.join(', ')
+    : 'Varied';
+  const dislikedCuisines = profile.dislikedCuisines?.join(', ') || 'None';
+  const excludeList = excludeRecipeNames?.length ? excludeRecipeNames.join(', ') : '';
+
+  const allProteins = ingredients.proteins.join(', ');
+  const allCarbs = ingredients.carbs.join(', ');
+  const allVegetables = ingredients.vegetables.join(', ');
+  const allFruits = ingredients.fruits.join(', ');
+  const allDairy = ingredients.dairy.join(', ');
+  const allSnackIngredients = ingredients.snackIngredients.join(', ');
+
+  const simpleModeNote = profile.simpleModeEnabled
+    ? 'SIMPLE MODE: Pick simpler meal concepts with fewer ingredients and basic cooking techniques.'
+    : '';
+
+  const skillNote = profile.cookingSkill === 'beginner'
+    ? 'BEGINNER COOK: Only pick simple concepts (scrambles, sheet pan, stir-fry, bowls, wraps).'
+    : profile.cookingSkill === 'advanced'
+    ? 'ADVANCED COOK: Feel free to include more complex techniques and cuisines.'
+    : '';
+
+  return `You are a meal prep coach planning a ${duration}-day meal plan.
+
+RESPOND ONLY WITH VALID JSON. No markdown, no explanation.
+
+USER PROFILE:
+- Calories: ${profile.dailyCalorieTarget} kcal/day
+- Protein: ${profile.proteinGrams}g, Carbs: ${profile.carbsGrams}g, Fat: ${profile.fatGrams}g
+- Restrictions: ${restrictions}
+- Allergies (NEVER include): ${allergies}
+- Food Dislikes: ${foodDislikes}
+- Preferred Cuisines: ${cuisines}
+- Avoid Cuisines: ${dislikedCuisines}
+- Cooking Skill: ${profile.cookingSkill}
+- Max Cooking Time: ${profile.maxCookingTimeMinutes} min
+- Include Snacks: ${profile.includeSnacks ? 'Yes (2 per day)' : 'No'}
+${simpleModeNote}
+${skillNote}
+
+AVAILABLE INGREDIENTS:
+- Proteins: ${allProteins}
+- Carbs: ${allCarbs}
+- Vegetables: ${allVegetables}
+- Fruits: ${allFruits}
+- Dairy/Fats: ${allDairy}
+- Snack ingredients: ${allSnackIngredients}
+
+${weeklyPreferences ? `THIS WEEK'S PREFERENCES (STRICT — treat temporary exclusions like allergies):\n${weeklyPreferences}` : ''}
+${excludeList ? `AVOID THESE RECIPES: ${excludeList}` : ''}
+
+RULES:
+1. From the available ingredients above, pick a shared grocery list of 20-25 items for the week
+2. No repeated proteins on consecutive days for lunch/dinner
+3. Each breakfast must be a different concept AND must be quick (≤15 min total)
+4. At least 5 different snack concepts across the week (NOT just yogurt/berries every day)
+5. Same protein can appear multiple times but cooked differently (grilled vs stir-fry vs baked)
+6. Rotate through the user's preferred cuisines across the week
+7. Each meal concept should be 1 short phrase (e.g. "teriyaki salmon stir-fry")
+8. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
+
+Return JSON:
+{
+  "weeklyGroceryList": ["item1", "item2", ...],
+  "days": [
+    {
+      "day": 0,
+      "breakfast": { "concept": "veggie egg scramble with toast", "cuisine": "american" },
+      "lunch": { "concept": "grilled chicken quinoa bowl", "protein": "chicken breast", "cuisine": "mediterranean" },
+      "dinner": { "concept": "teriyaki salmon stir-fry", "protein": "salmon", "cuisine": "japanese" }${profile.includeSnacks ? `,
+      "snack1": { "concept": "apple slices with peanut butter" },
+      "snack2": { "concept": "trail mix with dark chocolate" }` : ''}
+    }
+  ]
+}
+
+Generate exactly ${duration} days (day 0 to day ${duration - 1}).`;
+}
+
+/**
+ * Generate a week skeleton using a fast Haiku call
+ * Returns null on failure (triggers fallback to current approach)
+ */
+async function generateSkeleton(
+  client: Anthropic,
+  profile: UserProfile,
+  duration: number,
+  weeklyPreferences?: string,
+  excludeRecipeNames?: string[]
+): Promise<WeekSkeleton | null> {
+  try {
+    const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames);
+    const maxTokens = duration <= 7 ? 800 : 1400;
+
+    console.log('[DEBUG] Generating skeleton with Haiku...');
+    const startTime = Date.now();
+
+    const response = await client.messages.create({
+      model: 'claude-3-5-haiku-latest',
+      max_tokens: maxTokens,
+      system: 'You are a meal planning assistant. Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.',
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[DEBUG] Skeleton received in ${elapsed}ms, stop: ${response.stop_reason}`);
+
+    const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      console.warn('[DEBUG] Skeleton: No text content in response');
+      return null;
+    }
+
+    // Parse JSON
+    let cleanJSON = textContent.text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const startIdx = cleanJSON.indexOf('{');
+    const endIdx = cleanJSON.lastIndexOf('}');
+    if (startIdx === -1 || endIdx === -1) {
+      console.warn('[DEBUG] Skeleton: No JSON boundaries found');
+      return null;
+    }
+    cleanJSON = cleanJSON.substring(startIdx, endIdx + 1);
+
+    const skeleton = JSON.parse(cleanJSON) as WeekSkeleton;
+
+    // Basic validation
+    if (!skeleton.weeklyGroceryList || !skeleton.days || skeleton.days.length === 0) {
+      console.warn('[DEBUG] Skeleton: Invalid structure (missing groceryList or days)');
+      return null;
+    }
+
+    console.log(`[DEBUG] Skeleton: ${skeleton.weeklyGroceryList.length} grocery items, ${skeleton.days.length} days planned`);
+    return skeleton;
+  } catch (error) {
+    console.warn('[DEBUG] Skeleton generation failed, falling back to parallel-only:', error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 /**
@@ -296,7 +526,8 @@ function buildUserPrompt(
   startDay: number,
   endDay: number,
   weeklyPreferences?: string,
-  excludeRecipeNames?: string[]
+  excludeRecipeNames?: string[],
+  skeleton?: WeekSkeleton | null
 ): string {
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
@@ -321,6 +552,7 @@ function buildUserPrompt(
     ...ingredients.vegetables,
     ...ingredients.fruits,
     ...ingredients.dairy,
+    ...ingredients.snackIngredients,
   ].join(', ');
 
   // Build personalization notes based on user goals and barriers
@@ -387,48 +619,42 @@ function buildUserPrompt(
   const dinnerCal = Math.round(profile.dailyCalorieTarget * 0.28);
   const snackProtein = Math.round(profile.proteinGrams * 0.13); // ~27g for 209g target
 
-  // Assign specific proteins to specific days for VARIETY (critical for parallel batches)
-  // This ensures different batches don't all pick the same protein
-  const proteinSchedule: { [day: number]: { lunch: string; dinner: string } } = {};
-
-  // Filter out dairy/egg proteins to get main meal proteins (meat, fish, legumes)
-  const dairyProteins = ['eggs', 'greek yogurt', 'cottage cheese'];
-  const mainProteins = ingredients.proteins.filter(p =>
-    !dairyProteins.includes(p.toLowerCase())
-  );
-
-  // Use main proteins if available, otherwise fall back to all proteins
-  const proteinsToRotate = mainProteins.length >= 2 ? mainProteins : ingredients.proteins;
-
-  // Rotate through available proteins based on user's actual preferences
-  for (let day = startDay; day <= endDay; day++) {
-    if (proteinsToRotate.length === 0) {
-      // Edge case: no proteins available (shouldn't happen)
-      proteinSchedule[day] = { lunch: 'protein source', dinner: 'protein source' };
-    } else if (proteinsToRotate.length === 1) {
-      // Only one protein available
-      proteinSchedule[day] = { lunch: proteinsToRotate[0], dinner: proteinsToRotate[0] };
-    } else {
-      // Multiple proteins - rotate them
-      const lunchProteinIdx = day % proteinsToRotate.length;
-      const dinnerProteinIdx = (day + 1) % proteinsToRotate.length;
-      proteinSchedule[day] = {
-        lunch: proteinsToRotate[lunchProteinIdx],
-        dinner: proteinsToRotate[dinnerProteinIdx],
-      };
-    }
-  }
-
-  // Build variety schedule string
-  const varietySchedule = Object.entries(proteinSchedule)
-    .map(([day, proteins]) => `Day ${day}: Lunch=${proteins.lunch}, Dinner=${proteins.dinner}`)
-    .join('\n');
   const dinnerProtein = Math.round(profile.proteinGrams * 0.26);
   const snackCal = Math.round(profile.dailyCalorieTarget * 0.09);
 
-  // Calculate carbs and fat for breakfast (22% of daily)
+  // Calculate carbs and fat per meal
   const breakfastCarbs = Math.round(profile.carbsGrams * 0.22);
   const breakfastFat = Math.round(profile.fatGrams * 0.22);
+  const lunchCarbs = Math.round(profile.carbsGrams * 0.32);
+  const lunchFat = Math.round(profile.fatGrams * 0.32);
+  const dinnerCarbs = Math.round(profile.carbsGrams * 0.28);
+  const dinnerFat = Math.round(profile.fatGrams * 0.28);
+  const snackCarbs = Math.round(profile.carbsGrams * 0.09);
+  const snackFat = Math.round(profile.fatGrams * 0.09);
+
+  // Build skeleton section if available
+  let skeletonSection = '';
+  if (skeleton) {
+    const relevantDays = skeleton.days.filter(d => d.day >= startDay && d.day <= endDay);
+    if (relevantDays.length > 0) {
+      const skeletonLines = relevantDays.map(d => {
+        let line = `Day ${d.day}: Breakfast="${d.breakfast.concept}"`;
+        line += `, Lunch="${d.lunch.concept}" (${d.lunch.protein || ''}, ${d.lunch.cuisine || ''})`;
+        line += `, Dinner="${d.dinner.concept}" (${d.dinner.protein || ''}, ${d.dinner.cuisine || ''})`;
+        if (d.snack1) line += `, Snack1="${d.snack1.concept}"`;
+        if (d.snack2) line += `, Snack2="${d.snack2.concept}"`;
+        return line;
+      }).join('\n');
+
+      skeletonSection = `═══ SKELETON PLAN (FOLLOW THIS EXACTLY!) ═══
+Weekly grocery list: ${skeleton.weeklyGroceryList.join(', ')}
+
+${skeletonLines}
+
+Use the assigned proteins, cuisines, and cooking styles above. Use ingredients from the weekly grocery list.
+`;
+    }
+  }
 
   return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}).
 
@@ -439,11 +665,11 @@ function buildUserPrompt(
 - IMPORTANT: Create natural variation each day - don't hit exact same numbers daily!
 
 ═══ PER-MEAL GUIDELINES (approximate, vary naturally) ═══
-- Breakfast: ${breakfastCal - 50}-${breakfastCal + 50} cal, ${breakfastProtein - 5}-${breakfastProtein + 5}g protein
-- Morning Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein
-- Lunch: ${lunchCal - 75}-${lunchCal + 75} cal, ${lunchProtein - 8}-${lunchProtein + 8}g protein
-- Afternoon Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein
-- Dinner: ${dinnerCal - 75}-${dinnerCal + 75} cal, ${dinnerProtein - 8}-${dinnerProtein + 8}g protein
+- Breakfast: ${breakfastCal - 50}-${breakfastCal + 50} cal, ${breakfastProtein - 5}-${breakfastProtein + 5}g protein, ~${breakfastCarbs}g carbs, ~${breakfastFat}g fat
+- Morning Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
+- Lunch: ${lunchCal - 75}-${lunchCal + 75} cal, ${lunchProtein - 8}-${lunchProtein + 8}g protein, ~${lunchCarbs}g carbs, ~${lunchFat}g fat
+- Afternoon Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
+- Dinner: ${dinnerCal - 75}-${dinnerCal + 75} cal, ${dinnerProtein - 8}-${dinnerProtein + 8}g protein, ~${dinnerCarbs}g carbs, ~${dinnerFat}g fat
 
 ${personalizationSection}
 ═══ RESTRICTIONS ═══
@@ -456,30 +682,39 @@ ${personalizationSection}
 - Skill: ${profile.cookingSkill}
 ${pantryNote}
 
-${weeklyPreferences ? `═══ THIS WEEK ═══\n${weeklyPreferences}` : ''}
+${weeklyPreferences ? `═══ THIS WEEK (STRICT — temporary exclusions are like allergies!) ═══\n${weeklyPreferences}` : ''}
 ${excludeList ? `═══ AVOID THESE RECIPES ═══\n${excludeList}` : ''}
 
 Each day: ${mealTypes}
 
-═══ MEASUREMENT SYSTEM ═══
+═══ MEASUREMENT SYSTEM (STRICT — use ONLY this system everywhere) ═══
 ${isMetric
-  ? '- Use METRIC units: grams (g), kilograms (kg), milliliters (ml), liters (L), Celsius (°C)'
-  : '- Use IMPERIAL units: ounces (oz), pounds (lb), cups, tablespoons, teaspoons, Fahrenheit (°F)'}
-- Temperatures: ${isMetric ? '°C (e.g. 180°C, 200°C)' : '°F (e.g. 350°F, 400°F)'}
-- Weights: ${isMetric ? 'grams for ingredients (e.g. 200g chicken)' : 'ounces/pounds for ingredients (e.g. 6oz chicken)'}
+  ? `- METRIC ONLY: grams (g), kilograms (kg), milliliters (ml), liters (L), Celsius (°C)
+- Ingredient quantities: ALWAYS use grams (e.g. "200 g chicken breast", "50 g oats", "100 ml milk")
+- Temperatures: ALWAYS °C (e.g. "Bake at 200°C", "Preheat to 180°C")
+- NEVER use oz, cups, tablespoons, °F — the user uses metric`
+  : `- IMPERIAL ONLY: ounces (oz), pounds (lb), cups, tablespoons (tbsp), teaspoons (tsp), Fahrenheit (°F)
+- Ingredient quantities: ALWAYS use oz/lb/cups (e.g. "6 oz chicken breast", "1/2 cup oats", "1 cup milk")
+- Temperatures: ALWAYS °F (e.g. "Bake at 400°F", "Preheat to 350°F")
+- NEVER use grams, ml, °C — the user uses imperial`}
+
+═══ TIME CONSTRAINTS ═══
+- Breakfast: MAX 15 minutes total (prepTimeMinutes + cookTimeMinutes ≤ 15)
+- Lunch: Up to ${profile.maxCookingTimeMinutes} minutes
+- Dinner: Up to ${profile.maxCookingTimeMinutes} minutes
+- Snacks: MAX 5 minutes (no-cook or minimal prep)
 
 ═══ INGREDIENT RULES ═══
-- MAX 4-5 ingredients per recipe
+- 5-8 ingredients per recipe (excluding pantry staples)
 - Use ONLY: ${allIngredients}
 - Pantry staples (don't list): salt, pepper, garlic powder, spices, honey
 
-═══ MANDATORY PROTEIN SCHEDULE (MUST FOLLOW!) ═══
-${varietySchedule}
-
+${skeletonSection}
 ═══ VARIETY RULES ═══
-- USE THE PROTEIN SCHEDULE ABOVE - this is mandatory!
-- Each breakfast should be different (rotate eggs, oatmeal+yogurt, etc.)
-- Snacks: target ~${snackProtein}g protein each (Greek yogurt or cottage cheese work well)
+- Each breakfast should be different (rotate eggs, oatmeal+yogurt, smoothie, toast, etc.)
+- Snacks: target ~${snackProtein}g protein each — VARY across days (not all yogurt+berries!)
+- No repeated protein for lunch/dinner on consecutive days
+- CARBS: Include a proper carb source in lunch and dinner (rice, potato, quinoa, pasta, bread)
 
 Respond with JSON:
 {
@@ -649,10 +884,18 @@ export async function handleGeneratePlan(
     console.log('[DEBUG]   Dairy/Fats:', ingredientList.dairy.join(', '));
     console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
 
+    // Step 1: Generate skeleton for the week
+    const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames);
+    if (skeleton) {
+      console.log(`[DEBUG] Skeleton: ${JSON.stringify(skeleton)}`);
+    } else {
+      console.log('[DEBUG] Skeleton generation failed or skipped, proceeding without skeleton');
+    }
+
     const systemPrompt = buildSystemPrompt();
     const allDays: DayDTO[] = [];
 
-    // Using Claude Haiku for cost efficiency (~12x cheaper than Sonnet)
+    // Step 2: Using Claude Haiku for cost efficiency (~12x cheaper than Sonnet)
     // Split into batches of 2 days each to fit within Haiku's 4096 token output limit
     const MODEL = 'claude-3-5-haiku-latest';
     const MAX_TOKENS = 4000;
@@ -672,7 +915,7 @@ export async function handleGeneratePlan(
       const batchNum = i + 1;
       console.log(`[DEBUG] Batch ${batchNum}: Days ${startDay}-${endDay} - STARTING`);
 
-      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames);
+      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames, skeleton);
       const startTime = Date.now();
 
       const response = await client.messages.create({

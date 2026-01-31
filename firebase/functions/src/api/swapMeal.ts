@@ -24,7 +24,9 @@ interface UserProfile {
   fatGrams: number;
   dietaryRestrictions: string[];
   allergies: string[];
+  foodDislikes?: string[];
   preferredCuisines: string[];
+  dislikedCuisines?: string[];
   cookingSkill: string;
   maxCookingTimeMinutes: number;
   simpleModeEnabled: boolean;
@@ -94,28 +96,44 @@ function getAnthropicClient(): Anthropic {
  * Build the system prompt for Claude
  */
 function buildSystemPrompt(): string {
-  return `You are a professional nutritionist and chef creating personalized meals.
+  return `You are a professional meal prep coach creating personalized meals.
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.
 
 Guidelines:
-- Create a balanced, nutritious meal that fits the user's targets
+- Create a balanced, nutritious meal that hits the user's calorie, protein, carb, AND fat targets
 - Respect all dietary restrictions strictly
 - NEVER include any ingredients the user is allergic to - this is critical for health
+- NEVER use foods the user dislikes
 - Consider cooking skill level when selecting recipe complexity
-- Include practical, easy-to-find ingredients
+- Use 5-8 practical, easy-to-find ingredients (excluding pantry staples)
 - Provide accurate nutritional information
 - Keep prep and cook times realistic
-- CRITICAL: Every ingredient mentioned in instructions MUST be in the ingredients list (including oil, sauces, seasonings, cornstarch, etc.)
+- CRITICAL: Every ingredient mentioned in instructions MUST be in the ingredients list
 
-INSTRUCTION RULES:
+MACRO ENFORCEMENT:
+- Carbs: Include a proper carb source (rice, potato, quinoa, pasta, bread) for lunch/dinner
+- Fat: Don't over-oil. Use 1 tbsp oil max per recipe unless needed.
+- Hit ALL macro targets, not just protein
+
+INSTRUCTION RULES (5-8 steps per recipe):
 - Each step: ONE clear action, easy to understand
 - Include quantities and times inline (e.g. "Cook 200g chicken breast 6 min per side")
 - Start each step with a direct verb: "Add", "Cook", "Mix", "Heat", "Slice", "Combine"
 - NO filler words like "Now", "Then", "Next", "After that"
 - Include temperature and cook time where relevant
-- Never say "season to taste" — specify amounts
-- Cover every action needed — don't skip steps or assume the user knows what to do`;
+- Never say "season to taste" — specify amounts (e.g. "Add 1/2 tsp salt and 1/4 tsp pepper")
+- Cover every action needed — don't skip steps or assume the user knows what to do
+
+MEASUREMENT CONSISTENCY (CRITICAL):
+- The user prompt specifies METRIC or IMPERIAL. Use ONLY that system.
+- METRIC: grams, ml, °C everywhere. NEVER use oz, cups, °F.
+- IMPERIAL: oz, lb, cups, tbsp, tsp, °F everywhere. NEVER use grams, ml, °C.
+- This applies to EVERY ingredient quantity AND every instruction step.
+
+TIME CONSTRAINTS:
+- Breakfast: MAX 15 minutes total (prepTimeMinutes + cookTimeMinutes ≤ 15)
+- Snacks: MAX 5 minutes total`;
 }
 
 /**
@@ -129,19 +147,23 @@ function buildUserPrompt(
 ): string {
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
+  const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
   const cuisines = profile.preferredCuisines.join(', ') || 'Varied';
+  const dislikedCuisines = profile.dislikedCuisines?.join(', ') || 'None';
   const excludeList = excludeRecipeNames?.join(', ') || '';
 
   // Calculate approximate meal targets based on meal type
-  const mealConfig: Record<string, { caloriePercent: number; maxTime: number }> = {
-    breakfast: { caloriePercent: 0.25, maxTime: 10 },
-    snack: { caloriePercent: 0.05, maxTime: 5 },
-    lunch: { caloriePercent: 0.30, maxTime: 30 },
-    dinner: { caloriePercent: 0.35, maxTime: profile.maxCookingTimeMinutes },
+  const mealConfig: Record<string, { caloriePercent: number; proteinPercent: number; carbPercent: number; fatPercent: number; maxTime: number }> = {
+    breakfast: { caloriePercent: 0.22, proteinPercent: 0.20, carbPercent: 0.22, fatPercent: 0.22, maxTime: 10 },
+    snack: { caloriePercent: 0.09, proteinPercent: 0.13, carbPercent: 0.09, fatPercent: 0.09, maxTime: 5 },
+    lunch: { caloriePercent: 0.32, proteinPercent: 0.28, carbPercent: 0.32, fatPercent: 0.32, maxTime: 30 },
+    dinner: { caloriePercent: 0.28, proteinPercent: 0.26, carbPercent: 0.28, fatPercent: 0.28, maxTime: profile.maxCookingTimeMinutes },
   };
-  const config = mealConfig[mealType] || { caloriePercent: 0.25, maxTime: 30 };
+  const config = mealConfig[mealType] || { caloriePercent: 0.25, proteinPercent: 0.25, carbPercent: 0.25, fatPercent: 0.25, maxTime: 30 };
   const mealCalories = Math.round(profile.dailyCalorieTarget * config.caloriePercent);
-  const mealProtein = Math.round(profile.proteinGrams * config.caloriePercent);
+  const mealProtein = Math.round(profile.proteinGrams * config.proteinPercent);
+  const mealCarbs = Math.round(profile.carbsGrams * config.carbPercent);
+  const mealFat = Math.round(profile.fatGrams * config.fatPercent);
 
   // Time constraint message based on meal type
   const timeConstraint = mealType === 'breakfast'
@@ -157,6 +179,8 @@ function buildUserPrompt(
 MEAL TARGETS (approximately):
 - Calories: ~${mealCalories} kcal
 - Protein: ~${mealProtein}g
+- Carbs: ~${mealCarbs}g
+- Fat: ~${mealFat}g
 
 TIME CONSTRAINT: ${timeConstraint}
 
@@ -164,7 +188,9 @@ MEASUREMENT SYSTEM: ${isMetric ? 'METRIC — use grams, kg, ml, L, °C' : 'IMPER
 
 DIETARY RESTRICTIONS: ${restrictions}
 ALLERGIES (STRICT - NEVER include): ${allergies}
+FOOD DISLIKES (avoid): ${foodDislikes}
 PREFERRED CUISINES: ${cuisines}
+AVOID CUISINES: ${dislikedCuisines}
 COOKING SKILL: ${profile.cookingSkill}
 SIMPLE MODE: ${profile.simpleModeEnabled ? 'Yes - prefer fewer ingredients' : 'No'}
 

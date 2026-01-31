@@ -684,7 +684,9 @@ struct SwapMealUserProfile: Codable, Sendable {
     let fatGrams: Int
     let dietaryRestrictions: [String]
     let allergies: [String]
+    let foodDislikes: [String]?
     let preferredCuisines: [String]
+    let dislikedCuisines: [String]?
     let cookingSkill: String
     let maxCookingTimeMinutes: Int
     let simpleModeEnabled: Bool

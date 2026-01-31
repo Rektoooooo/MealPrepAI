@@ -61,11 +61,33 @@ class MealPlanGenerator {
             progress = "Generating recipes with AI..."
             print("[DEBUG:Generator] Calling generateMealPlan API...")
 
+            // Gather recipe names from recent meal plans to avoid stale repeats
+            let recentRecipeNames: [String] = {
+                let planFetch = FetchDescriptor<MealPlan>(
+                    sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+                )
+                guard let recentPlans = try? modelContext.fetch(planFetch) else { return [] }
+                var names: [String] = []
+                for plan in recentPlans.prefix(2) {
+                    for day in plan.sortedDays {
+                        for meal in day.sortedMeals {
+                            if let recipeName = meal.recipe?.name {
+                                names.append(recipeName)
+                            }
+                        }
+                    }
+                }
+                return Array(Set(names)) // deduplicate
+            }()
+            if !recentRecipeNames.isEmpty {
+                print("[DEBUG:Generator] Excluding \(recentRecipeNames.count) recent recipe names")
+            }
+
             // Call the new API endpoint
             let apiResponse = try await apiService.generateMealPlan(
                 userProfile: apiProfile,
                 weeklyPreferences: weeklyPreferences,
-                excludeRecipeNames: [],
+                excludeRecipeNames: recentRecipeNames,
                 duration: duration
             )
 
@@ -285,6 +307,11 @@ class MealPlanGenerator {
         do {
             // Build API user profile for swap
             print("[DEBUG:Generator] Building swap API profile...")
+            // Extract disliked cuisines from cuisinePreferencesMap
+            let swapDislikedCuisines = profile.cuisinePreferencesMap
+                .filter { $0.value == .dislike }
+                .map { $0.key }
+
             let swapProfile = SwapMealUserProfile(
                 dailyCalorieTarget: profile.dailyCalorieTarget,
                 proteinGrams: profile.proteinGrams,
@@ -292,7 +319,9 @@ class MealPlanGenerator {
                 fatGrams: profile.fatGrams,
                 dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
                 allergies: profile.allergies.map { $0.rawValue },
+                foodDislikes: profile.foodDislikes.map { $0.rawValue },
                 preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
+                dislikedCuisines: swapDislikedCuisines,
                 cookingSkill: profile.cookingSkill.rawValue,
                 maxCookingTimeMinutes: profile.maxCookingTime.maxMinutes,
                 simpleModeEnabled: profile.simpleModeEnabled,
@@ -424,6 +453,24 @@ class MealPlanGenerator {
 
                 print("│ \(mealType) │ \(recipeName) │ \(String(cal).padding(toLength: 4, withPad: " ", startingAt: 0)) cal │ P:\(String(protein).padding(toLength: 3, withPad: " ", startingAt: 0))g C:\(String(carbs).padding(toLength: 3, withPad: " ", startingAt: 0))g F:\(String(fat).padding(toLength: 3, withPad: " ", startingAt: 0))g │")
 
+                // Print ingredients
+                if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                    print("│   Ingredients:")
+                    for ri in ingredients {
+                        let name = ri.ingredient?.name ?? "Unknown"
+                        print("│     - \(ri.displayWithGrams) \(name)\(ri.notes.map { " (\($0))" } ?? "")")
+                    }
+                }
+
+                // Print instructions
+                if !recipe.instructions.isEmpty {
+                    print("│   Instructions:")
+                    for (i, step) in recipe.instructions.enumerated() {
+                        print("│     \(i + 1). \(step)")
+                    }
+                }
+                print("│")
+
                 dayCal += cal
                 dayProtein += protein
                 dayCarbs += carbs
@@ -459,176 +506,4 @@ class MealPlanGenerator {
         print("\n")
     }
 
-    // MARK: - Build System Prompt
-    private func buildSystemPrompt() -> String {
-        return """
-        You are a professional nutritionist and chef creating personalized meal plans.
-
-        IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.
-
-        Guidelines:
-        - Create balanced, nutritious meals that meet the user's calorie and macro targets
-        - Respect all dietary restrictions and allergies strictly
-        - Vary cuisines and ingredients throughout the week for diversity
-        - Consider cooking skill level when selecting recipe complexity
-        - Include practical, easy-to-find ingredients
-        - Provide accurate nutritional information
-        - Keep prep and cook times realistic
-        """
-    }
-
-    // MARK: - Build Full Week Prompt
-    private func buildPrompt(for profile: UserProfile, weeklyPreferences: String? = nil) -> String {
-        let restrictions = profile.dietaryRestrictions.map { $0.rawValue }.joined(separator: ", ")
-        let allergies = profile.allergies.map { $0.rawValue }.joined(separator: ", ")
-        let cuisines = profile.preferredCuisines.map { $0.rawValue }.joined(separator: ", ")
-
-        let mealTypes: String
-        if profile.includeSnacks {
-            mealTypes = "breakfast, lunch, dinner, and one snack"
-        } else {
-            mealTypes = "breakfast, lunch, and dinner"
-        }
-
-        let maxTime = profile.maxCookingTime.maxMinutes
-
-        let weeklyPreferencesSection: String
-        if let prefs = weeklyPreferences, !prefs.isEmpty {
-            weeklyPreferencesSection = """
-
-            THIS WEEK'S SPECIAL REQUESTS:
-            \(prefs)
-            """
-        } else {
-            weeklyPreferencesSection = ""
-        }
-
-        return """
-        Create a meal plan for a person with the following profile:
-
-        DAILY TARGETS:
-        - Calories: \(profile.dailyCalorieTarget) kcal
-        - Protein: \(profile.proteinGrams)g
-        - Carbs: \(profile.carbsGrams)g
-        - Fat: \(profile.fatGrams)g
-
-        DIETARY RESTRICTIONS: \(restrictions.isEmpty ? "None" : restrictions)
-        ALLERGIES (STRICT - never include): \(allergies.isEmpty ? "None" : allergies)
-        PREFERRED CUISINES: \(cuisines.isEmpty ? "Varied" : cuisines)
-        COOKING SKILL: \(profile.cookingSkill.rawValue)
-        MAX COOKING TIME PER MEAL: \(maxTime) minutes
-        SIMPLE MODE: \(profile.simpleModeEnabled ? "Yes - prefer recipes with fewer ingredients" : "No")\(weeklyPreferencesSection)
-
-        Each day must include: \(mealTypes)
-
-        Respond with JSON in this exact format:
-        {
-          "days": [
-            {
-              "dayOfWeek": 0,
-              "meals": [
-                {
-                  "mealType": "breakfast",
-                  "recipe": {
-                    "name": "Recipe Name",
-                    "description": "Brief description",
-                    "instructions": ["Step 1", "Step 2"],
-                    "prepTimeMinutes": 10,
-                    "cookTimeMinutes": 15,
-                    "servings": 2,
-                    "complexity": "easy",
-                    "cuisineType": "american",
-                    "calories": 400,
-                    "proteinGrams": 20,
-                    "carbsGrams": 40,
-                    "fatGrams": 15,
-                    "fiberGrams": 5,
-                    "ingredients": [
-                      {"name": "Ingredient", "quantity": 1, "unit": "cup", "category": "produce"}
-                    ]
-                  }
-                }
-              ]
-            }
-          ]
-        }
-
-        Valid mealTypes: breakfast, lunch, dinner, snack
-        Valid complexity: easy, medium, hard
-        Valid cuisineTypes: american, italian, mexican, asian, mediterranean, indian, japanese, thai, french, greek, korean, vietnamese, middleEastern, african, caribbean
-        Valid categories: produce, meat, dairy, pantry, frozen, bakery, beverages, other
-        Valid units: gram, kilogram, milliliter, liter, cup, tablespoon, teaspoon, piece, slice, bunch, can, package, pound, ounce
-
-        dayOfWeek should be 0-6 (0 = first day of the plan)
-        """
-    }
-
-    // MARK: - Build Single Meal Prompt
-    private func buildSingleMealPrompt(for mealType: MealType, profile: UserProfile, excludeRecipes: [String]) -> String {
-        let restrictions = profile.dietaryRestrictions.map { $0.rawValue }.joined(separator: ", ")
-        let allergies = profile.allergies.map { $0.rawValue }.joined(separator: ", ")
-        let excludeList = excludeRecipes.joined(separator: ", ")
-
-        return """
-        Create a single \(mealType.rawValue.lowercased()) recipe for a person with:
-
-        DAILY TARGETS (this meal should be approximately 1/\(mealType == .snack ? "6" : "3") of daily):
-        - Total Daily Calories: \(profile.dailyCalorieTarget) kcal
-        - Total Daily Protein: \(profile.proteinGrams)g
-
-        DIETARY RESTRICTIONS: \(restrictions.isEmpty ? "None" : restrictions)
-        ALLERGIES (STRICT): \(allergies.isEmpty ? "None" : allergies)
-        COOKING SKILL: \(profile.cookingSkill.rawValue)
-        MAX COOKING TIME: \(profile.maxCookingTime.maxMinutes) minutes
-
-        \(excludeList.isEmpty ? "" : "DO NOT suggest these recipes (user wants variety): \(excludeList)")
-
-        Respond with a single recipe JSON (no array, no "days" wrapper):
-        {
-          "name": "Recipe Name",
-          "description": "Brief description",
-          "instructions": ["Step 1", "Step 2"],
-          "prepTimeMinutes": 10,
-          "cookTimeMinutes": 15,
-          "servings": 2,
-          "complexity": "easy",
-          "cuisineType": "american",
-          "calories": 400,
-          "proteinGrams": 20,
-          "carbsGrams": 40,
-          "fatGrams": 15,
-          "fiberGrams": 5,
-          "ingredients": [
-            {"name": "Ingredient", "quantity": 1, "unit": "cup", "category": "produce"}
-          ]
-        }
-        """
-    }
-
-    // MARK: - Parse Response
-    private func parseResponse(_ jsonString: String) throws -> MealPlanResponse {
-        // Clean up the response - remove any markdown code blocks if present
-        var cleanJSON = jsonString
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Find the JSON object boundaries
-        guard let startIndex = cleanJSON.firstIndex(of: "{"),
-              let endIndex = cleanJSON.lastIndex(of: "}") else {
-            throw APIError.invalidResponse
-        }
-
-        cleanJSON = String(cleanJSON[startIndex...endIndex])
-
-        guard let data = cleanJSON.data(using: .utf8) else {
-            throw APIError.invalidResponse
-        }
-
-        do {
-            return try JSONDecoder().decode(MealPlanResponse.self, from: data)
-        } catch {
-            throw APIError.decodingError(error)
-        }
-    }
 }
