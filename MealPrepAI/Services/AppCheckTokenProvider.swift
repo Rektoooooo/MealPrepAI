@@ -1,0 +1,29 @@
+//
+//  AppCheckTokenProvider.swift
+//  MealPrepAI
+//
+//  Provides Firebase App Check tokens for API authentication
+//
+
+import Foundation
+import FirebaseAppCheck
+
+/// Provides App Check tokens to verify requests come from the real app
+actor AppCheckTokenProvider {
+    static let shared = AppCheckTokenProvider()
+
+    private init() {}
+
+    /// Get a fresh App Check token for API requests
+    /// Returns nil if App Check is not available (shouldn't happen in production)
+    func getToken() async -> String? {
+        do {
+            let tokenResult = try await AppCheck.appCheck().token(forcingRefresh: false)
+            print("🔒 [AppCheck] Token obtained, expires: \(tokenResult.expirationDate)")
+            return tokenResult.token
+        } catch {
+            print("🔒 [AppCheck] ERROR getting token: \(error.localizedDescription)")
+            return nil
+        }
+    }
+}

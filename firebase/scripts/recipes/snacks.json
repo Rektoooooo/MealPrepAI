@@ -1,0 +1,40 @@
+[
+  {
+    "externalId": 10012,
+    "title": "Vegan Peanut Butter Chocolate Protein Bars",
+    "imageUrl": "https://minimalistbaker.com/wp-content/uploads/2019/08/PERFECT-5-Ingredient-Protein-Bars-Grain-free-low-sugar-date-sweetened-protein-PACKED-glutenfree-plantbased-proteinbar-minimalistbaker-9.jpg",
+    "readyInMinutes": 20,
+    "servings": 12,
+    "calories": 276,
+    "proteinGrams": 14.1,
+    "carbsGrams": 16.7,
+    "fatGrams": 19.4,
+    "instructions": [
+      "Process peanut butter and dates together, then add hemp seeds, chia seeds, and protein powder until a cookie dough texture forms.",
+      "Adjust consistency as needed with additional dry ingredients or nut butter.",
+      "Taste and adjust sweetness with more dates or flavor with protein powder.",
+      "Line a loaf pan with parchment; transfer mixture and flatten using a glass.",
+      "Freeze 10–15 minutes until firm.",
+      "Optional: Melt dark chocolate with coconut oil; drizzle over bars and top with cacao nibs.",
+      "Cut into 12 bars; store refrigerated up to 2 weeks or frozen up to 1 month."
+    ],
+    "cuisineType": "american",
+    "mealType": "snack",
+    "diets": ["vegan", "high-protein", "gluten-free"],
+    "dishTypes": ["snack"],
+    "healthScore": 85,
+    "sourceUrl": "https://minimalistbaker.com/easy-5-ingredient-protein-bars-peanut-butter-chocolate/",
+    "creditsText": "Recipe from Minimalist Baker",
+    "ingredients": [
+      {"name": "Creamy Salted Peanut Butter", "amount": 1.25, "unit": "cups", "aisle": "Pantry"},
+      {"name": "Medjool Dates", "amount": 5, "unit": "whole", "aisle": "Produce"},
+      {"name": "Hemp Seeds", "amount": 0.67, "unit": "cup", "aisle": "Pantry"},
+      {"name": "Chia Seeds", "amount": 0.33, "unit": "cup", "aisle": "Pantry"},
+      {"name": "Protein Powder", "amount": 0.5, "unit": "cup", "aisle": "Pantry"},
+      {"name": "Dairy-Free Dark Chocolate", "amount": 0.25, "unit": "cup", "aisle": "Pantry"},
+      {"name": "Coconut Oil", "amount": 0.5, "unit": "tbsp", "aisle": "Pantry"},
+      {"name": "Cacao Nibs", "amount": 1, "unit": "tbsp", "aisle": "Pantry"}
+    ],
+    "createdAt": "2026-01-26T00:00:00Z"
+  }
+]

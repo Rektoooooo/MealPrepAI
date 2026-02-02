@@ -25,6 +25,8 @@ final class SubscriptionManager {
 
     // MARK: - Private
     private var updateListenerTask: Task<Void, Never>?
+    private var backendSyncFailCount = 0
+    private static let maxSyncRetries = 3
 
     // MARK: - Init
     init() {
@@ -141,18 +143,25 @@ final class SubscriptionManager {
     }
 
     // MARK: - Backend Sync
-    /// Fire-and-forget sync of a verified transaction JWS to the backend.
+    /// Sync a verified transaction JWS to the backend with retry.
     /// Non-fatal on failure — local StoreKit remains the primary source of truth.
     private func syncJWSToBackend(_ jws: String) async {
+        guard backendSyncFailCount < Self.maxSyncRetries else {
+            print("[SubscriptionManager] Skipping backend sync — reached \(Self.maxSyncRetries) failures this session")
+            return
+        }
+
         do {
-            let deviceId = DeviceIdentifier.shared.deviceId
+            let deviceId = await DeviceIdentifier.shared.deviceId
             _ = try await APIService.shared.verifySubscription(
                 deviceId: deviceId,
                 signedTransactionJWS: jws
             )
+            backendSyncFailCount = 0
             print("[SubscriptionManager] Backend sync succeeded")
         } catch {
-            print("[SubscriptionManager] Backend sync failed (non-fatal): \(error)")
+            backendSyncFailCount += 1
+            print("[SubscriptionManager] Backend sync failed (\(backendSyncFailCount)/\(Self.maxSyncRetries)): \(error)")
         }
     }
 
