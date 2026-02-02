@@ -431,6 +431,49 @@ extension View {
         self.modifier(ShimmerModifier())
     }
 
+    // Premium glass card with subtle color tint for Insights
+    func insightsGlassCard(tint: Color = .clear) -> some View {
+        self
+            .padding(Design.Spacing.md)
+            .background(
+                ZStack {
+                    // Glass material base
+                    RoundedRectangle(cornerRadius: Design.Radius.card)
+                        .fill(.ultraThinMaterial)
+
+                    // Subtle color tint overlay
+                    RoundedRectangle(cornerRadius: Design.Radius.card)
+                        .fill(tint.opacity(0.05))
+
+                    // Top-left highlight for glass depth
+                    RoundedRectangle(cornerRadius: Design.Radius.card)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.12), .clear, .clear],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    // Inner border for glass edge
+                    RoundedRectangle(cornerRadius: Design.Radius.card)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.25), tint.opacity(0.1), Color.white.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
+                }
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
+            )
+    }
+
     // Convenience for mint background
     func mintBackground() -> some View {
         self.background(

@@ -181,11 +181,33 @@ struct WeeklyPlanView: View {
                         mealsByTypeSection(for: day)
                             .opacity(animateContent ? 1 : 0)
                             .offset(y: animateContent ? 0 : 20)
+
                     } else {
                         // Meal plan exists but selected day has no meals
                         noMealsForDayView
                             .opacity(animateContent ? 1 : 0)
                             .offset(y: animateContent ? 0 : 20)
+                    }
+
+                    // Insights preview cards — shown whenever a meal plan exists
+                    if let plan = currentMealPlan {
+                        NavigationLink {
+                            InsightsView(
+                                mealPlan: plan,
+                                calorieTarget: userProfile?.dailyCalorieTarget ?? 2000,
+                                proteinTarget: userProfile?.proteinGrams ?? 150,
+                                carbsTarget: userProfile?.carbsGrams ?? 200,
+                                fatTarget: userProfile?.fatGrams ?? 65
+                            )
+                        } label: {
+                            InsightsPreviewCards(
+                                days: plan.sortedDays,
+                                calorieTarget: userProfile?.dailyCalorieTarget ?? 2000
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(animateContent ? 1 : 0)
+                        .offset(y: animateContent ? 0 : 20)
                     }
                 }
                 .padding(.horizontal, Design.Spacing.md)

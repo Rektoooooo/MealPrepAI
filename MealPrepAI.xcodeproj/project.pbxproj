@@ -75,9 +75,21 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		EC90E6C32F1C34A5004BE865 /* MealPrepAI */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAI; sourceTree = "<group>"; };
-		EC90E6D12F1C34A7004BE865 /* MealPrepAITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAITests; sourceTree = "<group>"; };
-		EC90E6DB2F1C34A7004BE865 /* MealPrepAIUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MealPrepAIUITests; sourceTree = "<group>"; };
+		EC90E6C32F1C34A5004BE865 /* MealPrepAI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MealPrepAI;
+			sourceTree = "<group>";
+		};
+		EC90E6D12F1C34A7004BE865 /* MealPrepAITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MealPrepAITests;
+			sourceTree = "<group>";
+		};
+		EC90E6DB2F1C34A7004BE865 /* MealPrepAIUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MealPrepAIUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
