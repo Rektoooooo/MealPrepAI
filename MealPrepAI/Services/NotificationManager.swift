@@ -81,15 +81,13 @@ final class NotificationManager {
     // MARK: - Local Notification Scheduling
 
     /// Clears all pending notifications and re-schedules based on current settings and plan data
-    func rescheduleAllNotifications(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) {
+    func rescheduleAllNotifications(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) async {
         center.removeAllPendingNotificationRequests()
 
         // Only schedule if the user has granted notification permission
-        Task {
-            let settings = await center.notificationSettings()
-            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
-            scheduleAll(activePlan: activePlan, isSubscribed: isSubscribed, trialStartDate: trialStartDate)
-        }
+        let settings = await center.notificationSettings()
+        guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
+        scheduleAll(activePlan: activePlan, isSubscribed: isSubscribed, trialStartDate: trialStartDate)
     }
 
     private func scheduleAll(activePlan: MealPlan?, isSubscribed: Bool, trialStartDate: Date?) {

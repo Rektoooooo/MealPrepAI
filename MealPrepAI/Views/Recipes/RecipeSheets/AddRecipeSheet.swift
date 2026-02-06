@@ -131,6 +131,7 @@ struct AddRecipeSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { saveRecipe() }
+                        .accessibilityIdentifier("add_recipe_save")
                         .fontWeight(.semibold)
                         .foregroundStyle(recipeName.isEmpty ? .gray : Color.accentPurple)
                         .disabled(recipeName.isEmpty)
@@ -149,7 +150,7 @@ struct AddRecipeSheet: View {
     private var recipePhotoSection: some View {
         VStack(spacing: Design.Spacing.md) {
             if let imageData = recipeImageData,
-               let uiImage = UIImage(data: imageData) {
+               let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()

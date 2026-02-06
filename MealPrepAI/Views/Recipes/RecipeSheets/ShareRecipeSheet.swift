@@ -4,6 +4,7 @@ import SwiftUI
 struct ShareRecipeSheet: View {
     @Environment(\.dismiss) private var dismiss
     let recipe: Recipe
+    @State private var showCopiedToast = false
 
     private var shareText: String {
         var text = "\(recipe.name)\n\n"
@@ -95,10 +96,46 @@ struct ShareRecipeSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Copied!")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [.mintVibrant, .mintVibrant.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .shadow(color: .mintVibrant.opacity(0.4), radius: 12, y: 6)
+                )
+                .padding(.top, 60)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(100)
+            }
+        }
     }
 
     private func copyToClipboard() {
         UIPasteboard.general.string = shareText
-        dismiss()
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            showCopiedToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                showCopiedToast = false
+            }
+        }
     }
 }

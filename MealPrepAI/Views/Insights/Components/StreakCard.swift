@@ -5,7 +5,7 @@ enum InsightsHelper {
         let sortedDays = days.sorted { $0.date > $1.date }
         var streak = 0
         for day in sortedDays {
-            let meals = day.meals ?? []
+            let meals = day.meals
             guard !meals.isEmpty else { break }
             if meals.allSatisfy({ $0.isEaten }) {
                 streak += 1
@@ -37,11 +37,11 @@ struct StreakCard: View {
     }
 
     private var totalMealsEaten: Int {
-        days.flatMap { $0.meals ?? [] }.filter { $0.isEaten }.count
+        days.flatMap { $0.meals }.filter { $0.isEaten }.count
     }
 
     private var totalMeals: Int {
-        days.flatMap { $0.meals ?? [] }.count
+        days.flatMap { $0.meals }.count
     }
 
     var body: some View {

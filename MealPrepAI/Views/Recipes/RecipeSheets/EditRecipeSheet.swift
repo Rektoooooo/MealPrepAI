@@ -46,8 +46,8 @@ struct EditRecipeSheet: View {
         _instructionSteps = State(initialValue: steps)
 
         let entries: [IngredientEntry]
-        if let ingredients = recipe.ingredients, !ingredients.isEmpty {
-            entries = ingredients.map { ri in
+        if !recipe.ingredients.isEmpty {
+            entries = recipe.ingredients.map { ri in
                 var entry = IngredientEntry()
                 entry.name = ri.ingredient?.name ?? ""
                 entry.quantity = String(format: "%g", ri.quantity)
@@ -175,7 +175,7 @@ struct EditRecipeSheet: View {
     private var recipePhotoSection: some View {
         VStack(spacing: Design.Spacing.md) {
             if let imageData = recipeImageData,
-               let uiImage = UIImage(data: imageData) {
+               let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -409,13 +409,11 @@ struct EditRecipeSheet: View {
         recipe.localImageData = recipeImageData
 
         // Remove old recipe ingredients
-        if let existingIngredients = recipe.ingredients {
-            for ri in existingIngredients {
-                if let ingredient = ri.ingredient {
-                    modelContext.delete(ingredient)
-                }
-                modelContext.delete(ri)
+        for ri in recipe.ingredients {
+            if let ingredient = ri.ingredient {
+                modelContext.delete(ingredient)
             }
+            modelContext.delete(ri)
         }
 
         // Create new ingredients

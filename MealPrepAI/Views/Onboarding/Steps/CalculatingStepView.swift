@@ -91,38 +91,40 @@ struct CalculatingStepView: View {
             withAnimation(OnboardingDesign.Animation.bouncy) {
                 appeared = true
             }
-            startAnimation()
         }
-    }
+        .task {
+            // Progress animation
+            withAnimation(.linear(duration: 3.0)) {
+                progress = 1.0
+            }
 
-    private func startAnimation() {
-        // Progress animation
-        withAnimation(.linear(duration: 3.0)) {
-            progress = 1.0
-        }
-
-        // Message cycling
-        for (index, message) in messages.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.75) {
+            // Message cycling
+            for (index, message) in messages.enumerated() {
+                if index > 0 {
+                    try? await Task.sleep(for: .milliseconds(750))
+                    guard !Task.isCancelled else { return }
+                }
                 withAnimation {
                     currentMessage = message
                 }
             }
-        }
 
-        // Food carousel
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
-            if progress >= 1.0 {
-                timer.invalidate()
-            }
-            withAnimation {
-                foodIndex = (foodIndex + 1) % foods.count
-            }
-        }
-
-        // Complete after animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+            // Wait for remaining animation time then complete
+            let messageTime = Double(messages.count - 1) * 0.75
+            let remaining = max(0, 3.2 - messageTime)
+            try? await Task.sleep(for: .seconds(remaining))
+            guard !Task.isCancelled else { return }
             onComplete()
+        }
+        .task {
+            // Food carousel — auto-cancelled when view disappears
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
+                withAnimation {
+                    foodIndex = (foodIndex + 1) % foods.count
+                }
+            }
         }
     }
 }

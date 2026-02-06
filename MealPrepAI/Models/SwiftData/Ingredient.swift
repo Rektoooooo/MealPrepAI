@@ -16,10 +16,10 @@ final class Ingredient {
 
     // Relationships
     @Relationship(inverse: \RecipeIngredient.ingredient)
-    var recipeIngredients: [RecipeIngredient]?
+    var recipeIngredients: [RecipeIngredient] = []
 
     @Relationship(inverse: \GroceryItem.ingredient)
-    var groceryItems: [GroceryItem]?
+    var groceryItems: [GroceryItem] = []
 
     var category: GroceryCategory {
         get { GroceryCategory(rawValue: categoryRaw) ?? .other }

@@ -12,7 +12,7 @@ extension ModelContext {
         guard let allRecipes = try? fetch(descriptor) else { return }
 
         for recipe in allRecipes {
-            let hasMeals = !(recipe.meals ?? []).isEmpty
+            let hasMeals = !recipe.meals.isEmpty
             if !hasMeals && !recipe.isFavorite {
                 // Recipe.ingredients has cascade delete rule, so RecipeIngredients
                 // are automatically deleted when the Recipe is deleted.
@@ -35,8 +35,8 @@ extension ModelContext {
         guard let allIngredients = try? fetch(descriptor) else { return }
 
         for ingredient in allIngredients {
-            let hasRecipeIngredients = !(ingredient.recipeIngredients ?? []).isEmpty
-            let hasGroceryItems = !(ingredient.groceryItems ?? []).isEmpty
+            let hasRecipeIngredients = !ingredient.recipeIngredients.isEmpty
+            let hasGroceryItems = !ingredient.groceryItems.isEmpty
             if !hasRecipeIngredients && !hasGroceryItems {
                 delete(ingredient)
             }

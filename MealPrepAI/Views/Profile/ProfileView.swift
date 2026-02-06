@@ -10,7 +10,7 @@ struct ProfileView: View {
     @Environment(CloudKitSyncManager.self) var syncManager
     @Environment(HealthKitManager.self) var healthKitManager
     @Environment(SubscriptionManager.self) var subscriptionManager
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var profile
     @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var favoriteRecipes: [Recipe]
     // allRecipes is needed to compute total mealsLogged (sum of timesUsed across every recipe)
     @Query private var allRecipes: [Recipe]
@@ -24,10 +24,6 @@ struct ProfileView: View {
     @State private var showingManageSubscription = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
-
-    private var profile: UserProfile? {
-        userProfiles.first
-    }
 
     // favoriteRecipes is now provided directly by the filtered @Query above
 
@@ -106,7 +102,7 @@ struct ProfileView: View {
                         .frame(width: 94, height: 94)
 
                     if let imageData = profile?.profileImageData,
-                       let uiImage = UIImage(data: imageData) {
+                       let uiImage = UIImage.downsample(data: imageData, maxDimension: 100) ?? UIImage(data: imageData) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -155,6 +151,7 @@ struct ProfileView: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile_edit")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Edit profile: \(profile?.name ?? "Guest")")
         .accessibilityHint("Double tap to edit your profile")
@@ -564,6 +561,7 @@ struct ProfileView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("profile_sign_out")
                 } else {
                     // Sign In with Apple Button
                     SignInWithAppleButton(.signIn, onRequest: { request in
@@ -1189,6 +1187,7 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("profile_delete_account")
             }
             .padding(Design.Spacing.md)
             .background(

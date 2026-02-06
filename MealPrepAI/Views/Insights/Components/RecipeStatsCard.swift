@@ -5,7 +5,7 @@ struct RecipeStatsCard: View {
     let days: [Day]
 
     private var allMeals: [Meal] {
-        days.flatMap { $0.meals ?? [] }
+        days.flatMap { $0.meals }
     }
 
     private var topRecipes: [(name: String, count: Int)] {

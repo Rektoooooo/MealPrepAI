@@ -142,7 +142,7 @@ struct AddRecipeToPlanSheet: View {
         let meal = Meal(mealType: selectedMealType)
         meal.recipe = recipe
         meal.day = day
-        day.meals?.append(meal)
+        day.meals.append(meal)
 
         modelContext.insert(meal)
         do {

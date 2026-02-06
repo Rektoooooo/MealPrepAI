@@ -11,7 +11,7 @@ struct RecipeDetailSheet: View {
 
     let recipe: Recipe
 
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var userProfile
     @State private var showingAddToPlan = false
     @State private var showingEditSheet = false
     @State private var showingShareSheet = false
@@ -182,10 +182,10 @@ struct RecipeDetailSheet: View {
                         }
 
                         // Ingredients
-                        if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                        if !recipe.ingredients.isEmpty {
                             NewSectionHeader(title: "Ingredients")
                             VStack(spacing: Design.Spacing.sm) {
-                                ForEach(ingredients, id: \.id) { recipeIngredient in
+                                ForEach(recipe.ingredients, id: \.id) { recipeIngredient in
                                     Button {
                                         ingredientToSwap = recipeIngredient
                                     } label: {
@@ -310,6 +310,7 @@ struct RecipeDetailSheet: View {
             // Floating top bar overlay
             HStack {
                 Button("Close") { dismiss() }
+                    .accessibilityIdentifier("recipe_detail_dismiss")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundStyle(.primary)
@@ -333,6 +334,7 @@ struct RecipeDetailSheet: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(recipe.isFavorite ? .red : .primary)
                 }
+                .accessibilityIdentifier("recipe_detail_favorite")
                 .accessibilityLabel(recipe.isFavorite ? "Remove from favorites" : "Add to favorites")
                 .accessibilityHint("Double tap to toggle favorite")
                 .padding(Design.Spacing.sm)
@@ -351,12 +353,29 @@ struct RecipeDetailSheet: View {
             ShareRecipeSheet(recipe: recipe)
         }
         .sheet(item: $ingredientToSwap) { ingredient in
-            if let profile = userProfiles.first {
+            if let profile = userProfile {
                 IngredientSubstitutionSheet(
                     recipe: recipe,
                     recipeIngredient: ingredient,
                     userProfile: profile
                 )
+            } else {
+                VStack(spacing: Design.Spacing.lg) {
+                    Spacer()
+                    Image(systemName: "person.crop.circle.badge.exclamationmark")
+                        .font(.system(size: 48))
+                        .foregroundStyle(Color.accentPurple)
+                    Text("Profile Required")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                    Text("Complete your profile to get personalized ingredient substitutions based on your dietary needs and allergies.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Design.Spacing.xl)
+                    Spacer()
+                }
+                .presentationDetents([.medium])
             }
         }
         .alert("Delete Recipe", isPresented: $showingDeleteConfirmation) {

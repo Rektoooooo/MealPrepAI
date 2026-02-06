@@ -90,6 +90,7 @@ struct OnboardingCTAButton: View {
                 )
         }
         .buttonStyle(OnboardingScaleButtonStyle())
+        .accessibilityIdentifier("onboarding_continue")
         .accessibilityLabel(title)
         .accessibilityHint("Double tap to continue")
         .disabled(!isEnabled)

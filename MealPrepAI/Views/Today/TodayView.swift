@@ -7,7 +7,7 @@ struct TodayView: View {
     @Environment(NotificationManager.self) var notificationManager
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var userProfile
 
     @State private var selectedDate = Date()
     @State private var showingMealDetail = false
@@ -23,10 +23,6 @@ struct TodayView: View {
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
-    }
-
-    private var userProfile: UserProfile? {
-        userProfiles.first
     }
 
     private var todaysDay: Day? {
@@ -131,6 +127,7 @@ struct TodayView: View {
                             }
                         }
                     }
+                    .accessibilityIdentifier("today_notifications")
                     .accessibilityLabel(notificationManager.hasUnread ? "Notifications, unread" : "Notifications")
                     .accessibilityHint("Double tap to view notifications")
                 }
@@ -181,6 +178,7 @@ struct TodayView: View {
             buttonStyle: .purple,
             onButtonTap: { showingGenerateSheet = true }
         )
+        .accessibilityIdentifier("today_generate_plan")
         .frame(height: 400)
     }
 
@@ -194,7 +192,7 @@ struct TodayView: View {
                     .frame(width: 54, height: 54)
 
                 if let imageData = userProfile?.profileImageData,
-                   let uiImage = UIImage(data: imageData) {
+                   let uiImage = UIImage.downsample(data: imageData, maxDimension: 100) ?? UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
@@ -234,14 +232,23 @@ struct TodayView: View {
                     // Meal dots
                     HStack(spacing: 4) {
                         ForEach(todaysMeals) { meal in
-                            Circle()
-                                .fill(meal.isEaten ? mealDotColor(for: meal.mealType) : Color.clear)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(mealDotColor(for: meal.mealType), lineWidth: 1.5)
-                                )
-                                .frame(width: 8, height: 8)
-                                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: meal.isEaten)
+                            ZStack {
+                                Circle()
+                                    .fill(meal.isEaten ? mealDotColor(for: meal.mealType) : Color.clear)
+                                    .overlay(
+                                        Circle()
+                                            .strokeBorder(mealDotColor(for: meal.mealType), lineWidth: 1.5)
+                                    )
+                                    .frame(width: 10, height: 10)
+
+                                if meal.isEaten {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 5, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                            .accessibilityLabel(meal.isEaten ? "\(meal.mealType.rawValue) eaten" : "\(meal.mealType.rawValue) not eaten")
+                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: meal.isEaten)
                         }
                     }
                 }
@@ -414,18 +421,35 @@ struct TodayView: View {
     }
 
     // MARK: - Date Selector
+
+    /// Whether the selected date is at the first day of the meal plan
+    private var isAtFirstDay: Bool {
+        guard let plan = currentMealPlan,
+              let firstDay = plan.sortedDays.first else { return false }
+        return Calendar.current.isDate(selectedDate, inSameDayAs: firstDay.date)
+    }
+
+    /// Whether the selected date is at the last day of the meal plan
+    private var isAtLastDay: Bool {
+        guard let plan = currentMealPlan,
+              let lastDay = plan.sortedDays.last else { return false }
+        return Calendar.current.isDate(selectedDate, inSameDayAs: lastDay.date)
+    }
+
     private var dateSelector: some View {
         HStack {
             Button(action: { moveDate(by: -1) }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(isAtFirstDay ? Color.textSecondary.opacity(0.4) : Color.textPrimary)
                     .padding(Design.Spacing.sm)
                     .background(
                         Circle()
                             .fill(Color.surfaceOverlay)
                     )
             }
+            .disabled(isAtFirstDay)
+            .accessibilityIdentifier("today_prev_day")
             .accessibilityLabel("Previous day")
 
             Spacer()
@@ -447,13 +471,15 @@ struct TodayView: View {
             Button(action: { moveDate(by: 1) }) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.textPrimary)
+                    .foregroundStyle(isAtLastDay ? Color.textSecondary.opacity(0.4) : Color.textPrimary)
                     .padding(Design.Spacing.sm)
                     .background(
                         Circle()
                             .fill(Color.surfaceOverlay)
                     )
             }
+            .disabled(isAtLastDay)
+            .accessibilityIdentifier("today_next_day")
             .accessibilityLabel("Next day")
         }
         .padding(.vertical, Design.Spacing.sm)
@@ -497,6 +523,7 @@ struct TodayView: View {
                             toggleMealEaten(meal)
                         }
                     )
+                    .accessibilityIdentifier("today_meal_\(meal.mealType.rawValue.lowercased())")
                     .animation(.easeOut(duration: 0.4).delay(Double(index) * 0.1), value: animateCards)
                 }
             }
@@ -515,6 +542,7 @@ struct TodayView: View {
                     color: Color(hex: "667EEA"),  // Purple-blue
                     action: { showingSwapSheet = true }
                 )
+                .accessibilityIdentifier("today_action_swap")
 
                 QuickActionCard(
                     icon: "cart.badge.plus",
@@ -522,6 +550,7 @@ struct TodayView: View {
                     color: Color(hex: "34C759"),  // Green
                     action: { showingAddMealSheet = true }
                 )
+                .accessibilityIdentifier("today_action_add")
 
                 QuickActionCard(
                     icon: "sparkles",
@@ -529,6 +558,7 @@ struct TodayView: View {
                     color: Color(hex: "FF6B6B"),  // Coral red
                     action: { showingGenerateSheet = true }
                 )
+                .accessibilityIdentifier("today_action_new_plan")
             }
         }
     }
@@ -752,7 +782,8 @@ struct GenerateMealPlanSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(NotificationManager.self) var notificationManager
     @Environment(SubscriptionManager.self) var subscriptionManager
-    @Query private var userProfiles: [UserProfile]
+    @Environment(NetworkMonitor.self) var networkMonitor
+    @Environment(\.userProfile) private var userProfile
     @Bindable var generator: MealPlanGenerator
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
@@ -761,10 +792,6 @@ struct GenerateMealPlanSheet: View {
     @FocusState private var isTextFieldFocused: Bool
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-
-    private var userProfile: UserProfile? {
-        userProfiles.first
-    }
 
     var body: some View {
         NavigationStack {
@@ -933,6 +960,11 @@ struct GenerateMealPlanSheet: View {
 
     private func generatePlan() {
         guard let profile = userProfile else { return }
+        guard networkMonitor.isConnected else {
+            errorMessage = APIError.noConnection.localizedDescription
+            showErrorAlert = true
+            return
+        }
         isTextFieldFocused = false
 
         Task {
@@ -952,7 +984,7 @@ struct GenerateMealPlanSheet: View {
                     sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
                 )
                 let activePlan = try? modelContext.fetch(descriptor).first
-                notificationManager.rescheduleAllNotifications(
+                await notificationManager.rescheduleAllNotifications(
                     activePlan: activePlan,
                     isSubscribed: subscriptionManager.isSubscribed,
                     trialStartDate: profile.createdAt
@@ -1228,6 +1260,7 @@ struct SwapMealSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(NetworkMonitor.self) var networkMonitor
 
     let meals: [Meal]
     @Bindable var generator: MealPlanGenerator
@@ -1443,6 +1476,11 @@ struct SwapMealSheet: View {
 
     private func swapSelectedMeal() {
         guard let meal = selectedMeal, let profile = userProfile else { return }
+        guard networkMonitor.isConnected else {
+            errorMessage = APIError.noConnection.localizedDescription
+            showErrorAlert = true
+            return
+        }
 
         isSwapping = true
         Task {
@@ -1550,6 +1588,7 @@ struct SwapMealRow: View {
 struct AddMealToTodaySheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(NetworkMonitor.self) var networkMonitor
 
     let day: Day?
     @Bindable var generator: MealPlanGenerator
@@ -1649,6 +1688,11 @@ struct AddMealToTodaySheet: View {
 
     private func addMeal() {
         guard let day = day, let profile = userProfile else { return }
+        guard networkMonitor.isConnected else {
+            errorMessage = APIError.noConnection.localizedDescription
+            showErrorAlert = true
+            return
+        }
 
         Task {
             do {
@@ -1665,7 +1709,7 @@ struct AddMealToTodaySheet: View {
                 let newMeal = Meal(mealType: selectedMealType)
                 newMeal.recipe = result.recipe
                 newMeal.day = day
-                day.meals?.append(newMeal)
+                day.meals.append(newMeal)
 
                 modelContext.insert(newMeal)
                 try modelContext.save()

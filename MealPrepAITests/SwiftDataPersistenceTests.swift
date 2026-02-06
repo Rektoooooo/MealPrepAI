@@ -100,8 +100,8 @@ struct SwiftDataPersistenceTests {
 
         let fetched = try context.fetch(FetchDescriptor<MealPlan>())
         #expect(fetched.count == 1)
-        #expect(fetched[0].days?.count == 1)
-        #expect(fetched[0].days?.first?.dayOfWeek == 0)
+        #expect(fetched[0].days.count == 1)
+        #expect(fetched[0].days.first?.dayOfWeek == 0)
     }
 
     @MainActor
@@ -126,8 +126,8 @@ struct SwiftDataPersistenceTests {
         try context.save()
 
         let fetchedDays = try context.fetch(FetchDescriptor<Day>())
-        #expect(fetchedDays[0].meals?.count == 1)
-        #expect(fetchedDays[0].meals?.first?.recipe?.name == "Pasta")
+        #expect(fetchedDays[0].meals.count == 1)
+        #expect(fetchedDays[0].meals.first?.recipe?.name == "Pasta")
         #expect(fetchedDays[0].totalCalories == 500)
     }
 
@@ -164,9 +164,9 @@ struct SwiftDataPersistenceTests {
 
         let fetched = try context.fetch(FetchDescriptor<MealPlan>())
         #expect(fetched.count == 1)
-        #expect(fetched[0].days?.count == 3)
+        #expect(fetched[0].days.count == 3)
 
-        let totalMeals = fetched[0].days?.flatMap { $0.meals ?? [] }.count ?? 0
+        let totalMeals = fetched[0].days.flatMap { $0.meals }.count
         #expect(totalMeals == 9)
     }
 
@@ -190,8 +190,8 @@ struct SwiftDataPersistenceTests {
         try context.save()
 
         let fetchedRecipes = try context.fetch(FetchDescriptor<Recipe>())
-        #expect(fetchedRecipes[0].ingredients?.count == 1)
-        #expect(fetchedRecipes[0].ingredients?.first?.ingredient?.name == "Lettuce")
+        #expect(fetchedRecipes[0].ingredients.count == 1)
+        #expect(fetchedRecipes[0].ingredients.first?.ingredient?.name == "Lettuce")
     }
 
     @MainActor
@@ -220,7 +220,7 @@ struct SwiftDataPersistenceTests {
         try context.save()
 
         let fetched = try context.fetch(FetchDescriptor<Recipe>())
-        #expect(fetched[0].ingredients?.count == 4)
+        #expect(fetched[0].ingredients.count == 4)
     }
 
     // MARK: - GroceryList + GroceryItem
@@ -519,7 +519,7 @@ struct SwiftDataPersistenceTests {
         try context.save()
 
         let fetched = try context.fetch(FetchDescriptor<UserProfile>())
-        #expect(fetched[0].mealPlans?.count == 1)
+        #expect(fetched[0].mealPlans.count == 1)
     }
 
     // MARK: - Onboarding Save (ViewModel -> DB)

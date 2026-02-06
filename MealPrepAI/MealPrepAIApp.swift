@@ -11,6 +11,17 @@ import FirebaseCore
 import FirebaseAppCheck
 import SuperwallKit
 
+// MARK: - App Configuration
+enum AppConfig {
+    enum Superwall {
+        #if DEBUG
+        static let apiKey = "pk_Sk5q5XhpVeMrBXV1EJ1X_"
+        #else
+        static let apiKey = "pk_Sk5q5XhpVeMrBXV1EJ1X_"
+        #endif
+    }
+}
+
 // MARK: - Notification Names
 extension Notification.Name {
     static let accountDeleted = Notification.Name("accountDeleted")
@@ -88,6 +99,7 @@ struct MealPrepAIApp: App {
     @State private var healthKitManager = HealthKitManager()
     @State private var notificationManager = NotificationManager()
     @State private var subscriptionManager = SubscriptionManager()
+    @State private var networkMonitor = NetworkMonitor()
 
     // Firebase Recipe Services - initialized after Firebase is configured
     @State private var firebaseRecipeService: FirebaseRecipeService
@@ -113,8 +125,14 @@ struct MealPrepAIApp: App {
             #endif
         }
 
+        // Configure persistent URL cache for image downloads (50 MB memory, 200 MB disk)
+        URLCache.shared = URLCache(
+            memoryCapacity: 50_000_000,
+            diskCapacity: 200_000_000
+        )
+
         // Configure Superwall for analytics tracking
-        Superwall.configure(apiKey: "pk_Sk5q5XhpVeMrBXV1EJ1X_")
+        Superwall.configure(apiKey: AppConfig.Superwall.apiKey)
 
         // Now safe to create Firebase services
         _firebaseRecipeService = State(initialValue: FirebaseRecipeService())
@@ -132,7 +150,7 @@ struct MealPrepAIApp: App {
         let activePlan = try? context.fetch(planDescriptor).first
         let profile = try? context.fetch(profileDescriptor).first
 
-        notificationManager.rescheduleAllNotifications(
+        await notificationManager.rescheduleAllNotifications(
             activePlan: activePlan,
             isSubscribed: subscriptionManager.isSubscribed,
             trialStartDate: profile?.createdAt
@@ -155,6 +173,7 @@ struct MealPrepAIApp: App {
                         .environment(notificationManager)
                         .environment(firebaseRecipeService)
                         .environment(subscriptionManager)
+                        .environment(networkMonitor)
                         .task {
                             await rescheduleNotificationsOnLaunch()
                         }

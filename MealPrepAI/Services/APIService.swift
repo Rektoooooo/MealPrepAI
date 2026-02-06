@@ -1,9 +1,19 @@
 import Foundation
 
 // MARK: - API Configuration
-// nonisolated(unsafe) required to opt out of default MainActor isolation for actor access
-private let apiConfigBaseURL = "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api"
-private let apiConfigUseMockData = false // Backend deployed and ready
+enum APIConfiguration {
+    #if DEBUG
+    static let baseURL = "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api"
+    static let useMockData = false
+    #else
+    static let baseURL = "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api"
+    static let useMockData = false
+    #endif
+}
+
+// Backward-compatible aliases
+private let apiConfigBaseURL = APIConfiguration.baseURL
+private let apiConfigUseMockData = APIConfiguration.useMockData
 
 // MARK: - API Errors
 enum APIError: LocalizedError, Sendable {
@@ -15,6 +25,7 @@ enum APIError: LocalizedError, Sendable {
     case rateLimited
     case subscriptionRequired
     case serverError(String)
+    case noConnection
 
     nonisolated var errorDescription: String? {
         switch self {
@@ -34,6 +45,8 @@ enum APIError: LocalizedError, Sendable {
             return "A subscription is required. Please subscribe to continue."
         case .serverError(let message):
             return message
+        case .noConnection:
+            return "No internet connection. Please check your network settings and try again."
         }
     }
 }
@@ -206,6 +219,49 @@ actor APIService {
         self.encoder = JSONEncoder()
     }
 
+    // MARK: - Retry Logic
+
+    /// Retries an operation with exponential backoff. Only retries on server/network errors,
+    /// not on client errors (4xx status codes).
+    private func withRetry<T>(maxAttempts: Int = 3, operation: () async throws -> T) async throws -> T {
+        var lastError: Error?
+        for attempt in 0..<maxAttempts {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+                // Don't retry on client errors (4xx) or known non-retryable errors
+                if !isRetryableError(error) {
+                    throw error
+                }
+                if attempt < maxAttempts - 1 {
+                    let delay = Double(1 << attempt) // 1s, 2s, 4s
+                    try? await Task.sleep(for: .seconds(delay))
+                }
+            }
+        }
+        throw lastError!
+    }
+
+    /// Determines if an error is retryable (server/network errors only, not client errors).
+    private func isRetryableError(_ error: Error) -> Bool {
+        switch error {
+        case APIError.httpError(let statusCode):
+            // Only retry on server errors (5xx), not client errors (4xx)
+            return statusCode >= 500
+        case APIError.networkError, APIError.invalidResponse:
+            return true
+        case APIError.rateLimited, APIError.subscriptionRequired,
+             APIError.invalidURL, APIError.decodingError:
+            return false
+        case is URLError:
+            return true
+        default:
+            // Retry unknown errors as they might be transient network issues
+            return true
+        }
+    }
+
     // MARK: - Send Message to Claude (via backend proxy)
     func sendMessage(
         prompt: String,
@@ -233,25 +289,27 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(request)
 
-        let (data, response) = try await session.data(for: urlRequest)
+        return try await withRetry {
+            let (data, response) = try await self.session.data(for: urlRequest)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        switch httpResponse.statusCode {
-        case 200...299:
-            let claudeResponse = try decoder.decode(ClaudeResponse.self, from: data)
-            guard let text = claudeResponse.textContent else {
+            guard let httpResponse = response as? HTTPURLResponse else {
                 throw APIError.invalidResponse
             }
-            return text
 
-        case 429:
-            throw APIError.rateLimited
+            switch httpResponse.statusCode {
+            case 200...299:
+                let claudeResponse = try self.decoder.decode(ClaudeResponse.self, from: data)
+                guard let text = claudeResponse.textContent else {
+                    throw APIError.invalidResponse
+                }
+                return text
 
-        default:
-            throw APIError.httpError(statusCode: httpResponse.statusCode)
+            case 429:
+                throw APIError.rateLimited
+
+            default:
+                throw APIError.httpError(statusCode: httpResponse.statusCode)
+            }
         }
     }
 
@@ -363,70 +421,72 @@ actor APIService {
         #endif
         let startTime = Date()
 
-        // Use long timeout session for meal plan generation (2 batches + processing)
-        let (data, response) = try await longTimeoutSession.data(for: urlRequest)
+        return try await withRetry { [urlRequest] in
+            // Use long timeout session for meal plan generation (2 batches + processing)
+            let (data, response) = try await self.longTimeoutSession.data(for: urlRequest)
 
-        #if DEBUG
-        let duration = Date().timeIntervalSince(startTime)
-        #if DEBUG
-        print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
-        #endif
-        #if DEBUG
-        print("[DEBUG:API] Response size: \(data.count) bytes")
-        #endif
-        #endif
+            #if DEBUG
+            let duration = Date().timeIntervalSince(startTime)
+            #if DEBUG
+            print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+            #endif
+            #if DEBUG
+            print("[DEBUG:API] Response size: \(data.count) bytes")
+            #endif
+            #endif
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Invalid response type")
-            #endif
-            throw APIError.invalidResponse
-        }
-
-        #if DEBUG
-        print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
-        #endif
-
-        switch httpResponse.statusCode {
-        case 200...299:
-            let apiResponse = try decoder.decode(GeneratePlanAPIResponse.self, from: data)
-            #if DEBUG
-            print("[DEBUG:API] SUCCESS: \(apiResponse.mealPlan?.days.count ?? 0) days, \(apiResponse.recipesAdded ?? 0) new recipes")
-            #if DEBUG
-            print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
-            #endif
-            #if DEBUG
-            print("[DEBUG:API] ========== GENERATE MEAL PLAN SUCCESS ==========")
-            #endif
-            #endif
-            return apiResponse
-        case 403:
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Subscription required")
-            #endif
-            throw APIError.subscriptionRequired
-        case 429:
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Rate limited")
-            #endif
-            throw APIError.rateLimited
-        default:
-            if let errorResponse = try? decoder.decode(GeneratePlanAPIResponse.self, from: data),
-               let errorMessage = errorResponse.error {
+            guard let httpResponse = response as? HTTPURLResponse else {
                 #if DEBUG
-                print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                print("[DEBUG:API] ERROR: Invalid response type")
                 #endif
-                throw APIError.serverError(errorMessage)
+                throw APIError.invalidResponse
             }
+
             #if DEBUG
-            print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
-            if let responseText = String(data: data, encoding: .utf8) {
-                #if DEBUG
-                print("[DEBUG:API] Response body: \(responseText.prefix(500))")
-                #endif
-            }
+            print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
             #endif
-            throw APIError.httpError(statusCode: httpResponse.statusCode)
+
+            switch httpResponse.statusCode {
+            case 200...299:
+                let apiResponse = try self.decoder.decode(GeneratePlanAPIResponse.self, from: data)
+                #if DEBUG
+                print("[DEBUG:API] SUCCESS: \(apiResponse.mealPlan?.days.count ?? 0) days, \(apiResponse.recipesAdded ?? 0) new recipes")
+                #if DEBUG
+                print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+                #endif
+                #if DEBUG
+                print("[DEBUG:API] ========== GENERATE MEAL PLAN SUCCESS ==========")
+                #endif
+                #endif
+                return apiResponse
+            case 403:
+                #if DEBUG
+                print("[DEBUG:API] ERROR: Subscription required")
+                #endif
+                throw APIError.subscriptionRequired
+            case 429:
+                #if DEBUG
+                print("[DEBUG:API] ERROR: Rate limited")
+                #endif
+                throw APIError.rateLimited
+            default:
+                if let errorResponse = try? self.decoder.decode(GeneratePlanAPIResponse.self, from: data),
+                   let errorMessage = errorResponse.error {
+                    #if DEBUG
+                    print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                    #endif
+                    throw APIError.serverError(errorMessage)
+                }
+                #if DEBUG
+                print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
+                if let responseText = String(data: data, encoding: .utf8) {
+                    #if DEBUG
+                    print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+                    #endif
+                }
+                #endif
+                throw APIError.httpError(statusCode: httpResponse.statusCode)
+            }
         }
     }
 
@@ -518,69 +578,71 @@ actor APIService {
         #endif
         let startTime = Date()
 
-        let (data, response) = try await session.data(for: urlRequest)
+        return try await withRetry { [urlRequest] in
+            let (data, response) = try await self.session.data(for: urlRequest)
 
-        #if DEBUG
-        let duration = Date().timeIntervalSince(startTime)
-        #if DEBUG
-        print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
-        #endif
-        #if DEBUG
-        print("[DEBUG:API] Response size: \(data.count) bytes")
-        #endif
-        #endif
+            #if DEBUG
+            let duration = Date().timeIntervalSince(startTime)
+            #if DEBUG
+            print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+            #endif
+            #if DEBUG
+            print("[DEBUG:API] Response size: \(data.count) bytes")
+            #endif
+            #endif
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Invalid response type")
-            #endif
-            throw APIError.invalidResponse
-        }
-
-        #if DEBUG
-        print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
-        #endif
-
-        switch httpResponse.statusCode {
-        case 200...299:
-            let apiResponse = try decoder.decode(SwapMealAPIResponse.self, from: data)
-            #if DEBUG
-            print("[DEBUG:API] SUCCESS: Recipe - \(apiResponse.recipe?.name ?? "nil")")
-            #if DEBUG
-            print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
-            #endif
-            #if DEBUG
-            print("[DEBUG:API] ========== SWAP MEAL SUCCESS ==========")
-            #endif
-            #endif
-            return apiResponse
-        case 403:
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Subscription required")
-            #endif
-            throw APIError.subscriptionRequired
-        case 429:
-            #if DEBUG
-            print("[DEBUG:API] ERROR: Rate limited")
-            #endif
-            throw APIError.rateLimited
-        default:
-            if let errorResponse = try? decoder.decode(SwapMealAPIResponse.self, from: data),
-               let errorMessage = errorResponse.error {
+            guard let httpResponse = response as? HTTPURLResponse else {
                 #if DEBUG
-                print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                print("[DEBUG:API] ERROR: Invalid response type")
                 #endif
-                throw APIError.serverError(errorMessage)
+                throw APIError.invalidResponse
             }
+
             #if DEBUG
-            print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
-            if let responseText = String(data: data, encoding: .utf8) {
-                #if DEBUG
-                print("[DEBUG:API] Response body: \(responseText.prefix(500))")
-                #endif
-            }
+            print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
             #endif
-            throw APIError.httpError(statusCode: httpResponse.statusCode)
+
+            switch httpResponse.statusCode {
+            case 200...299:
+                let apiResponse = try self.decoder.decode(SwapMealAPIResponse.self, from: data)
+                #if DEBUG
+                print("[DEBUG:API] SUCCESS: Recipe - \(apiResponse.recipe?.name ?? "nil")")
+                #if DEBUG
+                print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+                #endif
+                #if DEBUG
+                print("[DEBUG:API] ========== SWAP MEAL SUCCESS ==========")
+                #endif
+                #endif
+                return apiResponse
+            case 403:
+                #if DEBUG
+                print("[DEBUG:API] ERROR: Subscription required")
+                #endif
+                throw APIError.subscriptionRequired
+            case 429:
+                #if DEBUG
+                print("[DEBUG:API] ERROR: Rate limited")
+                #endif
+                throw APIError.rateLimited
+            default:
+                if let errorResponse = try? self.decoder.decode(SwapMealAPIResponse.self, from: data),
+                   let errorMessage = errorResponse.error {
+                    #if DEBUG
+                    print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                    #endif
+                    throw APIError.serverError(errorMessage)
+                }
+                #if DEBUG
+                print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
+                if let responseText = String(data: data, encoding: .utf8) {
+                    #if DEBUG
+                    print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+                    #endif
+                }
+                #endif
+                throw APIError.httpError(statusCode: httpResponse.statusCode)
+            }
         }
     }
 
@@ -627,29 +689,31 @@ actor APIService {
             urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
         }
 
-        let (data, response) = try await session.data(for: urlRequest)
+        return try await withRetry { [urlRequest] in
+            let (data, response) = try await self.session.data(for: urlRequest)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        switch httpResponse.statusCode {
-        case 200...299:
-            let apiResponse = try decoder.decode(SubstituteIngredientResponse.self, from: data)
-            #if DEBUG
-            print("[DEBUG:API] SUCCESS: \(apiResponse.substitutes?.count ?? 0) substitutes")
-            #endif
-            return apiResponse
-        case 403:
-            throw APIError.subscriptionRequired
-        case 429:
-            throw APIError.rateLimited
-        default:
-            if let errorResponse = try? decoder.decode(SubstituteIngredientResponse.self, from: data),
-               let errorMessage = errorResponse.error {
-                throw APIError.serverError(errorMessage)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
             }
-            throw APIError.httpError(statusCode: httpResponse.statusCode)
+
+            switch httpResponse.statusCode {
+            case 200...299:
+                let apiResponse = try self.decoder.decode(SubstituteIngredientResponse.self, from: data)
+                #if DEBUG
+                print("[DEBUG:API] SUCCESS: \(apiResponse.substitutes?.count ?? 0) substitutes")
+                #endif
+                return apiResponse
+            case 403:
+                throw APIError.subscriptionRequired
+            case 429:
+                throw APIError.rateLimited
+            default:
+                if let errorResponse = try? self.decoder.decode(SubstituteIngredientResponse.self, from: data),
+                   let errorMessage = errorResponse.error {
+                    throw APIError.serverError(errorMessage)
+                }
+                throw APIError.httpError(statusCode: httpResponse.statusCode)
+            }
         }
     }
 
@@ -675,17 +739,19 @@ actor APIService {
             urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
         }
 
-        let (data, response) = try await session.data(for: urlRequest)
+        return try await withRetry { [urlRequest] in
+            let (data, response) = try await self.session.data(for: urlRequest)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw APIError.invalidResponse
+            }
+
+            guard (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.httpError(statusCode: httpResponse.statusCode)
+            }
+
+            return try self.decoder.decode(VerifySubscriptionResponse.self, from: data)
         }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.httpError(statusCode: httpResponse.statusCode)
-        }
-
-        return try decoder.decode(VerifySubscriptionResponse.self, from: data)
     }
 }
 

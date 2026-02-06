@@ -26,7 +26,7 @@ struct GreetingHeader: View {
                     .frame(width: 54, height: 54)
 
                 if let imageData = profileImageData,
-                   let uiImage = UIImage(data: imageData) {
+                   let uiImage = UIImage.downsample(data: imageData, maxDimension: 100) ?? UIImage(data: imageData) {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()

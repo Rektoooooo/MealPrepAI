@@ -201,7 +201,7 @@ class MealPlanGenerator {
             let existingPlans = (try? modelContext.fetch(fetchDescriptor)) ?? []
 
             for oldPlan in existingPlans where oldPlan.id != newPlan.id {
-                let oldDays = oldPlan.days ?? []
+                let oldDays = oldPlan.days
                 for oldDay in oldDays {
                     let oldDayDate = Calendar.current.startOfDay(for: oldDay.date)
                     if !newPlanDates.contains(oldDayDate) {
@@ -220,7 +220,7 @@ class MealPlanGenerator {
             }
 
             // Update new plan's duration to cover all days
-            let allNewPlanDays = newPlan.days ?? []
+            let allNewPlanDays = newPlan.days
             if let earliest = allNewPlanDays.min(by: { $0.date < $1.date }),
                let latest = allNewPlanDays.max(by: { $0.date < $1.date }) {
                 let totalDays = Calendar.current.dateComponents([.day], from: earliest.date, to: latest.date).day! + 1
@@ -575,7 +575,8 @@ class MealPlanGenerator {
                 #endif
 
                 // Print ingredients
-                if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                if !recipe.ingredients.isEmpty {
+                    let ingredients = recipe.ingredients
                     #if DEBUG
                     print("│   Ingredients:")
                     #endif

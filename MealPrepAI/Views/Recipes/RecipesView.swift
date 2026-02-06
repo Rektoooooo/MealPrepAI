@@ -6,7 +6,7 @@ struct RecipesView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(FirebaseRecipeService.self) private var firebaseService
     @Query(sort: \Recipe.createdAt, order: .reverse) private var allRecipes: [Recipe]
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var userProfile
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
     // NOTE: allIngredients @Query removed — ingredients are fetched on-demand in
@@ -48,8 +48,17 @@ struct RecipesView: View {
     @State private var showSyncSuccessToast = false
     @State private var syncSuccessMessage = ""
 
-    private var userProfile: UserProfile? {
-        userProfiles.first
+    /// Combined hash of category + filters so a single onChange can track both.
+    private var filterHash: Int {
+        var hasher = Hasher()
+        hasher.combine(selectedCategory)
+        hasher.combine(selectedFilters)
+        return hasher.finalize()
+    }
+
+    /// Combined recipe count so one onChange replaces two separate observers.
+    private var totalRecipeCount: Int {
+        allRecipes.count + firebaseSearchResults.count
     }
 
     private var filteredRecipes: [Recipe] {
@@ -188,6 +197,7 @@ struct RecipesView: View {
 
                     // Search Bar
                     RoundedSearchBar(text: $searchText)
+                        .accessibilityIdentifier("recipes_search")
                         .padding(.horizontal, Design.Spacing.lg)
                         .opacity(animateContent ? 1 : 0)
                         .offset(y: animateContent ? 0 : 20)
@@ -270,6 +280,7 @@ struct RecipesView: View {
                                         onTap: { selectedRecipe = recipe },
                                         onAdd: { addToMealPlan(recipe) }
                                     )
+                                    .accessibilityIdentifier("recipe_card_\(index)")
                                     .opacity(animateContent ? 1 : 0)
                                     .offset(y: animateContent ? 0 : 20)
                                     .animation(
@@ -311,6 +322,7 @@ struct RecipesView: View {
                             .font(.system(size: 18))
                             .foregroundStyle(Color.accentPurple)
                     }
+                    .accessibilityIdentifier("recipes_add")
                     .accessibilityLabel("Add custom recipe")
                 }
             }
@@ -371,7 +383,8 @@ struct RecipesView: View {
                         withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
                             animateContent = true
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        Task {
+                            try? await Task.sleep(for: .seconds(0.8))
                             hasAppeared = true
                         }
                     }
@@ -394,16 +407,10 @@ struct RecipesView: View {
             .onChange(of: debouncedSearchText) { _, _ in
                 updateFilteredRecipes()
             }
-            .onChange(of: selectedCategory) { _, _ in
+            .onChange(of: filterHash) { _, _ in
                 updateFilteredRecipes()
             }
-            .onChange(of: selectedFilters) { _, _ in
-                updateFilteredRecipes()
-            }
-            .onChange(of: allRecipes.count) { _, _ in
-                updateFilteredRecipes()
-            }
-            .onChange(of: firebaseSearchResults.count) { _, _ in
+            .onChange(of: totalRecipeCount) { _, _ in
                 updateFilteredRecipes()
             }
             .task {
@@ -549,6 +556,7 @@ struct RecipesView: View {
                     }
                     .buttonStyle(.plain)
                     .scaleEffect(isSelected ? 1.02 : 1.0)
+                    .accessibilityIdentifier("recipes_filter_\(filter.rawValue.lowercased().replacingOccurrences(of: " ", with: "_"))")
                     .accessibilityLabel("\(filter.rawValue) filter")
                     .accessibilityValue(isSelected ? "Selected" : "Not selected")
                     .accessibilityHint("Double tap to toggle filter")

@@ -126,6 +126,10 @@ class OnboardingViewModel {
         profile.customDietaryRestrictions = customDietaryRestrictions.isEmpty ? nil : customDietaryRestrictions
         profile.customAllergies = customAllergies.isEmpty ? nil : customAllergies
 
+        // Remove any existing profiles to enforce single-profile invariant
+        let existing = try? modelContext.fetch(FetchDescriptor<UserProfile>())
+        existing?.forEach { modelContext.delete($0) }
+
         modelContext.insert(profile)
 
         do {

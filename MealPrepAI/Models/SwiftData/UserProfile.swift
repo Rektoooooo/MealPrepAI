@@ -67,7 +67,7 @@ final class UserProfile {
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \MealPlan.userProfile)
-    var mealPlans: [MealPlan]?
+    var mealPlans: [MealPlan] = []
 
     // MARK: - Computed Properties for Enums
 
@@ -102,7 +102,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([DietaryRestriction].self, from: data)) ?? []
         }
         set {
-            dietaryRestrictionsData = try? JSONEncoder().encode(newValue)
+            dietaryRestrictionsData = encodeOrNil(newValue)
         }
     }
 
@@ -112,7 +112,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([Allergy].self, from: data)) ?? []
         }
         set {
-            allergiesData = try? JSONEncoder().encode(newValue)
+            allergiesData = encodeOrNil(newValue)
         }
     }
 
@@ -122,7 +122,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([CuisineType].self, from: data)) ?? []
         }
         set {
-            preferredCuisinesData = try? JSONEncoder().encode(newValue)
+            preferredCuisinesData = encodeOrNil(newValue)
         }
     }
 
@@ -132,7 +132,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([PrimaryGoal].self, from: data)) ?? []
         }
         set {
-            primaryGoalsData = try? JSONEncoder().encode(newValue)
+            primaryGoalsData = encodeOrNil(newValue)
         }
     }
 
@@ -142,7 +142,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([FoodDislike].self, from: data)) ?? []
         }
         set {
-            foodDislikesData = try? JSONEncoder().encode(newValue)
+            foodDislikesData = encodeOrNil(newValue)
         }
     }
 
@@ -152,7 +152,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([String: CuisinePreference].self, from: data)) ?? [:]
         }
         set {
-            cuisinePreferencesMapData = try? JSONEncoder().encode(newValue)
+            cuisinePreferencesMapData = encodeOrNil(newValue)
         }
     }
 
@@ -172,7 +172,7 @@ final class UserProfile {
             return (try? JSONDecoder().decode([Barrier].self, from: data)) ?? []
         }
         set {
-            barriersData = try? JSONEncoder().encode(newValue)
+            barriersData = encodeOrNil(newValue)
         }
     }
 
@@ -246,9 +246,9 @@ final class UserProfile {
         self.proteinGrams = proteinGrams
         self.carbsGrams = carbsGrams
         self.fatGrams = fatGrams
-        self.dietaryRestrictionsData = try? JSONEncoder().encode(dietaryRestrictions)
-        self.allergiesData = try? JSONEncoder().encode(allergies)
-        self.preferredCuisinesData = try? JSONEncoder().encode(preferredCuisines)
+        self.dietaryRestrictionsData = encodeOrNil(dietaryRestrictions)
+        self.allergiesData = encodeOrNil(allergies)
+        self.preferredCuisinesData = encodeOrNil(preferredCuisines)
         self.cookingSkillRaw = cookingSkill.rawValue
         self.maxCookingTimeRaw = maxCookingTime.rawValue
         self.mealsPerDay = mealsPerDay
@@ -259,13 +259,26 @@ final class UserProfile {
         self.syncNutritionToHealth = syncNutritionToHealth
         self.readWeightFromHealth = readWeightFromHealth
         self.lastHealthKitSync = nil
-        self.primaryGoalsData = try? JSONEncoder().encode(primaryGoals)
-        self.foodDislikesData = try? JSONEncoder().encode(foodDislikes)
-        self.cuisinePreferencesMapData = try? JSONEncoder().encode(cuisinePreferencesMap)
+        self.primaryGoalsData = encodeOrNil(primaryGoals)
+        self.foodDislikesData = encodeOrNil(foodDislikes)
+        self.cuisinePreferencesMapData = encodeOrNil(cuisinePreferencesMap)
         self.pantryLevelRaw = pantryLevel.rawValue
         self.avatarEmoji = avatarEmoji
         self.goalPaceRaw = goalPace.rawValue
-        self.barriersData = try? JSONEncoder().encode(barriers)
+        self.barriersData = encodeOrNil(barriers)
+    }
+
+    // MARK: - Encoding Helper
+
+    private func encodeOrNil<T: Encodable>(_ value: T) -> Data? {
+        do {
+            return try JSONEncoder().encode(value)
+        } catch {
+            #if DEBUG
+            print("⚠️ JSON encode failed for \(T.self): \(error)")
+            #endif
+            return nil
+        }
     }
 
     // MARK: - Authentication Helpers

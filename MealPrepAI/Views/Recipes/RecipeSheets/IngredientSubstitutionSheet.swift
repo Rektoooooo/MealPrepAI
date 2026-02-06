@@ -4,6 +4,7 @@ import SwiftData
 struct IngredientSubstitutionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(NetworkMonitor.self) var networkMonitor
 
     let recipe: Recipe
     let recipeIngredient: RecipeIngredient
@@ -186,7 +187,36 @@ struct IngredientSubstitutionSheet: View {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
                 loadingAppeared = true
             }
-            startLoadingAnimation()
+            // Progress ring animation
+            withAnimation(.linear(duration: 4.0)) {
+                loadingProgress = 0.9
+            }
+        }
+        .task(id: isLoading) {
+            // Message cycling and food carousel — auto-cancelled when isLoading changes or view disappears
+            guard isLoading else { return }
+
+            // Message cycling
+            for (index, message) in loadingMessages.enumerated() {
+                if index > 0 {
+                    try? await Task.sleep(for: .milliseconds(850))
+                    guard !Task.isCancelled else { return }
+                }
+                withAnimation {
+                    loadingMessage = message
+                }
+            }
+        }
+        .task(id: isLoading) {
+            // Food carousel — auto-cancelled when isLoading changes or view disappears
+            guard isLoading else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    foodIndex = (foodIndex + 1) % foods.count
+                }
+            }
         }
     }
 
@@ -441,42 +471,21 @@ struct IngredientSubstitutionSheet: View {
             : String(format: "%.1f", value)
     }
 
-    // MARK: - Loading Animation
-
-    private func startLoadingAnimation() {
-        // Progress ring animation
-        withAnimation(.linear(duration: 4.0)) {
-            loadingProgress = 0.9
-        }
-
-        // Message cycling
-        for (index, message) in loadingMessages.enumerated() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.85) {
-                withAnimation {
-                    loadingMessage = message
-                }
-            }
-        }
-
-        // Food carousel rotation
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
-            if !isLoading {
-                timer.invalidate()
-                return
-            }
-            withAnimation(.easeInOut(duration: 0.3)) {
-                foodIndex = (foodIndex + 1) % foods.count
-            }
-        }
-    }
+    // MARK: - Loading Animation (driven by .task(id: isLoading) modifiers on loadingAnimationView)
 
     // MARK: - Network
 
     private func loadSubstitutes() async {
+        guard networkMonitor.isConnected else {
+            errorMessage = APIError.noConnection.localizedDescription
+            isLoading = false
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
-        let otherIngredients = (recipe.ingredients ?? [])
+        let otherIngredients = recipe.ingredients
             .filter { $0.id != recipeIngredient.id }
             .compactMap { $0.ingredient?.name }
 
@@ -570,7 +579,8 @@ struct IngredientSubstitutionSheet: View {
             swapCompleted = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
             dismiss()
         }
     }

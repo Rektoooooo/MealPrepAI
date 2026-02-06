@@ -258,6 +258,10 @@ class NewOnboardingViewModel {
             barriers: Array(barriers)
         )
 
+        // Remove any existing profiles to enforce single-profile invariant
+        let existing = try? modelContext.fetch(FetchDescriptor<UserProfile>())
+        existing?.forEach { modelContext.delete($0) }
+
         modelContext.insert(profile)
 
         do {

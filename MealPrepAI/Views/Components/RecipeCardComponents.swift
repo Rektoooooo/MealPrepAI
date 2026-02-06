@@ -14,7 +14,7 @@ struct FeaturedRecipeCard: View {
                 ZStack(alignment: .bottom) {
                     // Real image or colorful food-themed gradient placeholder
                     if let imageData = recipe.localImageData,
-                       let uiImage = UIImage(data: imageData) {
+                       let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -135,7 +135,7 @@ struct StackedRecipeCard: View {
                 // Image area with badges overlay
                 ZStack {
                     if let imageData = recipe.localImageData,
-                       let uiImage = UIImage(data: imageData) {
+                       let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -202,6 +202,8 @@ struct StackedRecipeCard: View {
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(Color.accentPurple)
                                     }
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
                                 }
                                 .accessibilityLabel("Add to meal plan")
                             }

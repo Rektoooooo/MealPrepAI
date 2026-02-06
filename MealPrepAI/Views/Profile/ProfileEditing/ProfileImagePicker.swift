@@ -39,7 +39,7 @@ struct ProfileImagePicker: View {
                 .frame(width: 120, height: 120)
 
             if let imageData = profileImageData,
-               let uiImage = UIImage(data: imageData) {
+               let uiImage = UIImage.downsample(data: imageData, maxDimension: 200) ?? UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()

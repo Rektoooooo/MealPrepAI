@@ -63,6 +63,7 @@ struct GroceryListView: View {
 
                     // Search
                     RoundedSearchBar(text: $searchText, placeholder: "Search items...")
+                        .accessibilityIdentifier("grocery_search")
                         .padding(.horizontal, Design.Spacing.md)
                         .padding(.vertical, Design.Spacing.sm)
 
@@ -106,6 +107,7 @@ struct GroceryListView: View {
                             .font(.system(size: 18))
                             .foregroundStyle(Color.accentPurple)
                     }
+                    .accessibilityIdentifier("grocery_add_item")
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
@@ -134,6 +136,7 @@ struct GroceryListView: View {
                             .font(.system(size: 18))
                             .foregroundStyle(Color.textSecondary)
                     }
+                    .accessibilityIdentifier("grocery_more_options")
                     .accessibilityLabel("More options")
                 }
             }
@@ -282,6 +285,7 @@ struct GroceryListView: View {
         .padding(.vertical, Design.Spacing.xs)
         .padding(.horizontal, Design.Spacing.xxs)
         .background(Color.backgroundMint.opacity(0.95))
+        .accessibilityIdentifier("grocery_category_\(category.rawValue.lowercased().replacingOccurrences(of: " ", with: "_"))")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(category.rawValue), \(count) items")
         .accessibilityAddTraits(.isHeader)
@@ -290,7 +294,7 @@ struct GroceryListView: View {
     // MARK: - Actions
     private func clearCheckedItems() {
         guard let list = groceryList else { return }
-        let checkedItems = (list.items ?? []).filter { $0.isChecked }
+        let checkedItems = list.items.filter { $0.isChecked }
         for item in checkedItems {
             modelContext.delete(item)
         }
@@ -299,7 +303,7 @@ struct GroceryListView: View {
 
     private func uncheckAllItems() {
         guard let list = groceryList else { return }
-        for item in list.items ?? [] {
+        for item in list.items {
             item.isChecked = false
         }
         try? modelContext.save()
@@ -309,7 +313,7 @@ struct GroceryListView: View {
         guard let list = groceryList else { return }
         withAnimation {
             // Mark all items as checked
-            for item in list.items ?? [] {
+            for item in list.items {
                 item.isChecked = true
             }
             // Mark list as completed
@@ -347,11 +351,11 @@ struct GroceryListView: View {
         let list: GroceryList
         if let existingList = mealPlan.groceryList {
             // Clear existing items
-            let existingCount = existingList.items?.count ?? 0
+            let existingCount = existingList.items.count
             #if DEBUG
             print("[DEBUG:Grocery] Clearing existing list with \(existingCount) items")
             #endif
-            for item in existingList.items ?? [] {
+            for item in existingList.items {
                 modelContext.delete(item)
             }
             list = existingList
@@ -379,9 +383,9 @@ struct GroceryListView: View {
                     continue
                 }
                 #if DEBUG
-                print("[DEBUG:Grocery] Processing recipe: \(recipe.name) (\(recipe.ingredients?.count ?? 0) ingredients)")
+                print("[DEBUG:Grocery] Processing recipe: \(recipe.name) (\(recipe.ingredients.count) ingredients)")
                 #endif
-                for recipeIngredient in recipe.ingredients ?? [] {
+                for recipeIngredient in recipe.ingredients {
                     guard let ingredient = recipeIngredient.ingredient else {
                         #if DEBUG
                         print("[DEBUG:Grocery] WARNING: RecipeIngredient has no ingredient")
@@ -445,26 +449,6 @@ struct GroceryListView: View {
     }
 }
 
-// MARK: - Grocery Category Sort Order
-extension GroceryCategory {
-    var sortOrder: Int {
-        switch self {
-        case .produce: return 0
-        case .meat: return 1
-        case .dairy: return 2
-        case .bakery: return 3
-        case .frozen: return 4
-        case .pantry: return 5
-        case .canned: return 6
-        case .condiments: return 7
-        case .snacks: return 8
-        case .beverages: return 9
-        case .spices: return 10
-        case .other: return 11
-        }
-    }
-}
-
 // MARK: - Grocery Item Row
 struct GroceryItemRow: View {
     @Bindable var item: GroceryItem
@@ -500,6 +484,7 @@ struct GroceryItemRow: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
+                .frame(minWidth: 44, minHeight: 44)
 
                 // Item Details
                 VStack(alignment: .leading, spacing: 2) {
@@ -532,6 +517,7 @@ struct GroceryItemRow: View {
         }
         .buttonStyle(.plain)
         .animation(Design.Animation.smooth, value: item.isChecked)
+        .accessibilityIdentifier("grocery_item_\(item.displayName.lowercased().replacingOccurrences(of: " ", with: "_"))")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(item.isChecked ? "Checked" : "Unchecked"), \(item.displayName), \(convertedQuantity)")
         .accessibilityHint("Double tap to toggle")
@@ -731,6 +717,7 @@ struct ShareGroceryListSheet: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     let items: [GroceryItem]
+    @State private var showCopiedToast = false
 
     /// Converts and formats quantity for a grocery item
     private func formattedQuantity(for item: GroceryItem) -> String {
@@ -865,11 +852,51 @@ struct ShareGroceryListSheet: View {
             }
         }
         .presentationDetents([.large])
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("Copied!")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [.mintVibrant, .mintVibrant.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .shadow(color: .mintVibrant.opacity(0.4), radius: 12, y: 6)
+                )
+                .padding(.top, 60)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(100)
+            }
+        }
+    }
+
+    private func showCopiedFeedback() {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            showCopiedToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeOut(duration: 0.3)) {
+                showCopiedToast = false
+            }
+        }
     }
 
     private func copyToClipboard() {
         UIPasteboard.general.string = shareText
-        dismiss()
+        showCopiedFeedback()
     }
 
     private func exportAsChecklist() {
@@ -893,7 +920,7 @@ struct ShareGroceryListSheet: View {
         text += "\nCreated with MealPrepAI"
 
         UIPasteboard.general.string = text
-        dismiss()
+        showCopiedFeedback()
     }
 }
 

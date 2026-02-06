@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
+    @Query private var userProfiles: [UserProfile]
     @State private var selectedTab = 0
 
     var body: some View {
@@ -29,6 +31,7 @@ struct ContentView: View {
             FloatingTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard)
+        .environment(\.userProfile, userProfiles.first)
     }
 }
 
@@ -70,7 +73,7 @@ struct FloatingTabBar: View {
                                 ))
                         }
                     }
-                    .foregroundStyle(isSelected ? Color.white : Color(light: Color(hex: "8E8E93"), dark: Color(hex: "8E8E93")))
+                    .foregroundStyle(isSelected ? Color(light: .white, dark: Color(hex: "1C1C1E")) : Color(light: Color(hex: "8E8E93"), dark: Color(hex: "8E8E93")))
                     .frame(minWidth: isSelected ? nil : 50, minHeight: 50)
                     .fixedSize(horizontal: isSelected, vertical: false)
                     .padding(.horizontal, isSelected ? 14 : 0)
@@ -78,12 +81,13 @@ struct FloatingTabBar: View {
                     .background {
                         if isSelected {
                             Capsule()
-                                .fill(Color(hex: "1C1C1E"))
+                                .fill(Color(light: Color(hex: "1C1C1E"), dark: Color(hex: "F2F2F7")))
                                 .matchedGeometryEffect(id: "activeTab", in: tabAnimation)
                         }
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("tab_\(tabs[index].label.lowercased())")
                 .accessibilityLabel(tabs[index].label)
                 .accessibilityValue(isSelected ? "Selected" : "")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])

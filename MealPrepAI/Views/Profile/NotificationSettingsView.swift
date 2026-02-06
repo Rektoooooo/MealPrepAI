@@ -22,7 +22,7 @@ struct NotificationSettingsView: View {
     @AppStorage("dinnerReminderTime") private var dinnerReminderTime = Calendar.current.date(from: DateComponents(hour: 18, minute: 30)) ?? Date()
 
     @Query(filter: #Predicate<MealPlan> { $0.isActive }) private var activePlans: [MealPlan]
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var userProfile
 
     var body: some View {
         ScrollView {
@@ -552,12 +552,13 @@ struct NotificationSettingsView: View {
 
     private func triggerReschedule() {
         let plan = activePlans.first
-        let profile = userProfiles.first
-        notificationManager.rescheduleAllNotifications(
-            activePlan: plan,
-            isSubscribed: subscriptionManager.isSubscribed,
-            trialStartDate: profile?.createdAt
-        )
+        Task {
+            await notificationManager.rescheduleAllNotifications(
+                activePlan: plan,
+                isSubscribed: subscriptionManager.isSubscribed,
+                trialStartDate: userProfile?.createdAt
+            )
+        }
     }
 }
 

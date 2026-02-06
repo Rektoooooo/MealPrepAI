@@ -236,6 +236,24 @@ enum GroceryCategory: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Logical store aisle sort order for grocery list display
+    var sortOrder: Int {
+        switch self {
+        case .produce: return 0
+        case .dairy: return 1
+        case .meat: return 2
+        case .bakery: return 3
+        case .pantry: return 4
+        case .canned: return 5
+        case .frozen: return 6
+        case .snacks: return 7
+        case .beverages: return 8
+        case .condiments: return 9
+        case .spices: return 10
+        case .other: return 11
+        }
+    }
+
     /// Convert Spoonacular aisle string to GroceryCategory
     static func fromAisle(_ aisle: String) -> GroceryCategory {
         let lowercased = aisle.lowercased()

@@ -12,10 +12,10 @@ final class Day {
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \Meal.day)
-    var meals: [Meal]?
+    var meals: [Meal] = []
 
     var sortedMeals: [Meal] {
-        (meals ?? []).sorted { meal1, meal2 in
+        meals.sorted { meal1, meal2 in
             let order: [MealType] = [.breakfast, .lunch, .dinner, .snack]
             let index1 = order.firstIndex(of: meal1.mealType) ?? 0
             let index2 = order.firstIndex(of: meal2.mealType) ?? 0
@@ -25,7 +25,7 @@ final class Day {
 
     var nutritionTotals: (calories: Int, protein: Int, carbs: Int, fat: Int) {
         var cal = 0, pro = 0, carb = 0, fat = 0
-        for m in meals ?? [] {
+        for m in meals {
             cal += m.recipe?.calories ?? 0
             pro += m.recipe?.proteinGrams ?? 0
             carb += m.recipe?.carbsGrams ?? 0

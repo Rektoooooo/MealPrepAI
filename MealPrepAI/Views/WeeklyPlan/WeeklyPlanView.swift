@@ -5,7 +5,7 @@ struct WeeklyPlanView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
-    @Query private var userProfiles: [UserProfile]
+    @Environment(\.userProfile) private var userProfile
 
     @State private var selectedDayIndex = 0
     @State private var showingGenerateSheet = false
@@ -54,10 +54,6 @@ struct WeeklyPlanView: View {
     private var canNavigateToNextWeek: Bool {
         // Allow navigating forward up to 4 weeks
         weekOffset < 4
-    }
-
-    private var userProfile: UserProfile? {
-        userProfiles.first
     }
 
     private var sortedDays: [Day] {
@@ -230,6 +226,7 @@ struct WeeklyPlanView: View {
                             .font(.system(size: 18, weight: .medium))
                             .foregroundStyle(Color.accentPurple)
                     }
+                    .accessibilityIdentifier("plan_generate")
                     .accessibilityLabel("Generate new meal plan")
                 }
             }
@@ -348,6 +345,7 @@ struct WeeklyPlanView: View {
                     )
             }
             .disabled(!canNavigateToPreviousWeek)
+            .accessibilityIdentifier("plan_prev_week")
             .accessibilityLabel("Previous week")
 
             Spacer()
@@ -382,6 +380,7 @@ struct WeeklyPlanView: View {
                     )
             }
             .disabled(!canNavigateToNextWeek)
+            .accessibilityIdentifier("plan_next_week")
             .accessibilityLabel("Next week")
         }
         .padding(Design.Spacing.md)
@@ -454,13 +453,13 @@ struct WeeklyPlanView: View {
                             .foregroundStyle(isSelected ? .white : Color.textPrimary)
 
                         if isToday && !isSelected {
-                            Circle()
+                            RoundedRectangle(cornerRadius: 1.5)
                                 .fill(Color.accentPurple)
-                                .frame(width: 5, height: 5)
+                                .frame(width: 12, height: 3)
                         } else {
-                            Circle()
+                            RoundedRectangle(cornerRadius: 1.5)
                                 .fill(Color.clear)
-                                .frame(width: 5, height: 5)
+                                .frame(width: 12, height: 3)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -475,6 +474,7 @@ struct WeeklyPlanView: View {
                             )
                     )
                 }
+                .accessibilityIdentifier("plan_day_\(index)")
                 .accessibilityLabel("\(dayData.dayName) \(dayData.date)")
                 .accessibilityValue(isSelected ? "Selected" : (isToday ? "Today" : ""))
                 .accessibilityHint("Double tap to select")

@@ -12,7 +12,7 @@ struct RecipeAsyncImage: View {
     var body: some View {
         Group {
             if let imageData = recipe.localImageData,
-               let uiImage = UIImage(data: imageData) {
+               let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -105,7 +105,7 @@ struct FoodImagePlaceholder: View {
     var body: some View {
         if let urlString = imageName, let url = URL(string: urlString) {
             GeometryReader { geo in
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
                         image

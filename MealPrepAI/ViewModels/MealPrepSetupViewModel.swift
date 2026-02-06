@@ -280,7 +280,7 @@ final class MealPrepSetupViewModel {
                         sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
                     )
                     let activePlan = try? modelContext.fetch(descriptor).first
-                    nm.rescheduleAllNotifications(
+                    await nm.rescheduleAllNotifications(
                         activePlan: activePlan,
                         isSubscribed: isSubscribed,
                         trialStartDate: profile.createdAt

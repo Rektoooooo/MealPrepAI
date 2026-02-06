@@ -8,7 +8,8 @@ struct MealPrepSetupView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SubscriptionManager.self) var subscriptionManager
     @Environment(NotificationManager.self) var notificationManager
-    @Query private var userProfiles: [UserProfile]
+    @Environment(NetworkMonitor.self) var networkMonitor
+    @Environment(\.userProfile) private var userProfile
 
     @State private var viewModel: MealPrepSetupViewModel
     @Bindable var generator: MealPlanGenerator
@@ -22,10 +23,6 @@ struct MealPrepSetupView: View {
         self.generator = generator
         self.skipWelcome = skipWelcome
         self._viewModel = State(initialValue: MealPrepSetupViewModel(skipWelcome: skipWelcome))
-    }
-
-    private var userProfile: UserProfile? {
-        userProfiles.first
     }
 
     var body: some View {
@@ -53,6 +50,14 @@ struct MealPrepSetupView: View {
             }
         }
         .interactiveDismissDisabled(viewModel.isGenerating)
+        .alert("Something Went Wrong", isPresented: Binding(
+            get: { viewModel.generationError != nil },
+            set: { if !$0 { viewModel.generationError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.generationError?.localizedDescription ?? "Please try again.")
+        }
         .onAppear {
             if !subscriptionManager.isSubscribed && (userProfile?.hasUsedFreeTrial == true) {
                 showingPaywall = true
@@ -178,6 +183,10 @@ struct MealPrepSetupView: View {
     // MARK: - Actions
     private func generatePlan() {
         guard let profile = userProfile else { return }
+        guard networkMonitor.isConnected else {
+            viewModel.generationError = APIError.noConnection
+            return
+        }
 
         viewModel.generateMealPlan(
             for: profile,

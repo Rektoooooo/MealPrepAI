@@ -19,13 +19,13 @@ final class MealPlan {
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \Day.mealPlan)
-    var days: [Day]?
+    var days: [Day] = []
 
     @Relationship(deleteRule: .cascade, inverse: \GroceryList.mealPlan)
     var groceryList: GroceryList?
 
     var sortedDays: [Day] {
-        (days ?? []).sorted { $0.date < $1.date }
+        days.sorted { $0.date < $1.date }
     }
 
     init(

@@ -51,10 +51,10 @@ final class Recipe {
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \RecipeIngredient.recipe)
-    var ingredients: [RecipeIngredient]?
+    var ingredients: [RecipeIngredient] = []
 
     @Relationship(inverse: \Meal.recipe)
-    var meals: [Meal]?
+    var meals: [Meal] = []
 
     // Computed properties for enums and arrays
     var instructions: [String] {

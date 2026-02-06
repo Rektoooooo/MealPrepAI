@@ -37,34 +37,34 @@ Full audit performed Feb 6, 2026 by 4 specialized agents across 80+ files.
 
 ## MEDIUM PRIORITY (Fix soon after release)
 
-- [ ] **22. Multiple UserProfile records possible** — `OnboardingViewModel.saveProfile()` and `NewOnboardingViewModel.saveProfile()` insert without checking if one exists. Add uniqueness check before insert.
-- [ ] **23. try? silently swallows JSON encoding failures** — `UserProfile.swift` multiple computed property setters use `try?` for JSONEncoder. Log failures at minimum.
-- [ ] **24. Timer leak in IngredientSubstitutionSheet** — `IngredientSubstitutionSheet.swift:462` starts timer without storing reference for cleanup. Store timer and invalidate in `onDisappear`.
-- [ ] **25. No clipboard confirmation toast** — `ShareGroceryListSheet` (line 833), `ShareRecipeSheet` (line 101) copy to clipboard with no visual confirmation. Add brief toast/overlay.
-- [ ] **26. Tab bar selected color invisible in dark mode** — `ContentView.swift:80` uses `Color(hex: "1C1C1E")` for active tab background, invisible on dark backgrounds. Use adaptive color.
-- [ ] **27. No network reachability check** — `APIService` makes calls without checking connectivity. User gets generic timeout after 5 min instead of immediate "No internet" message. Use `NWPathMonitor`.
-- [ ] **28. Touch targets below 44x44pt** — Recipe card add button 34x34pt (`RecipeCardComponents.swift:199`), grocery checkbox 26x26pt (`GroceryListView.swift:455`). Increase to 44pt minimum.
-- [ ] **29. Color-only state indicators** — Meal dots 8x8pt (`TodayView.swift:230-241`), macro dots 6x6pt (`MealCardComponents.swift:264-281`), today indicator 5x5pt (`WeeklyPlanView.swift:456-463`). Add shape/text differentiation.
-- [ ] **30. Non-cancellable DispatchQueue.main.asyncAfter** — 5 occurrences (`CalculatingStepView.swift:106,124`, `RecipesView.swift:365`, `IngredientSubstitutionSheet.swift:454,573`). Replace with `Task.sleep` or `.task` modifier.
-- [ ] **31. RecipesView excessive re-renders** — 4 `@Query` properties + 6 `.onChange` handlers (`RecipesView.swift:8-12,384-398`). Move sync logic to ViewModel, reduce @Query count.
-- [ ] **32. AsyncImage has no persistent caching** — `ImageComponents.swift:108` uses URLSession default cache. Use dedicated image caching (Kingfisher/SDWebImage or custom URLCache).
-- [ ] **33. Images not downsampled** — 9 occurrences of `UIImage(data:)` decode at full resolution. Use `preparingThumbnail(of:)` or ImageIO downsampling.
-- [ ] **34. InsightsView hero card accessibility** — `InsightsView.swift:81-158` weekly adherence card has no accessibility labels or combined element.
-- [ ] **35. RecipeDetailSheet ingredient swap fails silently** — `RecipeDetailSheet.swift:353-361` sheet doesn't appear if no UserProfile exists. Show feedback.
+- [x] **22. Multiple UserProfile records possible** — `OnboardingViewModel.saveProfile()` and `NewOnboardingViewModel.saveProfile()` insert without checking if one exists. Add uniqueness check before insert.
+- [x] **23. try? silently swallows JSON encoding failures** — `UserProfile.swift` multiple computed property setters use `try?` for JSONEncoder. Log failures at minimum.
+- [x] **24. Timer leak in IngredientSubstitutionSheet** — `IngredientSubstitutionSheet.swift:462` starts timer without storing reference for cleanup. Store timer and invalidate in `onDisappear`.
+- [x] **25. No clipboard confirmation toast** — `ShareGroceryListSheet` (line 833), `ShareRecipeSheet` (line 101) copy to clipboard with no visual confirmation. Add brief toast/overlay.
+- [x] **26. Tab bar selected color invisible in dark mode** — `ContentView.swift:80` uses `Color(hex: "1C1C1E")` for active tab background, invisible on dark backgrounds. Use adaptive color.
+- [x] **27. No network reachability check** — `APIService` makes calls without checking connectivity. User gets generic timeout after 5 min instead of immediate "No internet" message. Use `NWPathMonitor`.
+- [x] **28. Touch targets below 44x44pt** — Recipe card add button 34x34pt (`RecipeCardComponents.swift:199`), grocery checkbox 26x26pt (`GroceryListView.swift:455`). Increase to 44pt minimum.
+- [x] **29. Color-only state indicators** — Meal dots 8x8pt (`TodayView.swift:230-241`), macro dots 6x6pt (`MealCardComponents.swift:264-281`), today indicator 5x5pt (`WeeklyPlanView.swift:456-463`). Add shape/text differentiation.
+- [x] **30. Non-cancellable DispatchQueue.main.asyncAfter** — 5 occurrences (`CalculatingStepView.swift:106,124`, `RecipesView.swift:365`, `IngredientSubstitutionSheet.swift:454,573`). Replace with `Task.sleep` or `.task` modifier.
+- [x] **31. RecipesView excessive re-renders** — 4 `@Query` properties + 6 `.onChange` handlers (`RecipesView.swift:8-12,384-398`). Move sync logic to ViewModel, reduce @Query count.
+- [x] **32. AsyncImage has no persistent caching** — `ImageComponents.swift:108` uses URLSession default cache. Use dedicated image caching (Kingfisher/SDWebImage or custom URLCache).
+- [x] **33. Images not downsampled** — 9 occurrences of `UIImage(data:)` decode at full resolution. Use `preparingThumbnail(of:)` or ImageIO downsampling.
+- [x] **34. InsightsView hero card accessibility** *(was already fixed)* — `InsightsView.swift:81-158` weekly adherence card has no accessibility labels or combined element.
+- [x] **35. RecipeDetailSheet ingredient swap fails silently** — `RecipeDetailSheet.swift:353-361` sheet doesn't appear if no UserProfile exists. Show feedback.
 
 ---
 
 ## LOW PRIORITY (Polish / future)
 
-- [ ] **36. Duplicate currentMealPlan property** — `RecipesView.swift:46` and `:767` define same computed property. Remove duplicate.
-- [ ] **37. Date selector unbounded navigation** — `TodayView.swift:531-537` can navigate beyond meal plan dates. Add bounds checking.
-- [ ] **38. Grocery sort by raw string** — `GroceryList.sortedItems` sorts by `rawValue` string (alphabetical) instead of logical aisle order.
-- [ ] **39. Optional arrays in SwiftData relationships** — `UserProfile.mealPlans: [MealPlan]?` returns nil instead of empty array. Consider non-optional with default `[]`.
-- [ ] **40. No retry logic for API calls** — All 3 endpoints make single attempt. Add retry with exponential backoff.
-- [ ] **41. Hardcoded API URL** — `APIService.swift:5-6` no staging/prod config. Use build settings or config file.
-- [ ] **42. Redundant @Query var userProfiles in 9+ views** — Each view queries the same single UserProfile. Pass via Environment instead.
-- [ ] **43. Zero accessibilityIdentifier values** — No UI test identifiers in entire codebase. Add to key interactive elements.
-- [ ] **44. Superwall API key hardcoded** — `MealPrepAIApp.swift:99` publishable key in source. Low risk but move to config file.
+- [x] **36. Duplicate currentMealPlan property** — Removed duplicate from RecipesView.
+- [x] **37. Date selector unbounded navigation** — Added bounds checking to TodayView date navigation.
+- [x] **38. Grocery sort by raw string** — Added `sortOrder` to GroceryCategory for logical aisle ordering.
+- [x] **39. Optional arrays in SwiftData relationships** — Changed to non-optional with default `[]` across all @Model classes.
+- [x] **40. No retry logic for API calls** — Added `withRetry` wrapper with exponential backoff (skips 4xx errors).
+- [x] **41. Hardcoded API URL** — Created `APIConfiguration` with `#if DEBUG` staging/prod switching.
+- [x] **42. Redundant @Query var userProfiles in 9+ views** — Created `UserProfileEnvironment` key, single @Query in ContentView, propagated via `.environment()`.
+- [x] **43. Zero accessibilityIdentifier values** — Added identifiers to all key interactive elements across all screens.
+- [x] **44. Superwall API key hardcoded** — Moved to `AppConfig` with `#if DEBUG` key switching.
 
 ---
 
@@ -74,5 +74,5 @@ Full audit performed Feb 6, 2026 by 4 specialized agents across 80+ files.
 |----------|-------|------|-----------|
 | Blockers | 7 | 7 | 0 |
 | High | 14 | 12 | 2 |
-| Medium | 14 | 0 | 14 |
-| Low | 9 | 0 | 9 |
+| Medium | 14 | 14 | 0 |
+| Low | 9 | 9 | 0 |

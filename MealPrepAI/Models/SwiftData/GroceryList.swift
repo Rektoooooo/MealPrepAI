@@ -16,22 +16,22 @@ final class GroceryList {
 
     // Relationships
     @Relationship(deleteRule: .cascade, inverse: \GroceryItem.groceryList)
-    var items: [GroceryItem]?
+    var items: [GroceryItem] = []
 
     var sortedItems: [GroceryItem] {
-        (items ?? []).sorted { $0.ingredient?.category.rawValue ?? "" < $1.ingredient?.category.rawValue ?? "" }
+        items.sorted { ($0.ingredient?.category ?? .other).sortOrder < ($1.ingredient?.category ?? .other).sortOrder }
     }
 
     var itemsByCategory: [GroceryCategory: [GroceryItem]] {
-        Dictionary(grouping: items ?? []) { $0.ingredient?.category ?? .other }
+        Dictionary(grouping: items) { $0.ingredient?.category ?? .other }
     }
 
     var checkedCount: Int {
-        (items ?? []).filter { $0.isChecked }.count
+        items.filter { $0.isChecked }.count
     }
 
     var totalCount: Int {
-        items?.count ?? 0
+        items.count
     }
 
     var progress: Double {
