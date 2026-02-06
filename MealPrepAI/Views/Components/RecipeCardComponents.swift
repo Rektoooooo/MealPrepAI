@@ -305,11 +305,8 @@ struct StackedRecipeCard: View {
             .frame(height: 215)
             .background(Color.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
-            .shadow(
-                color: Design.Shadow.card.color.opacity(0.8),
-                radius: Design.Shadow.card.radius,
-                y: Design.Shadow.card.y
-            )
+            .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+            .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)

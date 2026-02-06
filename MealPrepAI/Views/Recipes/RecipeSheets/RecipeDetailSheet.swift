@@ -29,16 +29,29 @@ struct RecipeDetailSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
+        ZStack(alignment: .top) {
             ScrollView {
                 VStack(alignment: .leading, spacing: Design.Spacing.lg) {
-                    // Hero image - uses smart loader with high-res fallback
-                    RecipeAsyncImage(
-                        recipe: recipe,
-                        height: 200,
-                        cornerRadius: Design.Radius.featured
-                    )
-                    .padding(.horizontal, Design.Spacing.lg)
+                    // Hero image - full width, extends to top of sheet
+                    ZStack(alignment: .bottom) {
+                        RecipeAsyncImage(
+                            recipe: recipe,
+                            height: 260,
+                            cornerRadius: 0
+                        )
+
+                        // Gradient fade to background
+                        LinearGradient(
+                            colors: [
+                                Color.cardBackground.opacity(0),
+                                Color.cardBackground.opacity(0.6),
+                                Color.cardBackground
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 80)
+                    }
 
                     // Info
                     VStack(alignment: .leading, spacing: Design.Spacing.md) {
@@ -292,50 +305,69 @@ struct RecipeDetailSheet: View {
                 .padding(.bottom, Design.Spacing.xxl)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle("Recipe")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                        .foregroundStyle(Color.accentPurple)
+            .ignoresSafeArea(edges: .top)
+
+            // Floating top bar overlay
+            HStack {
+                Button("Close") { dismiss() }
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, Design.Spacing.md)
+                    .padding(.vertical, Design.Spacing.sm)
+                    .background(.ultraThinMaterial, in: Capsule())
+
+                Spacer()
+
+                Text("Recipe")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, Design.Spacing.lg)
+                    .padding(.vertical, Design.Spacing.sm)
+                    .background(.ultraThinMaterial, in: Capsule())
+
+                Spacer()
+
+                Button(action: { toggleFavorite() }) {
+                    Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(recipe.isFavorite ? .red : .primary)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { toggleFavorite() }) {
-                        Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                            .foregroundStyle(recipe.isFavorite ? .red : Color.accentPurple)
-                    }
-                    .accessibilityLabel(recipe.isFavorite ? "Remove from favorites" : "Add to favorites")
-                    .accessibilityHint("Double tap to toggle favorite")
-                }
+                .accessibilityLabel(recipe.isFavorite ? "Remove from favorites" : "Add to favorites")
+                .accessibilityHint("Double tap to toggle favorite")
+                .padding(Design.Spacing.sm)
+                .background(.ultraThinMaterial, in: Circle())
             }
-            .sheet(isPresented: $showingAddToPlan) {
-                AddRecipeToPlanSheet(recipe: recipe, mealPlan: currentMealPlan)
+            .padding(.horizontal, Design.Spacing.lg)
+            .padding(.top, Design.Spacing.md)
+        }
+        .sheet(isPresented: $showingAddToPlan) {
+            AddRecipeToPlanSheet(recipe: recipe, mealPlan: currentMealPlan)
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            EditRecipeSheet(recipe: recipe)
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            ShareRecipeSheet(recipe: recipe)
+        }
+        .sheet(item: $ingredientToSwap) { ingredient in
+            if let profile = userProfiles.first {
+                IngredientSubstitutionSheet(
+                    recipe: recipe,
+                    recipeIngredient: ingredient,
+                    userProfile: profile
+                )
             }
-            .sheet(isPresented: $showingEditSheet) {
-                EditRecipeSheet(recipe: recipe)
+        }
+        .alert("Delete Recipe", isPresented: $showingDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                modelContext.delete(recipe)
+                try? modelContext.save()
+                dismiss()
             }
-            .sheet(isPresented: $showingShareSheet) {
-                ShareRecipeSheet(recipe: recipe)
-            }
-            .sheet(item: $ingredientToSwap) { ingredient in
-                if let profile = userProfiles.first {
-                    IngredientSubstitutionSheet(
-                        recipe: recipe,
-                        recipeIngredient: ingredient,
-                        userProfile: profile
-                    )
-                }
-            }
-            .alert("Delete Recipe", isPresented: $showingDeleteConfirmation) {
-                Button("Delete", role: .destructive) {
-                    modelContext.delete(recipe)
-                    try? modelContext.save()
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Are you sure you want to delete \"\(recipe.name)\"? This cannot be undone.")
-            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete \"\(recipe.name)\"? This cannot be undone.")
         }
     }
 
