@@ -81,11 +81,15 @@ final class Recipe {
         prepTimeMinutes + cookTimeMinutes
     }
 
-    /// Infers advance prep from instruction keywords (overnight, marinate, soak, etc.)
+    @Transient private var _cachedInferredAdvancePrep: Bool?
+
     var inferredAdvancePrep: Bool {
+        if let cached = _cachedInferredAdvancePrep { return cached }
         let keywords = ["overnight", "marinate", "refrigerate for", "soak", "chill for", "rest overnight", "freeze for"]
         let text = instructions.joined(separator: " ").lowercased()
-        return keywords.contains { text.contains($0) }
+        let result = keywords.contains { text.contains($0) }
+        _cachedInferredAdvancePrep = result
+        return result
     }
 
     /// Whether this recipe needs advance prep (explicit flag or inferred from instructions)
@@ -148,8 +152,16 @@ final class Recipe {
         return !validSteps.isEmpty && validSteps.first != "No instructions available."
     }
 
-    /// Parsed instructions - splits long instruction blocks into individual steps and filters garbage
+    @Transient private var _cachedParsedInstructions: [String]?
+
     var parsedInstructions: [String] {
+        if let cached = _cachedParsedInstructions { return cached }
+        let result = computeParsedInstructions()
+        _cachedParsedInstructions = result
+        return result
+    }
+
+    private func computeParsedInstructions() -> [String] {
         let rawInstructions = instructions
 
         // Handle empty instructions

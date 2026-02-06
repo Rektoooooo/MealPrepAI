@@ -628,15 +628,13 @@ struct ProgressRing: View {
                     .foregroundStyle(.primary)
             }
         }
-        .onAppear {
-            withAnimation(.easeOut(duration: 1.0)) {
-                animatedProgress = min(progress, 1.0)
-            }
-        }
         .onChange(of: progress) { _, newValue in
             withAnimation(.easeOut(duration: 0.5)) {
                 animatedProgress = min(newValue, 1.0)
             }
+        }
+        .onAppear {
+            animatedProgress = min(progress, 1.0)
         }
         .accessibilityLabel("Progress")
         .accessibilityValue("\(Int(animatedProgress * 100)) percent")

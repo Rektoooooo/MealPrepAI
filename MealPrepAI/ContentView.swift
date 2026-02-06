@@ -57,7 +57,7 @@ struct FloatingTabBar: View {
                     HStack(spacing: 6) {
                         Image(systemName: isSelected ? tabs[index].selectedIcon : tabs[index].icon)
                             .font(.system(size: isSelected ? 18 : 21, weight: isSelected ? .semibold : .medium))
-                            .symbolEffect(.bounce, value: selectedTab)
+                            .symbolEffect(.bounce, value: selectedTab == index)
 
                         if isSelected {
                             Text(tabs[index].label)

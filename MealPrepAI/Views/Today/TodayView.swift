@@ -28,39 +28,31 @@ struct TodayView: View {
         userProfiles.first
     }
 
-    private var todaysMeals: [Meal] {
-        guard let plan = currentMealPlan else { return [] }
-        let calendar = Calendar.current
-
-        // Find the day that matches selected date
-        if let day = plan.sortedDays.first(where: { calendar.isDate($0.date, inSameDayAs: selectedDate) }) {
-            return day.sortedMeals
-        }
-        return []
-    }
-
     private var todaysDay: Day? {
         guard let plan = currentMealPlan else { return nil }
         let calendar = Calendar.current
         return plan.sortedDays.first(where: { calendar.isDate($0.date, inSameDayAs: selectedDate) })
     }
 
-    // MARK: - Eaten-only nutrition totals
-    private var eatenCalories: Int {
-        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.calories ?? 0) }
+    private var todaysMeals: [Meal] {
+        todaysDay?.sortedMeals ?? []
     }
 
-    private var eatenProtein: Int {
-        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.proteinGrams ?? 0) }
+    private var eatenNutrition: (calories: Int, protein: Int, carbs: Int, fat: Int) {
+        var cal = 0, pro = 0, carb = 0, fat = 0
+        for meal in todaysMeals where meal.isEaten {
+            cal += meal.recipe?.calories ?? 0
+            pro += meal.recipe?.proteinGrams ?? 0
+            carb += meal.recipe?.carbsGrams ?? 0
+            fat += meal.recipe?.fatGrams ?? 0
+        }
+        return (cal, pro, carb, fat)
     }
 
-    private var eatenCarbs: Int {
-        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.carbsGrams ?? 0) }
-    }
-
-    private var eatenFat: Int {
-        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.fatGrams ?? 0) }
-    }
+    private var eatenCalories: Int { eatenNutrition.calories }
+    private var eatenProtein: Int { eatenNutrition.protein }
+    private var eatenCarbs: Int { eatenNutrition.carbs }
+    private var eatenFat: Int { eatenNutrition.fat }
 
     var body: some View {
         NavigationStack {
@@ -999,6 +991,7 @@ struct GeneratingMealPlanView: View {
     @State private var currentTipIndex = 0
     @State private var floatOffset: CGFloat = 0
     @State private var progressWidth: CGFloat = 0.05
+    @State private var animationTimers: [Timer] = []
 
     private let tips = [
         "Analyzing your preferences...",
@@ -1140,37 +1133,37 @@ struct GeneratingMealPlanView: View {
         .onAppear {
             startAnimations()
         }
+        .onDisappear {
+            animationTimers.forEach { $0.invalidate() }
+            animationTimers.removeAll()
+        }
     }
 
     private func startAnimations() {
         isAnimating = true
 
-        // Pulse animation - smooth and elegant
         withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
             pulseScale = 1.2
         }
 
-        // Rotation animation - slow and smooth
         withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
             rotationAngle = 360
         }
 
-        // Float animation for center icon
         withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
             floatOffset = -8
         }
 
-        // Progress bar animation - gradual fill
         withAnimation(.easeInOut(duration: 45)) {
             progressWidth = 0.92
         }
 
-        // Tip cycling - every 4 seconds for better readability
-        Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
+        let tipTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
             withAnimation(.easeInOut(duration: 0.5)) {
                 currentTipIndex += 1
             }
         }
+        animationTimers.append(tipTimer)
     }
 }
 
@@ -1189,6 +1182,7 @@ struct SwapMealSheet: View {
     @State private var swapRingProgress: CGFloat = 0
     @State private var swapMessageIndex = 0
     @State private var swapEmojiOffset: CGFloat = 0
+    @State private var animationTimers: [Timer] = []
 
     private let swapMessages = [
         "Finding the perfect recipe...",
@@ -1320,9 +1314,16 @@ struct SwapMealSheet: View {
         .onChange(of: isSwapping) { _, swapping in
             if swapping { startSwapAnimations() }
         }
+        .onDisappear {
+            animationTimers.forEach { $0.invalidate() }
+            animationTimers.removeAll()
+        }
     }
 
     private func startSwapAnimations() {
+        animationTimers.forEach { $0.invalidate() }
+        animationTimers.removeAll()
+
         swapRingProgress = 0
         swapMessageIndex = 0
         swapEmojiOffset = 0
@@ -1331,19 +1332,21 @@ struct SwapMealSheet: View {
             swapRingProgress = 0.85
         }
 
-        Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [generator] timer in
+        let messageTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [generator] timer in
             Task { @MainActor in
                 if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
                 withAnimation(.easeInOut(duration: 0.5)) { swapMessageIndex += 1 }
             }
         }
+        animationTimers.append(messageTimer)
 
-        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [generator] timer in
+        let emojiTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [generator] timer in
             Task { @MainActor in
                 if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { swapEmojiOffset += 1 }
             }
         }
+        animationTimers.append(emojiTimer)
     }
 
     private func swapSelectedMeal() {

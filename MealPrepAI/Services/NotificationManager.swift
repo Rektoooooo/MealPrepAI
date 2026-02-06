@@ -277,10 +277,14 @@ final class NotificationManager {
 
     // MARK: - Helpers
 
+    private static let dateStringFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     private static func dateString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        dateStringFormatter.string(from: date)
     }
 
     // MARK: - Private Methods (In-App Notifications)

@@ -72,17 +72,20 @@ struct WeeklyPlanView: View {
         return sortedDays.first { calendar.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
-    // Week days based on viewingWeekStart (always available, not dependent on meal plan)
+    private static let weekDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
+
     private var weekDaysFromViewingWeek: [(dayName: String, date: Int, fullDate: Date)] {
         let calendar = Calendar.current
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
 
         return (0..<7).compactMap { dayOffset in
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: viewingWeekStart) else {
                 return nil
             }
-            let dayName = formatter.string(from: date)
+            let dayName = Self.weekDayFormatter.string(from: date)
             let dayOfMonth = calendar.component(.day, from: date)
             return (dayName: dayName, date: dayOfMonth, fullDate: date)
         }
@@ -99,14 +102,11 @@ struct WeeklyPlanView: View {
               let lastDay = plan.sortedDays.last else { return nil }
 
         let calendar = Calendar.current
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
 
-        // Next plan starts the day after current plan ends
         guard let nextStart = calendar.date(byAdding: .day, value: 1, to: lastDay.date),
               let nextEnd = calendar.date(byAdding: .day, value: 6, to: nextStart) else { return nil }
 
-        return "\(formatter.string(from: nextStart)) - \(formatter.string(from: nextEnd))"
+        return "\(Self.monthDayFormatter.string(from: nextStart)) - \(Self.monthDayFormatter.string(from: nextEnd))"
     }
 
     // Check if we're viewing a day after the current plan ends
@@ -410,12 +410,16 @@ struct WeeklyPlanView: View {
         }
     }
 
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
+
     private var weekDateRangeForCurrentView: String {
         let calendar = Calendar.current
         let endDate = calendar.date(byAdding: .day, value: 6, to: viewingWeekStart) ?? viewingWeekStart
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return "\(formatter.string(from: viewingWeekStart)) - \(formatter.string(from: endDate))"
+        return "\(Self.monthDayFormatter.string(from: viewingWeekStart)) - \(Self.monthDayFormatter.string(from: endDate))"
     }
 
     private var weekLabelForCurrentView: String {
@@ -512,32 +516,25 @@ struct WeeklyPlanView: View {
 
     // MARK: - Meals By Type Section
     private func mealsByTypeSection(for day: Day) -> some View {
-        VStack(spacing: Design.Spacing.lg) {
-            // Breakfast
-            let breakfastMeals = day.sortedMeals.filter { $0.mealType == .breakfast }
-            if !breakfastMeals.isEmpty {
+        let grouped = Dictionary(grouping: day.sortedMeals) { $0.mealType }
+
+        return VStack(spacing: Design.Spacing.lg) {
+            if let breakfastMeals = grouped[.breakfast], !breakfastMeals.isEmpty {
                 mealTypeSection(title: "Breakfast", icon: "sunrise.fill", iconColor: Color.accentYellow, meals: breakfastMeals)
             }
 
-            // Lunch
-            let lunchMeals = day.sortedMeals.filter { $0.mealType == .lunch }
-            if !lunchMeals.isEmpty {
+            if let lunchMeals = grouped[.lunch], !lunchMeals.isEmpty {
                 mealTypeSection(title: "Lunch", icon: "sun.max.fill", iconColor: Color.mintVibrant, meals: lunchMeals)
             }
 
-            // Dinner
-            let dinnerMeals = day.sortedMeals.filter { $0.mealType == .dinner }
-            if !dinnerMeals.isEmpty {
+            if let dinnerMeals = grouped[.dinner], !dinnerMeals.isEmpty {
                 mealTypeSection(title: "Dinner", icon: "moon.stars.fill", iconColor: Color.accentPurple, meals: dinnerMeals)
             }
 
-            // Snack
-            let snackMeals = day.sortedMeals.filter { $0.mealType == .snack }
-            if !snackMeals.isEmpty {
+            if let snackMeals = grouped[.snack], !snackMeals.isEmpty {
                 mealTypeSection(title: "Snack", icon: "leaf.fill", iconColor: Color.mintVibrant, meals: snackMeals)
             }
 
-            // Show message if no meals
             if day.sortedMeals.isEmpty {
                 VStack(spacing: Design.Spacing.md) {
                     NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color.textSecondary)

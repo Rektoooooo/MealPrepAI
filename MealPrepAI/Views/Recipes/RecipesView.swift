@@ -20,8 +20,11 @@ struct RecipesView: View {
     @State private var showingAddRecipe = false
     @State private var showingFilterSheet = false
     @State private var animateContent = false
+    @State private var hasAppeared = false
     @State private var selectedRecipe: Recipe?
     @State private var recipeToAddToPlan: Recipe?
+    @State private var cachedFilteredRecipes: [Recipe] = []
+    @State private var cachedGridRecipes: [Recipe] = []
 
     // MARK: - Firebase Integration State
     @State private var isLoading = false
@@ -45,36 +48,33 @@ struct RecipesView: View {
     }
 
     private var filteredRecipes: [Recipe] {
-        // Start with recipes that have valid instructions and are from Firebase (not AI-generated)
+        cachedFilteredRecipes
+    }
+
+    private func updateFilteredRecipes() {
         var recipes = allRecipes.filter { $0.isCustom || ($0.hasValidInstructions && $0.isFromFirebase) }
 
-        // Apply category filter
         if selectedCategory != .all {
             recipes = recipes.filter { recipe in
                 recipe.matchesCategory(selectedCategory)
             }
         }
 
-        // Apply all selected filters (recipe must match ALL selected filters)
         for filter in selectedFilters {
             recipes = recipes.filter { recipe in
                 filter.matches(recipe)
             }
         }
 
-        // Apply search to local recipes (uses debounced text to avoid filtering on every keystroke)
         if !debouncedSearchText.isEmpty {
             recipes = recipes.filter {
                 $0.name.localizedCaseInsensitiveContains(debouncedSearchText) ||
                 $0.recipeDescription.localizedCaseInsensitiveContains(debouncedSearchText)
             }
 
-            // Merge with Firebase search results (avoiding duplicates)
-            // Use non-nil firebaseIds for deduplication, also check by recipe ID
             let localFirebaseIds = Set(recipes.compactMap { $0.firebaseId })
             let localRecipeIds = Set(recipes.map { $0.id })
             let uniqueFirebaseResults = firebaseSearchResults.filter { recipe in
-                // Exclude if we already have this recipe by firebaseId or by persistentModelID
                 if let fbId = recipe.firebaseId, localFirebaseIds.contains(fbId) {
                     return false
                 }
@@ -86,7 +86,13 @@ struct RecipesView: View {
             recipes.append(contentsOf: uniqueFirebaseResults)
         }
 
-        return recipes
+        cachedFilteredRecipes = recipes
+
+        if let featured = featuredRecipe, selectedCategory == .all && debouncedSearchText.isEmpty {
+            cachedGridRecipes = recipes.filter { $0.id != featured.id }
+        } else {
+            cachedGridRecipes = recipes
+        }
     }
 
     /// Check if any filter is active
@@ -111,10 +117,7 @@ struct RecipesView: View {
     }
 
     private var gridRecipes: [Recipe] {
-        if let featured = featuredRecipe, selectedCategory == .all && debouncedSearchText.isEmpty {
-            return filteredRecipes.filter { $0.id != featured.id }
-        }
-        return filteredRecipes
+        cachedGridRecipes
     }
 
     private var emptyStateTitle: String {
@@ -265,7 +268,7 @@ struct RecipesView: View {
                                     .opacity(animateContent ? 1 : 0)
                                     .offset(y: animateContent ? 0 : 20)
                                     .animation(
-                                        .easeOut(duration: 0.4).delay(Double(min(index, 10)) * 0.05),
+                                        .easeOut(duration: 0.4).delay(hasAppeared ? 0 : Double(min(index, 10)) * 0.05),
                                         value: animateContent
                                     )
                                 }
@@ -359,25 +362,39 @@ struct RecipesView: View {
                     withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
                         animateContent = true
                     }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        hasAppeared = true
+                    }
                 }
-                // Load last sync date from UserDefaults
                 lastSyncDate = UserDefaults.standard.object(forKey: "lastRecipeSyncDate") as? Date
+                updateFilteredRecipes()
             }
             .onChange(of: searchText) { _, newValue in
-                // Debounce search - cancel previous task and start new one
                 searchTask?.cancel()
                 searchTask = Task {
-                    // Wait 500ms before updating debounced text
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     if !Task.isCancelled {
                         debouncedSearchText = newValue
-                        // Only clear Firebase results AFTER debounce when search is cleared
-                        // This prevents UI flickering while typing
                         if newValue.isEmpty {
                             firebaseSearchResults = []
                         }
                     }
                 }
+            }
+            .onChange(of: debouncedSearchText) { _, _ in
+                updateFilteredRecipes()
+            }
+            .onChange(of: selectedCategory) { _, _ in
+                updateFilteredRecipes()
+            }
+            .onChange(of: selectedFilters) { _, _ in
+                updateFilteredRecipes()
+            }
+            .onChange(of: allRecipes.count) { _, _ in
+                updateFilteredRecipes()
+            }
+            .onChange(of: firebaseSearchResults.count) { _, _ in
+                updateFilteredRecipes()
             }
             .task {
                 // Attempt initial sync if needed

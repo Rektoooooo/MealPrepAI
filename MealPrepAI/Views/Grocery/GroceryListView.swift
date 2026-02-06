@@ -7,6 +7,8 @@ struct GroceryListView: View {
     private var mealPlans: [MealPlan]
 
     @State private var searchText = ""
+    @State private var debouncedSearchText = ""
+    @State private var searchTask: Task<Void, Never>?
     @State private var showingAddItem = false
     @State private var showingShareSheet = false
     @State private var showingHistory = false
@@ -26,11 +28,11 @@ struct GroceryListView: View {
     }
 
     private var filteredItems: [GroceryItem] {
-        if searchText.isEmpty {
+        if debouncedSearchText.isEmpty {
             return allItems
         }
         return allItems.filter {
-            $0.displayName.localizedCaseInsensitiveContains(searchText)
+            $0.displayName.localizedCaseInsensitiveContains(debouncedSearchText)
         }
     }
 
@@ -154,6 +156,15 @@ struct GroceryListView: View {
             .onAppear {
                 withAnimation(.easeOut(duration: 0.5)) {
                     animateContent = true
+                }
+            }
+            .onChange(of: searchText) { _, newValue in
+                searchTask?.cancel()
+                searchTask = Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    if !Task.isCancelled {
+                        debouncedSearchText = newValue
+                    }
                 }
             }
         }

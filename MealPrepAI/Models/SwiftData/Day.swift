@@ -23,32 +23,40 @@ final class Day {
         }
     }
 
-    var totalCalories: Int {
-        (meals ?? []).reduce(0) { $0 + ($1.recipe?.calories ?? 0) }
+    var nutritionTotals: (calories: Int, protein: Int, carbs: Int, fat: Int) {
+        var cal = 0, pro = 0, carb = 0, fat = 0
+        for m in meals ?? [] {
+            cal += m.recipe?.calories ?? 0
+            pro += m.recipe?.proteinGrams ?? 0
+            carb += m.recipe?.carbsGrams ?? 0
+            fat += m.recipe?.fatGrams ?? 0
+        }
+        return (cal, pro, carb, fat)
     }
 
-    var totalProtein: Int {
-        (meals ?? []).reduce(0) { $0 + ($1.recipe?.proteinGrams ?? 0) }
-    }
+    var totalCalories: Int { nutritionTotals.calories }
+    var totalProtein: Int { nutritionTotals.protein }
+    var totalCarbs: Int { nutritionTotals.carbs }
+    var totalFat: Int { nutritionTotals.fat }
 
-    var totalCarbs: Int {
-        (meals ?? []).reduce(0) { $0 + ($1.recipe?.carbsGrams ?? 0) }
-    }
+    private static let dayNameFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE"
+        return f
+    }()
 
-    var totalFat: Int {
-        (meals ?? []).reduce(0) { $0 + ($1.recipe?.fatGrams ?? 0) }
-    }
+    private static let shortDayNameFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f
+    }()
 
     var dayName: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: date)
+        Day.dayNameFormatter.string(from: date)
     }
 
     var shortDayName: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE"
-        return formatter.string(from: date)
+        Day.shortDayNameFormatter.string(from: date)
     }
 
     init(
