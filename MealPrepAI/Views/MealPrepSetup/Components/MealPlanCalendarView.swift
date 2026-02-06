@@ -75,7 +75,7 @@ struct MealPlanCalendarView: View {
                     }
                 }) {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(OnboardingDesign.Typography.body).fontWeight(.semibold)
                         .foregroundStyle(canGoBack ? OnboardingDesign.Colors.textPrimary : OnboardingDesign.Colors.textTertiary)
                 }
                 .accessibilityLabel("Previous month")
@@ -95,7 +95,7 @@ struct MealPlanCalendarView: View {
                     }
                 }) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(OnboardingDesign.Typography.body).fontWeight(.semibold)
                         .foregroundStyle(canGoForward ? OnboardingDesign.Colors.textPrimary : OnboardingDesign.Colors.textTertiary)
                 }
                 .accessibilityLabel("Next month")
@@ -208,7 +208,7 @@ struct MealPlanCalendarView: View {
                 }
             }) {
                 Text("\(calendar.component(.day, from: date))")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(OnboardingDesign.Typography.subheadline).fontWeight(.bold)
                     .foregroundStyle(
                         !isCurrentMonth ? OnboardingDesign.Colors.textTertiary.opacity(0.4) :
                         !isSelectable || (isSelectingEnd && (!isWithinMaxRange || !isValidEndTarget)) ? OnboardingDesign.Colors.textTertiary.opacity(0.3) :

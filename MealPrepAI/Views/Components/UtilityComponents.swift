@@ -39,7 +39,7 @@ struct GreetingHeader: View {
 
                     if let emoji = avatarEmoji {
                         Text(emoji)
-                            .font(.system(size: 24))
+                            .font(Design.Typography.title2)
                     } else {
                         Text(String(userName.prefix(2)).uppercased())
                             .font(.system(.body, design: .rounded, weight: .bold))
@@ -75,7 +75,7 @@ struct RoundedSearchBar: View {
     var body: some View {
         HStack(spacing: Design.Spacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
+                .font(Design.Typography.callout.weight(.medium))
                 .foregroundStyle(.secondary)
 
             TextField(placeholder, text: $text)
@@ -88,7 +88,7 @@ struct RoundedSearchBar: View {
             if !text.isEmpty {
                 Button(action: { text = "" }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                         .foregroundStyle(.tertiary)
                 }
                 .accessibilityLabel("Clear search")
@@ -117,7 +117,7 @@ struct NewSectionHeader: View {
             HStack(spacing: Design.Spacing.xs) {
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(Design.Typography.bodyLarge.weight(.semibold))
                         .foregroundStyle(iconColor)
                 } else if let emoji = emoji {
                     Text(emoji)
@@ -242,7 +242,7 @@ struct QuickActionCard: View {
                         .frame(width: 52, height: 52)
 
                     Image(systemName: icon)
-                        .font(.system(size: 22))
+                        .font(Design.Typography.title2)
                         .foregroundStyle(color)
                 }
 
@@ -292,7 +292,7 @@ struct NewEmptyStateView: View {
                     .frame(width: 120, height: 120)
 
                 Image(systemName: icon)
-                    .font(.system(size: 50))
+                    .font(Design.Typography.iconMedium)
                     .foregroundStyle(Color.mintVibrant)
             }
 

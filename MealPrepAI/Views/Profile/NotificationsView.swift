@@ -89,7 +89,7 @@ struct NotificationsView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                         .foregroundStyle(Color.accentPurple)
                 }
                 .accessibilityLabel("Notification options")
@@ -120,7 +120,7 @@ struct NotificationsView: View {
                     .frame(width: 100, height: 100)
 
                 Image(systemName: "bell.slash")
-                    .font(.system(size: 44))
+                    .font(Design.Typography.heroNumberMedium)
                     .foregroundStyle(Color.accentPurple)
             }
 
@@ -195,7 +195,7 @@ struct NotificationRow: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: notification.type.icon)
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                         .foregroundStyle(notification.type.color)
                 }
 
@@ -289,7 +289,7 @@ struct NotificationSettingsSheet: View {
                 Section {
                     HStack {
                         Image(systemName: "bell.badge")
-                            .font(.system(size: 40))
+                            .font(Design.Typography.iconSmall)
                             .foregroundStyle(Color.accentPurple)
 
                         VStack(alignment: .leading, spacing: 4) {

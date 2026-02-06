@@ -25,7 +25,7 @@ struct HealthKitStepView: View {
                     .frame(width: 90, height: 90)
 
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 40))
+                    .font(Design.Typography.iconSmall)
                     .foregroundStyle(Color.red)
             }
             .opacity(appeared ? 1 : 0)
@@ -75,7 +75,7 @@ struct HealthKitStepView: View {
             // Privacy note
             HStack(spacing: OnboardingDesign.Spacing.xs) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 12))
+                    .font(OnboardingDesign.Typography.caption)
                 Text("Your data stays on your device")
                     .font(OnboardingDesign.Typography.caption)
             }
@@ -156,7 +156,7 @@ private struct HealthBenefitRow: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(OnboardingDesign.Typography.title3)
                 .foregroundStyle(Color.red)
                 .frame(width: 32, height: 32)
 

@@ -22,7 +22,7 @@ struct EnergyNeedsTransitionView: View {
                     .frame(width: 90, height: 90)
 
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 40))
+                    .font(Design.Typography.iconSmall)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
                     .scaleEffect(heartPulsing ? 1.1 : 1.0)
             }

@@ -30,11 +30,11 @@ struct PlanReadyStepView: View {
             VStack(spacing: OnboardingDesign.Spacing.sm) {
                 HStack(spacing: OnboardingDesign.Spacing.xs) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 28))
+                        .font(OnboardingDesign.Typography.title)
                         .foregroundStyle(OnboardingDesign.Colors.accent)
 
                     Text("\(calculatedCalories)")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .font(OnboardingDesign.Typography.heroDisplay)
                         .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
                     Text("kCal")
@@ -77,7 +77,7 @@ struct PlanReadyStepView: View {
             // Goal card
             HStack(spacing: OnboardingDesign.Spacing.md) {
                 Image(systemName: weightGoal.icon)
-                    .font(.system(size: 24))
+                    .font(OnboardingDesign.Typography.title2)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
 
                 VStack(alignment: .leading, spacing: OnboardingDesign.Spacing.xxs) {
@@ -134,7 +134,7 @@ private struct StatBadge: View {
     var body: some View {
         VStack(spacing: OnboardingDesign.Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(OnboardingDesign.Typography.body)
                 .foregroundStyle(OnboardingDesign.Colors.textSecondary)
 
             Text(value)
@@ -160,7 +160,7 @@ private struct BenefitRow: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.sm) {
             Text(emoji)
-                .font(.system(size: 24))
+                .font(OnboardingDesign.Typography.title2)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

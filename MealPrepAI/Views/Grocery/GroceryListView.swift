@@ -96,7 +96,7 @@ struct GroceryListView: View {
                         Text("Grocery List")
                             .font(Design.Typography.headline)
                         Image(systemName: "cart.fill")
-                            .font(.system(size: 14))
+                            .font(Design.Typography.footnote)
                             .foregroundStyle(Color.mintVibrant)
                     }
                 }
@@ -104,7 +104,7 @@ struct GroceryListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingAddItem = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
+                            .font(Design.Typography.bodyLarge)
                             .foregroundStyle(Color.accentPurple)
                     }
                     .accessibilityIdentifier("grocery_add_item")
@@ -133,7 +133,7 @@ struct GroceryListView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 18))
+                            .font(Design.Typography.bodyLarge)
                             .foregroundStyle(Color.textSecondary)
                     }
                     .accessibilityIdentifier("grocery_more_options")
@@ -231,7 +231,7 @@ struct GroceryListView: View {
                 Button(action: { showingCompleteConfirmation = true }) {
                     HStack(spacing: Design.Spacing.xs) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                         Text("Mark Shopping Complete")
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -268,7 +268,7 @@ struct GroceryListView: View {
     private func categoryHeader(category: GroceryCategory, count: Int) -> some View {
         HStack(spacing: Design.Spacing.xs) {
             Image(systemName: category.icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(Design.Typography.footnote).fontWeight(.semibold)
                 .foregroundStyle(Color.accentPurple)
 
             Text(category.rawValue)
@@ -479,7 +479,7 @@ struct GroceryItemRow: View {
 
                     if item.isChecked {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(Design.Typography.caption).fontWeight(.bold)
                             .foregroundStyle(.white)
                             .transition(.scale.combined(with: .opacity))
                     }
@@ -504,7 +504,7 @@ struct GroceryItemRow: View {
                 // Category Icon
                 if let category = item.ingredient?.category {
                     Image(systemName: category.icon)
-                        .font(.system(size: 14))
+                        .font(Design.Typography.footnote)
                         .foregroundStyle(Color.textSecondary.opacity(0.5))
                 }
             }
@@ -758,7 +758,7 @@ struct ShareGroceryListSheet: View {
                 // Preview
                 VStack(spacing: Design.Spacing.md) {
                     Image(systemName: "cart.circle.fill")
-                        .font(.system(size: 60))
+                        .font(Design.Typography.iconLarge)
                         .foregroundStyle(Color.mintVibrant)
 
                     Text("Share Grocery List")
@@ -856,7 +856,7 @@ struct ShareGroceryListSheet: View {
             if showCopiedToast {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(Design.Typography.title3)
                         .foregroundStyle(.white)
                     Text("Copied!")
                         .font(.subheadline)

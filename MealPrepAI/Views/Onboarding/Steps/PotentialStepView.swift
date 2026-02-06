@@ -43,7 +43,7 @@ struct PotentialStepView: View {
             // Encouragement message
             VStack(spacing: OnboardingDesign.Spacing.md) {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 32))
+                    .font(OnboardingDesign.Typography.largeTitle)
                     .foregroundStyle(OnboardingDesign.Colors.success)
 
                 Text("Based on your goals and preferences,\nyou're set up for success!")

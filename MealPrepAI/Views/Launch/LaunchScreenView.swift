@@ -33,14 +33,14 @@ struct LaunchScreenView: View {
                     VStack(spacing: 16) {
                         // Main title
                         Text("Meal prepping\nmade easier than\never")
-                            .font(.system(size: 34, weight: .bold, design: .default))
+                            .font(Design.Typography.largeTitle)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.primary)
                             .lineSpacing(2)
 
                         // Subtitle
                         Text("Make your week meal plan in less than 2 minutes")
-                            .font(.system(size: 15, weight: .regular))
+                            .font(Design.Typography.subheadline)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(Color.primary.opacity(0.6))
                     }
@@ -60,7 +60,7 @@ struct LaunchScreenView: View {
                             onGetStarted()
                         } label: {
                             Text("Get Started")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(Design.Typography.bodyLarge.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 56)
@@ -84,7 +84,7 @@ struct LaunchScreenView: View {
                                     .foregroundStyle(Color.primary)
                                     .fontWeight(.semibold)
                             }
-                            .font(.system(size: 14))
+                            .font(Design.Typography.footnote)
                         }
                         .accessibilityLabel("Already have an account? Sign In")
                         .accessibilityHint("Opens the sign in screen")

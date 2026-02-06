@@ -17,7 +17,7 @@ struct SocialProofStepView: View {
                     .multilineTextAlignment(.center)
 
                 Text("🙌")
-                    .font(.system(size: 50))
+                    .font(Design.Typography.iconMedium)
             }
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 20)

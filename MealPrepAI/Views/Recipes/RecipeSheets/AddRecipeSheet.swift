@@ -183,7 +183,7 @@ struct AddRecipeSheet: View {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     VStack(spacing: Design.Spacing.sm) {
                         Image(systemName: "camera.fill")
-                            .font(.system(size: 28))
+                            .font(Design.Typography.title)
                             .foregroundStyle(Color.accentPurple)
                         Text("Add Photo")
                             .font(.subheadline).fontWeight(.medium)

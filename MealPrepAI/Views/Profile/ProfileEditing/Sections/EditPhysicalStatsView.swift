@@ -235,7 +235,7 @@ struct EditPhysicalStatsView: View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
             HStack(spacing: Design.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(Color.accentPurple)
                     .accessibilityHidden(true)
                 Text(title)

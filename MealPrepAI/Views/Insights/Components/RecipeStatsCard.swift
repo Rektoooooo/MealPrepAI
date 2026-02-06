@@ -56,7 +56,7 @@ struct RecipeStatsCard: View {
             if topRecipes.isEmpty {
                 VStack(spacing: Design.Spacing.sm) {
                     Image(systemName: "fork.knife.circle")
-                        .font(.system(size: 32))
+                        .font(Design.Typography.largeTitle)
                         .foregroundStyle(Color.textSecondary.opacity(0.4))
 
                     Text("No recipes tracked yet")

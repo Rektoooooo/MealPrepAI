@@ -83,7 +83,7 @@ private struct BarrierCard: View {
         }) {
             VStack(spacing: OnboardingDesign.Spacing.sm) {
                 Text(barrier.emoji)
-                    .font(.system(size: 32))
+                    .font(OnboardingDesign.Typography.largeTitle)
 
                 Text(barrier.rawValue)
                     .font(OnboardingDesign.Typography.caption)

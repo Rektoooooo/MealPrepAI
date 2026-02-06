@@ -109,7 +109,7 @@ struct GroceryHistoryDetailSheet: View {
     private func categoryHeader(category: GroceryCategory, count: Int) -> some View {
         HStack(spacing: Design.Spacing.xs) {
             Image(systemName: category.icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(Design.Typography.footnote).fontWeight(.semibold)
                 .foregroundStyle(Color.accentPurple)
 
             Text(category.rawValue)
@@ -150,7 +150,7 @@ struct HistoryItemRow: View {
                     .frame(width: 26, height: 26)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(Design.Typography.caption).fontWeight(.bold)
                     .foregroundStyle(.white)
             }
             .accessibilityHidden(true)
@@ -173,7 +173,7 @@ struct HistoryItemRow: View {
             // Category Icon
             if let category = item.ingredient?.category {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
                     .accessibilityHidden(true)
             }

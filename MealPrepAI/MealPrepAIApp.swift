@@ -200,7 +200,7 @@ struct SplashView: View {
                         .frame(width: 100, height: 100)
 
                     Image(systemName: "fork.knife.circle.fill")
-                        .font(.system(size: 50))
+                        .font(Design.Typography.iconMedium)
                         .foregroundStyle(.white)
                 }
 

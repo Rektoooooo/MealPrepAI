@@ -57,11 +57,11 @@ struct PaywallStepView: View {
             // Title section
             VStack(spacing: OnboardingDesign.Spacing.xxs) {
                 Text("Start your 7-day FREE")
-                    .font(.system(size: 30, weight: .bold))
+                    .font(OnboardingDesign.Typography.paywallTitle)
                     .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
                 Text("trial to continue.")
-                    .font(.system(size: 30, weight: .bold))
+                    .font(OnboardingDesign.Typography.paywallTitle)
                     .foregroundStyle(OnboardingDesign.Colors.textPrimary)
             }
             .padding(.top, OnboardingDesign.Spacing.xl)
@@ -117,10 +117,10 @@ struct PaywallStepView: View {
                 // Checkmark with text
                 HStack(spacing: OnboardingDesign.Spacing.xs) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(OnboardingDesign.Typography.footnote).fontWeight(.semibold)
                         .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                     Text("No Payment Due Now")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(OnboardingDesign.Typography.footnote).fontWeight(.medium)
                         .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                 }
 
@@ -135,7 +135,7 @@ struct PaywallStepView: View {
                                 .tint(.white)
                         } else {
                             Text("Start My 7-Day Free Trial")
-                                .font(.system(size: 18, weight: .bold))
+                                .font(OnboardingDesign.Typography.bodyMedium).fontWeight(.bold)
                                 .foregroundStyle(.white)
                         }
                     }
@@ -323,7 +323,7 @@ private struct TimelineIcon: View {
                 .frame(width: iconSize, height: iconSize)
 
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(OnboardingDesign.Typography.body)
                 .foregroundStyle(.white)
         }
         .scaleEffect(isAnimated ? 1 : 0)
@@ -341,11 +341,11 @@ private struct TimelineText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.system(size: 18, weight: .semibold))
+                .font(OnboardingDesign.Typography.bodyMedium).fontWeight(.semibold)
                 .foregroundStyle(OnboardingDesign.Colors.textPrimary)
 
             Text(subtitle)
-                .font(.system(size: 15))
+                .font(OnboardingDesign.Typography.subheadline)
                 .foregroundStyle(OnboardingDesign.Colors.textSecondary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -375,15 +375,15 @@ private struct CalAIPlanPill: View {
                     // Left: Text content
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(OnboardingDesign.Typography.body).fontWeight(.medium)
                             .foregroundStyle(isSelected ? .white : OnboardingDesign.Colors.textSecondary)
 
                         HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text(price)
-                                .font(.system(size: 18, weight: .bold))
+                                .font(OnboardingDesign.Typography.bodyMedium).fontWeight(.bold)
                                 .foregroundStyle(isSelected ? .white : OnboardingDesign.Colors.textPrimary)
                             Text(period)
-                                .font(.system(size: 14))
+                                .font(OnboardingDesign.Typography.footnote)
                                 .foregroundStyle(isSelected ? .white.opacity(0.8) : OnboardingDesign.Colors.textSecondary)
                         }
                     }
@@ -402,7 +402,7 @@ private struct CalAIPlanPill: View {
                                 .frame(width: 28, height: 28)
 
                             Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .bold))
+                                .font(OnboardingDesign.Typography.footnote).fontWeight(.bold)
                                 .foregroundStyle(Color.black)
                         }
                     }
@@ -422,7 +422,7 @@ private struct CalAIPlanPill: View {
                 // Badge (if present)
                 if let badge = badge {
                     Text(badge)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(OnboardingDesign.Typography.captionSmall).fontWeight(.bold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

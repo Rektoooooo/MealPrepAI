@@ -94,7 +94,7 @@ struct RecipeDetailView: View {
             .frame(height: 250)
             .overlay(
                 Image(systemName: "fork.knife")
-                    .font(.system(size: 60))
+                    .font(Design.Typography.iconLarge)
                     .foregroundStyle(.white.opacity(0.3))
             )
 

@@ -39,7 +39,7 @@ struct AuthenticationView: View {
                             )
 
                         Image(systemName: "fork.knife.circle.fill")
-                            .font(.system(size: 60))
+                            .font(Design.Typography.iconLarge)
                             .foregroundStyle(.white)
                     }
                     .accessibilityHidden(true)
@@ -151,7 +151,7 @@ struct AuthenticationView: View {
     private func featureRow(icon: String, text: String) -> some View {
         HStack(spacing: Design.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(Design.Typography.bodyLarge)
                 .foregroundStyle(Color.accentPurple)
                 .frame(width: 24)
 

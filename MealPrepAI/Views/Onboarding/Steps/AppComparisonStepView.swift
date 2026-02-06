@@ -137,7 +137,7 @@ private struct BenefitRow: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(OnboardingDesign.Typography.bodyMedium)
                 .foregroundStyle(OnboardingDesign.Colors.success)
                 .frame(width: 28, height: 28)
 

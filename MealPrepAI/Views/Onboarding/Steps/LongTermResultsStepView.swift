@@ -48,7 +48,7 @@ struct LongTermResultsStepView: View {
             // Stats
             VStack(spacing: OnboardingDesign.Spacing.md) {
                 Text("80%")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(OnboardingDesign.Typography.heroDisplay)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
 
                 Text("of MealPrepAI users maintain their\nprogress after 6 months")

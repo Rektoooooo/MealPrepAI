@@ -49,7 +49,7 @@ struct GroceryHistoryView: View {
     private var emptyStateView: some View {
         VStack(spacing: Design.Spacing.lg) {
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 60))
+                .font(Design.Typography.iconLarge)
                 .foregroundStyle(Color.textSecondary.opacity(0.5))
 
             Text("No Shopping History")
@@ -89,7 +89,7 @@ struct GroceryHistoryCard: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(Design.Typography.bodyLarge).fontWeight(.bold)
                     .foregroundStyle(.white)
             }
             .accessibilityHidden(true)
@@ -118,7 +118,7 @@ struct GroceryHistoryCard: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .font(Design.Typography.footnote).fontWeight(.semibold)
                 .foregroundStyle(Color.textSecondary.opacity(0.5))
                 .accessibilityHidden(true)
         }

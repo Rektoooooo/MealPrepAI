@@ -43,7 +43,7 @@ struct OnboardingBackButton: View {
             action()
         }) {
             Image(systemName: "arrow.left")
-                .font(.system(size: 16, weight: .semibold))
+                .font(OnboardingDesign.Typography.body).fontWeight(.semibold)
                 .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                 .frame(width: 40, height: 40)
                 .background(
@@ -144,7 +144,7 @@ struct OnboardingSelectionCard: View {
                 // Icon/Emoji in circle
                 if let emoji = emoji {
                     Text(emoji)
-                        .font(.system(size: 24))
+                        .font(OnboardingDesign.Typography.title2)
                         .frame(width: 44, height: 44)
                         .background(
                             Circle()
@@ -152,7 +152,7 @@ struct OnboardingSelectionCard: View {
                         )
                 } else if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .medium))
+                        .font(OnboardingDesign.Typography.title3).fontWeight(.medium)
                         .foregroundStyle(isSelected ? OnboardingDesign.Colors.textOnDark : OnboardingDesign.Colors.textPrimary)
                         .frame(width: 44, height: 44)
                         .background(
@@ -216,7 +216,7 @@ struct OnboardingChip: View {
             HStack(spacing: OnboardingDesign.Spacing.xs) {
                 if let emoji = emoji {
                     Text(emoji)
-                        .font(.system(size: 16))
+                        .font(OnboardingDesign.Typography.body)
                 }
                 Text(title)
                     .font(OnboardingDesign.Typography.subheadline)
@@ -253,7 +253,7 @@ struct PrivacyNote: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.xs) {
             Image(systemName: "lock.fill")
-                .font(.system(size: 12))
+                .font(OnboardingDesign.Typography.caption)
             Text(text)
                 .font(OnboardingDesign.Typography.caption)
         }
@@ -274,7 +274,7 @@ struct SocialProofCard: View {
             HStack(spacing: 4) {
                 ForEach(0..<stars, id: \.self) { _ in
                     Image(systemName: "star.fill")
-                        .font(.system(size: 14))
+                        .font(OnboardingDesign.Typography.footnote)
                         .foregroundStyle(Color.yellow)
                 }
             }
@@ -282,7 +282,7 @@ struct SocialProofCard: View {
             // Quote marks and text
             HStack(alignment: .top, spacing: OnboardingDesign.Spacing.xs) {
                 Text("\"")
-                    .font(.system(size: 40, weight: .bold))
+                    .font(Design.Typography.iconSmall).fontWeight(.bold)
                     .foregroundStyle(OnboardingDesign.Colors.textTertiary)
                     .offset(y: -10)
 
@@ -318,7 +318,7 @@ struct ThumbsUpDownRow: View {
             // Flag and title
             HStack(spacing: OnboardingDesign.Spacing.sm) {
                 Text(flag)
-                    .font(.system(size: 24))
+                    .font(OnboardingDesign.Typography.title2)
 
                 Text(title)
                     .font(OnboardingDesign.Typography.bodyMedium)
@@ -335,7 +335,7 @@ struct ThumbsUpDownRow: View {
                     preference = preference == .dislike ? .neutral : .dislike
                 } label: {
                     Image(systemName: preference == .dislike ? "hand.thumbsdown.fill" : "hand.thumbsdown")
-                        .font(.system(size: 20))
+                        .font(OnboardingDesign.Typography.title3)
                         .foregroundStyle(preference == .dislike ? Color.red : OnboardingDesign.Colors.textTertiary)
                         .frame(width: 44, height: 44)
                         .background(
@@ -352,7 +352,7 @@ struct ThumbsUpDownRow: View {
                     preference = preference == .like ? .neutral : .like
                 } label: {
                     Image(systemName: preference == .like ? "hand.thumbsup.fill" : "hand.thumbsup")
-                        .font(.system(size: 20))
+                        .font(OnboardingDesign.Typography.title3)
                         .foregroundStyle(preference == .like ? OnboardingDesign.Colors.success : OnboardingDesign.Colors.textTertiary)
                         .frame(width: 44, height: 44)
                         .background(
@@ -477,7 +477,7 @@ struct AvatarGrid: View {
                     selectedEmoji = emoji
                 } label: {
                     Text(emoji)
-                        .font(.system(size: 36))
+                        .font(Design.Typography.iconSmall)
                         .frame(width: 60, height: 60)
                         .background(
                             Circle()
@@ -589,7 +589,7 @@ struct FoodDislikeChip: View {
         }) {
             VStack(spacing: OnboardingDesign.Spacing.xs) {
                 Text(food.emoji)
-                    .font(.system(size: 32))
+                    .font(OnboardingDesign.Typography.largeTitle)
 
                 Text(food.rawValue)
                     .font(OnboardingDesign.Typography.captionSmall)

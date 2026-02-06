@@ -112,7 +112,7 @@ private struct PaceOptionCard: View {
             HStack(spacing: OnboardingDesign.Spacing.md) {
                 // Icon
                 Image(systemName: pace.icon)
-                    .font(.system(size: 24))
+                    .font(OnboardingDesign.Typography.title2)
                     .foregroundStyle(isSelected ? OnboardingDesign.Colors.textOnDark : OnboardingDesign.Colors.textPrimary)
                     .frame(width: 44, height: 44)
                     .background(

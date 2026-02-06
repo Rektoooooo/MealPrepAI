@@ -106,7 +106,7 @@ struct FeaturedRecipeCard: View {
                             .frame(width: 40, height: 40)
 
                         Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 18))
+                            .font(Design.Typography.bodyLarge)
                             .foregroundStyle(recipe.isFavorite ? .red : .white)
                     }
                 }
@@ -199,7 +199,7 @@ struct StackedRecipeCard: View {
                                             .frame(width: 34, height: 34)
 
                                         Image(systemName: "plus")
-                                            .font(.system(size: 14, weight: .bold))
+                                            .font(Design.Typography.footnote.weight(.bold))
                                             .foregroundStyle(Color.accentPurple)
                                     }
                                     .frame(minWidth: 44, minHeight: 44)
@@ -217,7 +217,7 @@ struct StackedRecipeCard: View {
                             // Time badge
                             HStack(spacing: 3) {
                                 Image(systemName: "clock.fill")
-                                    .font(.system(size: 9))
+                                    .font(Design.Typography.captionSmall)
                                 Text("\(recipe.totalTimeMinutes)m")
                                     .font(.caption2)
                                     .fontWeight(.semibold)
@@ -267,7 +267,7 @@ struct StackedRecipeCard: View {
                         // Calories
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
-                                .font(.system(size: 10))
+                                .font(Design.Typography.captionSmall)
                                 .foregroundStyle(Color.accentOrange)
                             Text("\(recipe.caloriesPerServing)")
                                 .font(.caption)
@@ -284,7 +284,7 @@ struct StackedRecipeCard: View {
                         // Servings
                         HStack(spacing: 3) {
                             Image(systemName: "person.fill")
-                                .font(.system(size: 9))
+                                .font(Design.Typography.captionSmall)
                                 .foregroundStyle(Color.mintVibrant)
                             Text("\(recipe.servings)")
                                 .font(.caption)
@@ -296,7 +296,7 @@ struct StackedRecipeCard: View {
 
                         // Favorite
                         Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 12))
+                            .font(Design.Typography.caption)
                             .foregroundStyle(recipe.isFavorite ? .red : .secondary.opacity(0.5))
                     }
                 }

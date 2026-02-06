@@ -147,7 +147,7 @@ struct EditProfileView: View {
                         .fill(iconColor.opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: icon)
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                         .foregroundStyle(iconColor)
                 }
 
@@ -167,7 +167,7 @@ struct EditProfileView: View {
 
                 // Chevron
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote.weight(.semibold))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
                     .accessibilityHidden(true)
             }

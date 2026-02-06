@@ -80,7 +80,7 @@ struct WeeklyFocusChip: View {
         }) {
             VStack(spacing: OnboardingDesign.Spacing.xs) {
                 Text(focus.emoji)
-                    .font(.system(size: 28))
+                    .font(OnboardingDesign.Typography.title)
                     .accessibilityHidden(true)
 
                 Text(focus.rawValue)

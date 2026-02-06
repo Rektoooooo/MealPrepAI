@@ -114,7 +114,7 @@ struct ProfileView: View {
                             .frame(width: 84, height: 84)
 
                         Text(profile?.avatarEmoji ?? "🍳")
-                            .font(.system(size: 40))
+                            .font(Design.Typography.iconSmall)
                     }
                 }
 
@@ -182,11 +182,11 @@ struct ProfileView: View {
     private func statItem(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: Design.Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(Design.Typography.bodyLarge)
                 .foregroundStyle(color)
 
             Text(value)
-                .font(.system(.title3, design: .rounded, weight: .bold))
+                .font(Design.Typography.title3).fontWeight(.bold)
                 .foregroundStyle(Color.textPrimary)
 
             Text(label)
@@ -229,7 +229,7 @@ struct ProfileView: View {
                     .fill(color.opacity(0.15))
                     .frame(width: 36, height: 36)
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(Design.Typography.callout)
                     .foregroundStyle(color)
             }
 
@@ -319,7 +319,7 @@ struct ProfileView: View {
                             .fill(subscriptionManager.isSubscribed ? Color.accentYellow.opacity(0.15) : Color.textSecondary.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: subscriptionManager.isSubscribed ? "crown.fill" : "lock.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(subscriptionManager.isSubscribed ? Color.accentYellow : Color.textSecondary)
                     }
 
@@ -364,7 +364,7 @@ struct ProfileView: View {
                                     .fill(Color.accentPurple.opacity(0.15))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "creditcard.fill")
-                                    .font(.system(size: 16))
+                                    .font(Design.Typography.callout)
                                     .foregroundStyle(Color.accentPurple)
                             }
 
@@ -375,7 +375,7 @@ struct ProfileView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(Design.Typography.caption.weight(.semibold))
                                 .foregroundStyle(Color.textSecondary.opacity(0.5))
                         }
                     }
@@ -435,7 +435,7 @@ struct ProfileView: View {
                                     .fill(Color.mintVibrant.opacity(0.15))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 16))
+                                    .font(Design.Typography.callout)
                                     .foregroundStyle(Color.mintVibrant)
                             }
 
@@ -481,7 +481,7 @@ struct ProfileView: View {
                             .fill(authManager.hasAppleID ? Color.mintVibrant.opacity(0.15) : Color.accentYellow.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: authManager.hasAppleID ? "checkmark.seal.fill" : "person.fill.questionmark")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(authManager.hasAppleID ? Color.mintVibrant : Color.accentYellow)
                     }
 
@@ -509,7 +509,7 @@ struct ProfileView: View {
                             .fill(syncManager.syncStatus.color.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: syncManager.syncStatus.icon)
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(syncManager.syncStatus.color)
                     }
 
@@ -545,7 +545,7 @@ struct ProfileView: View {
                                     .fill(Color(hex: "FF6B6B").opacity(0.15))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .font(.system(size: 16))
+                                    .font(Design.Typography.callout)
                                     .foregroundStyle(Color(hex: "FF6B6B"))
                             }
 
@@ -556,7 +556,7 @@ struct ProfileView: View {
                             Spacer()
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(Design.Typography.caption.weight(.semibold))
                                 .foregroundStyle(Color.textSecondary.opacity(0.5))
                         }
                     }
@@ -607,7 +607,7 @@ struct ProfileView: View {
                                 .fill(Color.textSecondary.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.textSecondary)
                         }
 
@@ -632,7 +632,7 @@ struct ProfileView: View {
                                 .fill(Color.pink.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "heart.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(.pink)
                         }
 
@@ -675,7 +675,7 @@ struct ProfileView: View {
                                     .fill(Color.accentYellow.opacity(0.15))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "fork.knife")
-                                    .font(.system(size: 16))
+                                    .font(Design.Typography.callout)
                                     .foregroundStyle(Color.accentYellow)
                             }
 
@@ -706,7 +706,7 @@ struct ProfileView: View {
                                     .fill(Color.accentPurple.opacity(0.15))
                                     .frame(width: 36, height: 36)
                                 Image(systemName: "scalemass.fill")
-                                    .font(.system(size: 16))
+                                    .font(Design.Typography.callout)
                                     .foregroundStyle(Color.accentPurple)
                             }
 
@@ -797,7 +797,7 @@ struct ProfileView: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: mode.icon)
-                                        .font(.system(size: 14))
+                                        .font(Design.Typography.footnote)
                                     Text(mode.rawValue)
                                         .font(.caption)
                                         .fontWeight(.medium)
@@ -913,7 +913,7 @@ struct ProfileView: View {
                                 .fill(Color.accentYellow.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "bell.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.accentYellow)
                         }
 
@@ -931,7 +931,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -948,7 +948,7 @@ struct ProfileView: View {
                                 .fill(Color.accentPurple.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "questionmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.accentPurple)
                         }
 
@@ -966,7 +966,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -983,7 +983,7 @@ struct ProfileView: View {
                                 .fill(Color.mintVibrant.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "info.circle.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.mintVibrant)
                         }
 
@@ -1001,7 +1001,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -1034,7 +1034,7 @@ struct ProfileView: View {
                                 .fill(Color.accentPurple.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "rectangle.portrait.on.rectangle.portrait.angled.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.accentPurple)
                         }
 
@@ -1052,7 +1052,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -1069,7 +1069,7 @@ struct ProfileView: View {
                                 .fill(Color.mintVibrant.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "tray.and.arrow.down.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color.mintVibrant)
                         }
 
@@ -1087,7 +1087,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -1104,7 +1104,7 @@ struct ProfileView: View {
                                 .fill(Color(hex: "FF6B6B").opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "trash.fill")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color(hex: "FF6B6B"))
                         }
 
@@ -1122,7 +1122,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -1164,7 +1164,7 @@ struct ProfileView: View {
                                 .fill(Color(hex: "FF6B6B").opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "person.crop.circle.badge.minus")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color(hex: "FF6B6B"))
                         }
 
@@ -1182,7 +1182,7 @@ struct ProfileView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Design.Typography.caption.weight(.semibold))
                             .foregroundStyle(Color.textSecondary.opacity(0.5))
                     }
                 }
@@ -1314,7 +1314,7 @@ struct OnboardingPreviewWrapper: View {
             // Close button
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 32))
+                    .font(Design.Typography.largeTitle)
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(Color.black, Color.white.opacity(0.9))
             }

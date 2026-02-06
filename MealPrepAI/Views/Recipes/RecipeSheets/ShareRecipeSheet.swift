@@ -36,7 +36,7 @@ struct ShareRecipeSheet: View {
                 // Preview card
                 VStack(spacing: Design.Spacing.md) {
                     Image(systemName: "square.and.arrow.up.circle.fill")
-                        .font(.system(size: 60))
+                        .font(Design.Typography.iconLarge)
                         .foregroundStyle(Color.mintVibrant)
 
                     Text("Share Recipe")
@@ -100,7 +100,7 @@ struct ShareRecipeSheet: View {
             if showCopiedToast {
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(Design.Typography.title3)
                         .foregroundStyle(.white)
                     Text("Copied!")
                         .font(.subheadline)

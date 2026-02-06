@@ -230,7 +230,7 @@ struct EditNutritionGoalsView: View {
     ) -> some View {
         HStack(spacing: Design.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(Design.Typography.title3)
                 .foregroundStyle(color)
                 .frame(width: 28)
 
@@ -248,7 +248,7 @@ struct EditNutritionGoalsView: View {
                     }
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 24))
+                        .font(Design.Typography.title2)
                         .foregroundStyle(color.opacity(0.7))
                 }
                 .accessibilityLabel("Decrease \(label)")
@@ -265,7 +265,7 @@ struct EditNutritionGoalsView: View {
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 24))
+                        .font(Design.Typography.title2)
                         .foregroundStyle(color.opacity(0.7))
                 }
                 .accessibilityLabel("Increase \(label)")
@@ -317,7 +317,7 @@ struct EditNutritionGoalsView: View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
             HStack(spacing: Design.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(iconColor)
                 Text(title)
                     .font(.headline)

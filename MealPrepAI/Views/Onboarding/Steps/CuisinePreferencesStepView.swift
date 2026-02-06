@@ -122,7 +122,7 @@ private struct CuisinePreferenceChip: View {
         } label: {
             VStack(spacing: OnboardingDesign.Spacing.xxs) {
                 Text(cuisine.flag)
-                    .font(.system(size: 28))
+                    .font(OnboardingDesign.Typography.title)
 
                 Text(cuisine.rawValue)
                     .font(OnboardingDesign.Typography.caption)

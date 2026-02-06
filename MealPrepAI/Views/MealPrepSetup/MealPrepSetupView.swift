@@ -115,7 +115,7 @@ struct MealPrepSetupView: View {
                 // Close button
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(OnboardingDesign.Typography.footnote).fontWeight(.semibold)
                         .foregroundStyle(OnboardingDesign.Colors.textSecondary)
                         .frame(width: 32, height: 32)
                         .background(

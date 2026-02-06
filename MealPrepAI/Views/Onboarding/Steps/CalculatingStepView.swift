@@ -73,7 +73,7 @@ struct CalculatingStepView: View {
                 ForEach(0..<5) { index in
                     let actualIndex = (foodIndex + index) % foods.count
                     Text(foods[actualIndex])
-                        .font(.system(size: 40))
+                        .font(Design.Typography.iconSmall)
                         .frame(width: 56, height: 56)
                         .background(
                             RoundedRectangle(cornerRadius: 12)

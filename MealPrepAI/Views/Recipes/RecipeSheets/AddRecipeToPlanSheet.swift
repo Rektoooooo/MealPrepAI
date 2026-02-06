@@ -24,7 +24,7 @@ struct AddRecipeToPlanSheet: View {
                     Spacer()
                     VStack(spacing: Design.Spacing.md) {
                         Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 50))
+                            .font(Design.Typography.iconMedium)
                             .foregroundStyle(Color.textSecondary)
 
                         Text("No Meal Plan")
@@ -45,7 +45,7 @@ struct AddRecipeToPlanSheet: View {
                                 .frame(width: 60, height: 60)
 
                             Image(systemName: "fork.knife")
-                                .font(.system(size: 24))
+                                .font(Design.Typography.title2)
                                 .foregroundStyle(.white)
                         }
 
@@ -199,7 +199,7 @@ struct MealTypePicker: View {
         Button(action: onSelect) {
             VStack(spacing: 4) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 18))
+                    .font(Design.Typography.bodyLarge)
 
                 Text(type.rawValue)
                     .font(.caption2)
@@ -228,7 +228,7 @@ struct RecipeActionButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(Design.Typography.bodyLarge)
 
                 Text(title)
                     .font(.caption2)

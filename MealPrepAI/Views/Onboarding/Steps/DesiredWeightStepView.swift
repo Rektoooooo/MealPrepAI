@@ -52,7 +52,7 @@ struct DesiredWeightStepView: View {
             // Current weight indicator
             HStack(spacing: OnboardingDesign.Spacing.xs) {
                 Image(systemName: "scalemass")
-                    .font(.system(size: 14))
+                    .font(OnboardingDesign.Typography.footnote)
                     .foregroundStyle(OnboardingDesign.Colors.textTertiary)
                 Text("Current: \(currentWeightDisplay) \(unit)")
                     .font(OnboardingDesign.Typography.subheadline)
@@ -98,7 +98,7 @@ struct DesiredWeightStepView: View {
             // Weight difference badge
             HStack(spacing: OnboardingDesign.Spacing.xs) {
                 Image(systemName: weightChangeIcon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(OnboardingDesign.Typography.body).fontWeight(.semibold)
                 Text(weightChangeText)
                     .font(OnboardingDesign.Typography.headline)
             }
@@ -177,7 +177,7 @@ private struct WeightAdjustButton: View {
                     .frame(width: 64, height: 64)
 
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(OnboardingDesign.Typography.title2).fontWeight(.semibold)
                     .foregroundStyle(isEnabled ? OnboardingDesign.Colors.textPrimary : OnboardingDesign.Colors.textMuted)
             }
         }

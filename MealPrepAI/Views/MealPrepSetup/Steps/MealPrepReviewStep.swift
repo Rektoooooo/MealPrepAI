@@ -202,7 +202,7 @@ struct MealPrepReviewStep: View {
                     .frame(width: 36, height: 36)
 
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(OnboardingDesign.Typography.footnote)
                     .foregroundStyle(color)
             }
             .accessibilityHidden(true)
@@ -451,7 +451,7 @@ struct MacroEditorSheet: View {
                     .frame(width: 40, height: 40)
 
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(OnboardingDesign.Typography.body)
                     .foregroundStyle(color)
             }
             .accessibilityHidden(true)

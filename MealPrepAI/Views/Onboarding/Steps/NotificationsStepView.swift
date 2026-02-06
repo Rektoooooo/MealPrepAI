@@ -24,7 +24,7 @@ struct NotificationsStepView: View {
                     .frame(width: 90, height: 90)
 
                 Image(systemName: "bell.fill")
-                    .font(.system(size: 40))
+                    .font(Design.Typography.iconSmall)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
 
                 // Notification badge
@@ -121,7 +121,7 @@ private struct NotificationPreviewCard: View {
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text("M")
-                        .font(.system(size: 24, weight: .bold))
+                        .font(OnboardingDesign.Typography.title2).fontWeight(.bold)
                         .foregroundStyle(.white)
                 )
 

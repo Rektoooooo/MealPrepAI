@@ -70,7 +70,7 @@ struct NotificationSettingsView: View {
                             .fill(statusColor.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: statusIcon)
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(statusColor)
                     }
 
@@ -164,7 +164,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.accentYellow.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "bell.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.accentYellow)
                     }
 
@@ -249,7 +249,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.mintVibrant.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "cart.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.mintVibrant)
                     }
 
@@ -283,7 +283,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.accentYellow.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.accentYellow)
                     }
 
@@ -317,7 +317,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.accentPurple.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.accentPurple)
                     }
 
@@ -351,7 +351,7 @@ struct NotificationSettingsView: View {
                                 .fill(Color(hex: "FF6B6B").opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "hourglass")
-                                .font(.system(size: 16))
+                                .font(Design.Typography.callout)
                                 .foregroundStyle(Color(hex: "FF6B6B"))
                         }
 
@@ -386,7 +386,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.accentBlue.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.accentBlue)
                     }
 
@@ -420,7 +420,7 @@ struct NotificationSettingsView: View {
                             .fill(Color.accentOrange.opacity(0.15))
                             .frame(width: 36, height: 36)
                         Image(systemName: "lightbulb.fill")
-                            .font(.system(size: 16))
+                            .font(Design.Typography.callout)
                             .foregroundStyle(Color.accentOrange)
                     }
 
@@ -464,7 +464,7 @@ struct NotificationSettingsView: View {
                     .fill(color.opacity(0.15))
                     .frame(width: 36, height: 36)
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(Design.Typography.callout)
                     .foregroundStyle(color)
             }
 

@@ -47,7 +47,7 @@ struct RealisticTargetStepView: View {
                     .frame(width: 90, height: 90)
 
                 Image(systemName: "checkmark")
-                    .font(.system(size: 40, weight: .bold))
+                    .font(Design.Typography.iconSmall).fontWeight(.bold)
                     .foregroundStyle(OnboardingDesign.Colors.success)
             }
             .scaleEffect(checkmarkScale)
@@ -85,7 +85,7 @@ struct RealisticTargetStepView: View {
             // Success stat
             VStack(spacing: OnboardingDesign.Spacing.sm) {
                 Text("85%")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(OnboardingDesign.Typography.heroDisplay)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
 
                 Text("of MealPrepAI users\nreach their target weight")

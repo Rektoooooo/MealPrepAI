@@ -19,7 +19,7 @@ struct AboutNavigationView: View {
                             .frame(width: 100, height: 100)
 
                         Image(systemName: "fork.knife.circle.fill")
-                            .font(.system(size: 50))
+                            .font(Design.Typography.iconMedium)
                             .foregroundStyle(.white)
                     }
                     .accessibilityHidden(true)
@@ -72,7 +72,7 @@ struct AboutNavigationView: View {
         Link(destination: URL(string: url)!) {
             HStack {
                 Image(systemName: icon)
-                    .font(.system(size: 16))
+                    .font(Design.Typography.callout)
                     .foregroundStyle(Color.accentPurple)
                     .frame(width: 24)
 
@@ -83,7 +83,7 @@ struct AboutNavigationView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(Design.Typography.caption.weight(.semibold))
                     .foregroundStyle(Color.textSecondary.opacity(0.5))
                     .accessibilityHidden(true)
             }

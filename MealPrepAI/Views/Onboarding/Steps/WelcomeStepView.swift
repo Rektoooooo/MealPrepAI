@@ -24,7 +24,7 @@ struct WelcomeStepView: View {
                         )
 
                     Text("🍳")
-                        .font(.system(size: 50))
+                        .font(Design.Typography.iconMedium)
                 }
                 .scaleEffect(appeared ? 1 : 0.5)
                 .opacity(appeared ? 1 : 0)
@@ -105,7 +105,7 @@ private struct FeatureCheckItem: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .bold))
+                .font(OnboardingDesign.Typography.footnote).fontWeight(.bold)
                 .foregroundStyle(OnboardingDesign.Colors.accent)
                 .frame(width: 24, height: 24)
                 .background(
@@ -131,7 +131,7 @@ private struct FoodImageGrid: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 12)], spacing: 12) {
             ForEach(foods, id: \.self) { food in
                 Text(food)
-                    .font(.system(size: 32))
+                    .font(OnboardingDesign.Typography.largeTitle)
                     .frame(width: 60, height: 60)
                     .background(
                         RoundedRectangle(cornerRadius: 12)

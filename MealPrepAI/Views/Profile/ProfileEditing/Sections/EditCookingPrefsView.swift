@@ -128,7 +128,7 @@ struct EditCookingPrefsView: View {
         } label: {
             VStack(spacing: Design.Spacing.xxs) {
                 Text(cuisine.flag)
-                    .font(.system(size: 24))
+                    .font(Design.Typography.title2)
 
                 Text(cuisine.rawValue)
                     .font(.system(.caption2))
@@ -199,7 +199,7 @@ struct EditCookingPrefsView: View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
             HStack(spacing: Design.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(iconColor)
                 Text(title)
                     .font(.headline)

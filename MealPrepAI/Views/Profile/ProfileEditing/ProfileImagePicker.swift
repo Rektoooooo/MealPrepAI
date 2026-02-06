@@ -51,7 +51,7 @@ struct ProfileImagePicker: View {
                     .frame(width: 110, height: 110)
 
                 Text(selectedEmoji)
-                    .font(.system(size: 56))
+                    .font(Design.Typography.iconLarge)
             }
         }
         .animation(.spring(response: 0.3), value: profileImageData)
@@ -118,7 +118,7 @@ struct ProfileImagePicker: View {
                         profileImageData = nil
                     } label: {
                         Text(emoji)
-                            .font(.system(size: 36))
+                            .font(Design.Typography.iconSmall)
                             .frame(width: 60, height: 60)
                             .background(
                                 Circle()
@@ -158,7 +158,7 @@ struct ProfileImagePicker: View {
             ) {
                 HStack(spacing: Design.Spacing.sm) {
                     Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                     Text(profileImageData != nil ? "Change Photo" : "Choose Photo")
                         .font(.headline)
                 }
@@ -191,7 +191,7 @@ struct ProfileImagePicker: View {
                 } label: {
                     HStack(spacing: Design.Spacing.xs) {
                         Image(systemName: "trash")
-                            .font(.system(size: 14))
+                            .font(Design.Typography.footnote)
                         Text("Remove Photo")
                             .font(.subheadline)
                             .fontWeight(.medium)

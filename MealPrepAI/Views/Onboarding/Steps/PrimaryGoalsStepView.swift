@@ -77,7 +77,7 @@ private struct GoalChip: View {
         }) {
             HStack(spacing: OnboardingDesign.Spacing.sm) {
                 Text(goal.emoji)
-                    .font(.system(size: 20))
+                    .font(OnboardingDesign.Typography.title3)
 
                 Text(goal.rawValue)
                     .font(OnboardingDesign.Typography.subheadline)

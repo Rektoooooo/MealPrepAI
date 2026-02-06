@@ -223,7 +223,7 @@ struct WeeklyPlanView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingGenerateSheet = true }) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 18, weight: .medium))
+                            .font(Design.Typography.bodyLarge)
                             .foregroundStyle(Color.accentPurple)
                     }
                     .accessibilityIdentifier("plan_generate")
@@ -254,7 +254,7 @@ struct WeeklyPlanView: View {
     private var noMealPlanForWeekView: some View {
         VStack(spacing: Design.Spacing.lg) {
             Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 48))
+                .font(Design.Typography.iconMedium)
                 .foregroundStyle(Color.accentPurple.opacity(0.6))
 
             VStack(spacing: Design.Spacing.sm) {
@@ -303,7 +303,7 @@ struct WeeklyPlanView: View {
     private var noMealsForDayView: some View {
         VStack(spacing: Design.Spacing.md) {
             Image(systemName: "fork.knife")
-                .font(.system(size: 36))
+                .font(Design.Typography.iconSmall)
                 .foregroundStyle(Color.textSecondary.opacity(0.5))
 
             VStack(spacing: Design.Spacing.xs) {
@@ -336,7 +336,7 @@ struct WeeklyPlanView: View {
         HStack {
             Button(action: navigateToPreviousWeek) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote).fontWeight(.semibold)
                     .foregroundStyle(canNavigateToPreviousWeek ? Color.accentPurple : Color.gray.opacity(0.5))
                     .padding(Design.Spacing.sm)
                     .background(
@@ -371,7 +371,7 @@ struct WeeklyPlanView: View {
 
             Button(action: navigateToNextWeek) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote).fontWeight(.semibold)
                     .foregroundStyle(canNavigateToNextWeek ? Color.accentPurple : Color.gray.opacity(0.5))
                     .padding(Design.Spacing.sm)
                     .background(

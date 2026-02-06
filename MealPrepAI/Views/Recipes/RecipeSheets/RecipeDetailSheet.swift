@@ -69,7 +69,7 @@ struct RecipeDetailSheet: View {
                                 ForEach(recipe.displayDiets) { badge in
                                     HStack(spacing: 4) {
                                         Image(systemName: badge.icon)
-                                            .font(.system(size: 12))
+                                            .font(Design.Typography.caption)
                                         Text(badge.name)
                                             .font(.subheadline)
                                             .fontWeight(.semibold)
@@ -117,7 +117,7 @@ struct RecipeDetailSheet: View {
                                 Link(destination: url) {
                                     VStack(spacing: 4) {
                                         Image(systemName: "link")
-                                            .font(.system(size: 18))
+                                            .font(Design.Typography.bodyLarge)
                                         Text("Source")
                                             .font(.caption2)
                                             .fontWeight(.medium)
@@ -331,7 +331,7 @@ struct RecipeDetailSheet: View {
 
                 Button(action: { toggleFavorite() }) {
                     Image(systemName: recipe.isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(Design.Typography.callout.weight(.semibold))
                         .foregroundStyle(recipe.isFavorite ? .red : .primary)
                 }
                 .accessibilityIdentifier("recipe_detail_favorite")
@@ -363,7 +363,7 @@ struct RecipeDetailSheet: View {
                 VStack(spacing: Design.Spacing.lg) {
                     Spacer()
                     Image(systemName: "person.crop.circle.badge.exclamationmark")
-                        .font(.system(size: 48))
+                        .font(Design.Typography.iconMedium)
                         .foregroundStyle(Color.accentPurple)
                     Text("Profile Required")
                         .font(.title3)
@@ -399,7 +399,7 @@ struct RecipeDetailSheet: View {
     private func statItem(icon: String, value: String, label: String) -> some View {
         VStack(spacing: Design.Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(Design.Typography.bodyLarge)
                 .foregroundStyle(Color.accentPurple)
 
             Text(value)

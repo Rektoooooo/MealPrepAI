@@ -113,7 +113,7 @@ struct StreakCard: View {
     private func statBlock(value: Int, label: String, color: Color, glow: Bool) -> some View {
         VStack(spacing: Design.Spacing.xxs) {
             Text("\(value)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(Design.Typography.title)
                 .foregroundStyle(color)
                 .shadow(
                     color: glow ? color.opacity(flameGlow ? 0.5 : 0.15) : .clear,

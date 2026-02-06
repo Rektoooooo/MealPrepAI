@@ -32,7 +32,7 @@ struct MealPrepWelcomeStep: View {
                     .frame(width: 100, height: 100)
 
                 Image(systemName: "sparkles")
-                    .font(.system(size: 44, weight: .medium))
+                    .font(Design.Typography.heroNumberMedium).fontWeight(.medium)
                     .foregroundStyle(Color.accentPurple)
             }
             .accessibilityHidden(true)
@@ -64,7 +64,7 @@ struct MealPrepWelcomeStep: View {
                     }) {
                         HStack(spacing: OnboardingDesign.Spacing.sm) {
                             Image(systemName: "bolt.fill")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(OnboardingDesign.Typography.body).fontWeight(.semibold)
                             Text("Use Previous Preferences")
                                 .font(OnboardingDesign.Typography.headline)
                         }

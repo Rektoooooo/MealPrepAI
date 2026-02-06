@@ -258,24 +258,32 @@ struct Design {
         static let gentle = SwiftUI.Animation.spring(response: 0.6, dampingFraction: 0.85)
     }
 
-    // Typography
+    // Typography — scales with Dynamic Type
     struct Typography {
-        static let largeTitle = Font.system(size: 34, weight: .bold, design: .rounded)
-        static let title = Font.system(size: 28, weight: .bold, design: .rounded)
-        static let title2 = Font.system(size: 22, weight: .bold, design: .rounded)
-        static let title3 = Font.system(size: 20, weight: .semibold, design: .rounded)
-        static let headline = Font.system(size: 17, weight: .semibold, design: .rounded)
-        static let body = Font.system(size: 17, weight: .regular)
-        static let callout = Font.system(size: 16, weight: .regular)
-        static let subheadline = Font.system(size: 15, weight: .regular)
-        static let footnote = Font.system(size: 13, weight: .regular)
-        static let caption = Font.system(size: 12, weight: .medium)
-        static let captionSmall = Font.system(size: 11, weight: .medium)
+        static let largeTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
+        static let title = Font.system(.title, design: .rounded).weight(.bold)
+        static let title2 = Font.system(.title2, design: .rounded).weight(.bold)
+        static let title3 = Font.system(.title3, design: .rounded).weight(.semibold)
+        static let headline = Font.system(.headline, design: .rounded)
+        static let body = Font.system(.body)
+        static let bodyLarge = Font.system(.body).weight(.medium)
+        static let callout = Font.system(.callout)
+        static let subheadline = Font.system(.subheadline)
+        static let footnote = Font.system(.footnote)
+        static let caption = Font.system(.caption).weight(.medium)
+        static let captionSmall = Font.system(.caption2).weight(.medium)
 
-        // Hero numbers for Cal AI-style large displays
+        // Hero numbers — fixed sizes (intentionally large display numbers in constrained layouts)
         static let heroNumber = Font.system(size: 52, weight: .bold, design: .rounded)
+        static let heroNumberMedium = Font.system(size: 44, weight: .bold, design: .rounded)
         static let heroNumberSmall = Font.system(size: 40, weight: .bold, design: .rounded)
         static let heroSubtitle = Font.system(size: 14, weight: .medium, design: .rounded)
+
+        // Icon/emoji sizing — fixed (SF Symbols inside fixed containers)
+        static let iconLarge = Font.system(size: 60)
+        static let iconMedium = Font.system(size: 50)
+        static let iconSmall = Font.system(size: 40)
+        static let iconXSmall = Font.system(size: 26)
     }
 
     // Progress Ring Line Widths

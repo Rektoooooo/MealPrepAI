@@ -23,7 +23,7 @@ struct LoginStepView: View {
                     .frame(width: 90, height: 90)
 
                 Image(systemName: "icloud.fill")
-                    .font(.system(size: 40))
+                    .font(Design.Typography.iconSmall)
                     .foregroundStyle(OnboardingDesign.Colors.accent)
             }
             .opacity(appeared ? 1 : 0)
@@ -127,7 +127,7 @@ private struct LoginBenefitRow: View {
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(OnboardingDesign.Typography.title3)
                 .foregroundStyle(OnboardingDesign.Colors.accent)
                 .frame(width: 32, height: 32)
 

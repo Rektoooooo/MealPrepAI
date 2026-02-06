@@ -34,7 +34,7 @@ struct AvatarSelectionStepView: View {
                     .frame(width: 120, height: 120)
 
                 Text(selectedEmoji)
-                    .font(.system(size: 60))
+                    .font(Design.Typography.iconLarge)
             }
             .opacity(appeared ? 1 : 0)
             .scaleEffect(appeared ? 1 : 0.8)

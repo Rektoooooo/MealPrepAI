@@ -93,20 +93,24 @@ struct OnboardingDesign {
         static let full: CGFloat = 100
     }
 
-    // MARK: - Typography
+    // MARK: - Typography — scales with Dynamic Type
     struct Typography {
-        // Cal AI uses bold, clean sans-serif
-        static let largeTitle = Font.system(size: 32, weight: .bold, design: .default)
-        static let title = Font.system(size: 28, weight: .bold, design: .default)
-        static let title2 = Font.system(size: 24, weight: .bold, design: .default)
-        static let title3 = Font.system(size: 20, weight: .semibold, design: .default)
-        static let headline = Font.system(size: 17, weight: .semibold, design: .default)
-        static let body = Font.system(size: 17, weight: .regular, design: .default)
-        static let bodyMedium = Font.system(size: 17, weight: .medium, design: .default)
-        static let subheadline = Font.system(size: 15, weight: .regular, design: .default)
-        static let footnote = Font.system(size: 13, weight: .regular, design: .default)
-        static let caption = Font.system(size: 12, weight: .medium, design: .default)
-        static let captionSmall = Font.system(size: 11, weight: .medium, design: .default)
+        static let largeTitle = Font.system(.largeTitle).weight(.bold)
+        static let title = Font.system(.title).weight(.bold)
+        static let title2 = Font.system(.title2).weight(.bold)
+        static let title3 = Font.system(.title3).weight(.semibold)
+        static let headline = Font.system(.headline)
+        static let body = Font.system(.body)
+        static let bodyMedium = Font.system(.body).weight(.medium)
+        static let subheadline = Font.system(.subheadline)
+        static let footnote = Font.system(.footnote)
+        static let caption = Font.system(.caption).weight(.medium)
+        static let captionSmall = Font.system(.caption2).weight(.medium)
+
+        // Onboarding-specific display sizes (fixed, constrained layouts)
+        static let heroDisplay = Font.system(size: 48, weight: .bold, design: .rounded)
+        static let inputDisplay = Font.system(size: 60, weight: .bold, design: .rounded)
+        static let paywallTitle = Font.system(size: 30, weight: .bold)
     }
 
     // MARK: - Animation

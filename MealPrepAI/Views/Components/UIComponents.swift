@@ -22,7 +22,7 @@ struct HeroHeaderCard: View {
             Spacer()
 
             Image(systemName: icon)
-                .font(.system(size: 44))
+                .font(Design.Typography.heroNumberMedium)
                 .foregroundStyle(.white.opacity(0.3))
         }
         .padding(Design.Spacing.lg)
@@ -63,11 +63,11 @@ struct PremiumMealCard: View {
 
                     if isCompleted {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 20, weight: .bold))
+                            .font(Design.Typography.title3.weight(.bold))
                             .foregroundStyle(.white)
                     } else {
                         Image(systemName: mealType.icon)
-                            .font(.system(size: 22))
+                            .font(Design.Typography.title2)
                             .foregroundStyle(.white)
                     }
                 }
@@ -101,7 +101,7 @@ struct PremiumMealCard: View {
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -222,7 +222,7 @@ struct QuickActionButton: View {
                         .frame(width: 48, height: 48)
 
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(Design.Typography.title3.weight(.semibold))
                         .foregroundStyle(color)
                 }
 
@@ -360,7 +360,7 @@ struct FloatingPrimaryButton: View {
         Button(action: action) {
             HStack(spacing: Design.Spacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(Design.Typography.callout.weight(.semibold))
                 Text(title)
                     .font(.headline)
             }
@@ -406,7 +406,7 @@ struct EmptyStateView: View {
                     .frame(width: 120, height: 120)
 
                 Image(systemName: icon)
-                    .font(.system(size: 48))
+                    .font(Design.Typography.iconSmall)
                     .foregroundStyle(LinearGradient.brandGradient)
             }
 
@@ -464,7 +464,7 @@ struct PremiumGroceryItem: View {
 
                     if isChecked {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(Design.Typography.footnote.weight(.bold))
                             .foregroundStyle(.white)
                     }
                 }
@@ -473,7 +473,7 @@ struct PremiumGroceryItem: View {
 
             // Category Icon
             Image(systemName: category.icon)
-                .font(.system(size: 16))
+                .font(Design.Typography.callout)
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
                 .accessibilityHidden(true)
@@ -535,7 +535,7 @@ struct PremiumRecipeCard: View {
                         .frame(height: 110)
                         .overlay(
                             Image(systemName: "fork.knife")
-                                .font(.system(size: 36))
+                                .font(Design.Typography.iconSmall)
                                 .foregroundStyle(.white.opacity(0.25))
                         )
 
@@ -546,7 +546,7 @@ struct PremiumRecipeCard: View {
                         }
                     }) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(Design.Typography.bodyLarge.weight(.semibold))
                             .foregroundStyle(isFavorite ? .white : .white.opacity(0.8))
                             .padding(10)
                             .background(

@@ -46,7 +46,7 @@ struct HorizontalMealCard: View {
                                         .fill(.white)
                                         .frame(width: 28, height: 28)
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 26))
+                                        .font(Design.Typography.iconXSmall)
                                         .foregroundStyle(Color.mintVibrant)
                                 }
                                 .padding(Design.Spacing.xs)
@@ -119,7 +119,7 @@ struct WideMealCard: View {
                                     .fill(.white)
                                     .frame(width: 28, height: 28)
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 26))
+                                    .font(Design.Typography.iconXSmall)
                                     .foregroundStyle(Color.mintVibrant)
                             }
                             .padding(Design.Spacing.xs)
@@ -165,7 +165,7 @@ struct WideMealCard: View {
             // Completion toggle button - separate from main tap
             Button(action: { onToggleCompleted?() }) {
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
+                    .font(Design.Typography.title2)
                     .foregroundStyle(isCompleted ? Color.mintVibrant : Color.textSecondary.opacity(0.3))
             }
             .accessibilityLabel(isCompleted ? "Mark as not eaten" : "Mark as eaten")
@@ -207,7 +207,7 @@ struct CompactStatsCard: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(Design.Typography.title3)
                     .foregroundStyle(color)
             }
 
@@ -247,7 +247,7 @@ struct NutritionSummaryCard: View {
             // Calories
             HStack(spacing: 4) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 11))
+                    .font(Design.Typography.captionSmall)
                     .foregroundStyle(Color(hex: "FF9500"))
                 Text("\(consumed)")
                     .font(.system(.caption, design: .rounded, weight: .semibold))

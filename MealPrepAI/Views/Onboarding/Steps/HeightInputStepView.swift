@@ -104,7 +104,7 @@ private struct HeightPickerView: View {
             // Display value
             HStack(alignment: .firstTextBaseline, spacing: OnboardingDesign.Spacing.xs) {
                 Text(displayValue)
-                    .font(.system(size: 60, weight: .bold, design: .rounded))
+                    .font(OnboardingDesign.Typography.inputDisplay)
                     .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                     .contentTransition(.numericText())
 

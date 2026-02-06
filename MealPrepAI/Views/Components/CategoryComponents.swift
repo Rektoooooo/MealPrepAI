@@ -94,7 +94,7 @@ struct CategoryPill: View {
                     } else {
                         // Fallback icon for "All" category
                         Image(systemName: category.icon)
-                            .font(.system(size: 24, weight: .medium))
+                            .font(Design.Typography.title2.weight(.medium))
                             .foregroundStyle(isSelected ? category.color : .secondary)
                     }
                 }

@@ -140,7 +140,7 @@ struct EditDietaryPrefsView: View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
             HStack(spacing: Design.Spacing.sm) {
                 Image(systemName: "checkmark.shield.fill")
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(Color.mintVibrant)
                 Text("Your Preferences")
                     .font(.headline)
@@ -207,7 +207,7 @@ struct EditDietaryPrefsView: View {
         VStack(alignment: .leading, spacing: Design.Spacing.md) {
             HStack(spacing: Design.Spacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(Design.Typography.footnote)
                     .foregroundStyle(iconColor)
                 Text(title)
                     .font(.headline)

@@ -116,7 +116,7 @@ struct TodayView: View {
                     Button(action: { showingNotifications = true }) {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "bell")
-                                .font(.system(size: 20, weight: .medium))
+                                .font(Design.Typography.title3).fontWeight(.medium)
                                 .foregroundStyle(Color.textPrimary)
 
                             if notificationManager.hasUnread {
@@ -205,7 +205,7 @@ struct TodayView: View {
 
                     if let emoji = userProfile?.avatarEmoji {
                         Text(emoji)
-                            .font(.system(size: 24))
+                            .font(Design.Typography.title2)
                     } else {
                         Text(String((userProfile?.name ?? "C").prefix(2)).uppercased())
                             .font(.system(.body, design: .rounded, weight: .bold))
@@ -291,13 +291,13 @@ struct TodayView: View {
                 if let profile = userProfile {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Text(eatenCalories.formatted())
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .font(Design.Typography.heroNumberMedium)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                             .contentTransition(.numericText())
 
                         Text("/\(profile.dailyCalorieTarget.formatted())")
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .font(Design.Typography.callout).fontWeight(.medium)
                             .foregroundStyle(.secondary)
                     }
                     .minimumScaleFactor(0.6)
@@ -307,7 +307,7 @@ struct TodayView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Text("0")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .font(Design.Typography.heroNumberMedium)
                         .foregroundStyle(.primary)
 
                     Text("Calories eaten")
@@ -335,7 +335,7 @@ struct TodayView: View {
                     .frame(width: 80, height: 80)
 
                     Text("\(Int(min(progress, 1.0) * 100))%")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(Design.Typography.callout).fontWeight(.bold)
                         .foregroundStyle(.primary)
                 }
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: eatenCalories)
@@ -440,7 +440,7 @@ struct TodayView: View {
         HStack {
             Button(action: { moveDate(by: -1) }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote).fontWeight(.semibold)
                     .foregroundStyle(isAtFirstDay ? Color.textSecondary.opacity(0.4) : Color.textPrimary)
                     .padding(Design.Spacing.sm)
                     .background(
@@ -470,7 +470,7 @@ struct TodayView: View {
 
             Button(action: { moveDate(by: 1) }) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(Design.Typography.footnote).fontWeight(.semibold)
                     .foregroundStyle(isAtLastDay ? Color.textSecondary.opacity(0.4) : Color.textPrimary)
                     .padding(Design.Spacing.sm)
                     .background(
@@ -640,7 +640,7 @@ struct MacroPillCard: View {
                 .frame(width: 40, height: 40)
 
                 Text(emoji)
-                    .font(.system(size: 16))
+                    .font(Design.Typography.callout)
             }
 
             Text(label)
@@ -705,7 +705,7 @@ struct TodayMealCard: View {
                             .frame(width: 50, height: 50)
 
                         Image(systemName: mealTypeIcon)
-                            .font(.system(size: 22))
+                            .font(Design.Typography.title2)
                             .foregroundStyle(mealTypeIconColor)
                     }
 
@@ -754,7 +754,7 @@ struct TodayMealCard: View {
 
                     if meal.isEaten {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(Design.Typography.footnote).fontWeight(.bold)
                             .foregroundStyle(.white)
                     }
                 }
@@ -830,7 +830,7 @@ struct GenerateMealPlanSheet: View {
                                     .frame(width: 90, height: 90)
 
                                 Image(systemName: "sparkles")
-                                    .font(.system(size: 40, weight: .medium))
+                                    .font(Design.Typography.iconSmall).fontWeight(.medium)
                                     .foregroundStyle(Color.accentPurple)
                             }
 
@@ -918,7 +918,7 @@ struct GenerateMealPlanSheet: View {
                             Button(action: generatePlan) {
                                 HStack(spacing: Design.Spacing.sm) {
                                     Image(systemName: "sparkles")
-                                        .font(.system(size: 18, weight: .semibold))
+                                        .font(Design.Typography.bodyLarge).fontWeight(.semibold)
                                     Text("Generate Meal Plan")
                                         .font(.headline)
                                 }
@@ -1017,7 +1017,7 @@ struct ProfileStatBadge: View {
                     .frame(width: 44, height: 44)
 
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(Design.Typography.bodyLarge)
                     .foregroundStyle(color)
             }
 
@@ -1073,7 +1073,7 @@ struct GeneratingMealPlanView: View {
                             .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
 
                         Image(systemName: "sparkles")
-                            .font(.system(size: 40, weight: .medium))
+                            .font(Design.Typography.iconSmall).fontWeight(.medium)
                             .foregroundStyle(Color.black)
                     }
                 }
@@ -1120,7 +1120,7 @@ struct GeneratingMealPlanView: View {
                     // Center content - floating icon
                     VStack(spacing: 6) {
                         Image(systemName: cookingIcons[currentTipIndex % cookingIcons.count])
-                            .font(.system(size: 40, weight: .medium))
+                            .font(Design.Typography.iconSmall).fontWeight(.medium)
                             .foregroundStyle(Color.black)
                             .offset(y: floatOffset)
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
@@ -1196,7 +1196,7 @@ struct GeneratingMealPlanView: View {
                 // Time estimate
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(Design.Typography.caption)
                     Text("This usually takes 30-60 seconds")
                         .font(.system(.caption, weight: .medium))
                 }
@@ -1301,7 +1301,7 @@ struct SwapMealSheet: View {
                                     .frame(width: 130, height: 130)
 
                                 Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 40, weight: .medium))
+                                    .font(Design.Typography.iconSmall).fontWeight(.medium)
                                     .foregroundStyle(Color.accentPurple)
                             }
 
@@ -1330,7 +1330,7 @@ struct SwapMealSheet: View {
                                 .rotationEffect(.degrees(-90))
 
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 40, weight: .medium))
+                                .font(Design.Typography.iconSmall).fontWeight(.medium)
                                 .foregroundStyle(Color.accentPurple)
                                 .symbolEffect(.rotate, options: .repeating)
                         }
@@ -1366,7 +1366,7 @@ struct SwapMealSheet: View {
                     Spacer()
                     VStack(spacing: Design.Spacing.md) {
                         Image(systemName: "fork.knife.circle")
-                            .font(.system(size: 50))
+                            .font(Design.Typography.iconMedium)
                             .foregroundStyle(Color.textSecondary)
 
                         Text("No meals to swap")
@@ -1531,7 +1531,7 @@ struct SwapMealRow: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: meal.mealType.icon)
-                        .font(.system(size: 18))
+                        .font(Design.Typography.bodyLarge)
                         .foregroundStyle(mealTypeColor)
                 }
 
@@ -1623,7 +1623,7 @@ struct AddMealToTodaySheet: View {
                             .frame(width: 100, height: 100)
 
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 50))
+                            .font(Design.Typography.iconMedium)
                             .foregroundStyle(Color.mintVibrant)
                     }
 
@@ -1736,7 +1736,7 @@ struct MealTypeButton: View {
         Button(action: onSelect) {
             VStack(spacing: 4) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 20))
+                    .font(Design.Typography.title3)
 
                 Text(type.rawValue)
                     .font(.caption2)
