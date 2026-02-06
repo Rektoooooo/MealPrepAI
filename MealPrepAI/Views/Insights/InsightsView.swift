@@ -61,9 +61,9 @@ struct InsightsView: View {
                     .offset(y: cardAppeared[3] ? 0 : 20)
             }
             .padding(.horizontal, Design.Spacing.md)
-            .padding(.bottom, Design.Spacing.xxl)
+            .padding(.bottom, 100)
         }
-        .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+        .warmBackground()
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.large)
         .onAppear {

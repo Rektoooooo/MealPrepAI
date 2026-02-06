@@ -80,12 +80,12 @@ struct GroceryListView: View {
                             }
                         }
                         .padding(.horizontal, Design.Spacing.md)
-                        .padding(.bottom, Design.Spacing.xxl)
+                        .padding(.bottom, 100)
                     }
                 }
             }
             .frame(maxWidth: .infinity)
-            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -188,33 +188,27 @@ struct GroceryListView: View {
                 VStack(alignment: .leading, spacing: Design.Spacing.xxs) {
                     Text("Shopping Progress")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
 
                     Text("\(checkedCount) of \(allItems.count) items")
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 // Progress Ring
-                ZStack {
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 5)
-                        .frame(width: 56, height: 56)
-
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                        .frame(width: 56, height: 56)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-
-                    Text("\(Int(progress * 100))%")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                }
+                ProgressRing(
+                    progress: progress,
+                    lineWidth: Design.Ring.medium,
+                    gradient: LinearGradient(
+                        colors: [Color(hex: "34C759"), Color(hex: "30D5C8")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    showLabel: true
+                )
+                .frame(width: 56, height: 56)
             }
 
             // Show "Mark Shopping Complete" button when progress >= 80%
@@ -227,12 +221,12 @@ struct GroceryListView: View {
                             .font(.subheadline)
                             .fontWeight(.semibold)
                     }
-                    .foregroundStyle(Color.accentPurple)
+                    .foregroundStyle(.white)
                     .padding(.horizontal, Design.Spacing.md)
                     .padding(.vertical, Design.Spacing.sm)
                     .background(
                         Capsule()
-                            .fill(Color.white)
+                            .fill(Color(hex: "34C759"))
                     )
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -240,9 +234,13 @@ struct GroceryListView: View {
         }
         .padding(Design.Spacing.lg)
         .background(
-            RoundedRectangle(cornerRadius: Design.Radius.featured)
-                .fill(LinearGradient.purpleButtonGradient)
-                .shadow(color: Color.accentPurple.opacity(0.4), radius: 20, y: 10)
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
         )
         .padding(.horizontal, Design.Spacing.md)
         .padding(.top, Design.Spacing.sm)

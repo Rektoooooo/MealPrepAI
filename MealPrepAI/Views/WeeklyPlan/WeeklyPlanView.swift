@@ -211,9 +211,9 @@ struct WeeklyPlanView: View {
                     }
                 }
                 .padding(.horizontal, Design.Spacing.md)
-                .padding(.bottom, Design.Spacing.xxl)
+                .padding(.bottom, 100)
             }
-            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

@@ -105,11 +105,15 @@ extension Color {
 
 // MARK: - Gradient Presets (Adaptive)
 extension LinearGradient {
-    // Main screen mint background
+    // Main screen background (warm peach tint at top, fading to system background)
     static let mintBackgroundGradient = LinearGradient(
-        colors: [Color.mintLight, Color.mintMedium.opacity(0.5), Color.backgroundCream],
+        colors: [
+            Color(light: Color(hex: "FFF5F0"), dark: Color(hex: "1C1C1E")),
+            Color(light: Color(hex: "FFFAF7"), dark: Color(hex: "1A1A1C")),
+            Color.backgroundPrimary
+        ],
         startPoint: .top,
-        endPoint: .bottom
+        endPoint: .init(x: 0.5, y: 0.35)
     )
 
     // Light mint background (subtle)
@@ -192,6 +196,17 @@ extension LinearGradient {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    // Cal AI-style warm background: subtle peach/blush tint at top ~20%, fading to white
+    static let warmTopGradient = LinearGradient(
+        colors: [
+            Color(light: Color(hex: "FFF5F0"), dark: Color(hex: "1C1C1E")),
+            Color(light: Color(hex: "FFFAF7"), dark: Color(hex: "1A1A1C")),
+            Color.backgroundPrimary
+        ],
+        startPoint: .top,
+        endPoint: .init(x: 0.5, y: 0.35)
+    )
 }
 
 // MARK: - Design Tokens (Updated for new design)
@@ -222,15 +237,16 @@ struct Design {
         static let full: CGFloat = 100     // Capsule
     }
 
-    // Shadows (softer, more subtle)
+    // Shadows (flat, subtle - Cal AI style)
     struct Shadow {
-        static let sm = (color: Color.black.opacity(0.04), radius: 6.0, y: 2.0)
-        static let md = (color: Color.black.opacity(0.08), radius: 12.0, y: 4.0)
-        static let lg = (color: Color.black.opacity(0.12), radius: 20.0, y: 8.0)
-        static let card = (color: Color.black.opacity(0.06), radius: 16.0, y: 6.0)
-        static let elevated = (color: Color.black.opacity(0.10), radius: 24.0, y: 10.0)
-        static let purple = (color: Color.accentPurple.opacity(0.25), radius: 16.0, y: 6.0) // Now black/gray
-        static let glow = (color: Color.mintVibrant.opacity(0.3), radius: 20.0, y: 0.0) // Now black glow
+        static let sm = (color: Color.black.opacity(0.03), radius: 4.0, y: 2.0)
+        static let md = (color: Color.black.opacity(0.05), radius: 8.0, y: 3.0)
+        static let lg = (color: Color.black.opacity(0.08), radius: 16.0, y: 6.0)
+        static let card = (color: Color.black.opacity(0.04), radius: 10.0, y: 4.0)
+        static let elevated = (color: Color.black.opacity(0.07), radius: 18.0, y: 8.0)
+        static let purple = (color: Color.accentPurple.opacity(0.15), radius: 12.0, y: 4.0)
+        static let glow = (color: Color.mintVibrant.opacity(0.2), radius: 16.0, y: 0.0)
+        static let tabBar = (color: Color.black.opacity(0.15), radius: 20.0, y: -4.0)
     }
 
     // Animation
@@ -255,6 +271,19 @@ struct Design {
         static let footnote = Font.system(size: 13, weight: .regular)
         static let caption = Font.system(size: 12, weight: .medium)
         static let captionSmall = Font.system(size: 11, weight: .medium)
+
+        // Hero numbers for Cal AI-style large displays
+        static let heroNumber = Font.system(size: 52, weight: .bold, design: .rounded)
+        static let heroNumberSmall = Font.system(size: 40, weight: .bold, design: .rounded)
+        static let heroSubtitle = Font.system(size: 14, weight: .medium, design: .rounded)
+    }
+
+    // Progress Ring Line Widths
+    struct Ring {
+        static let thin: CGFloat = 4
+        static let medium: CGFloat = 6
+        static let thick: CGFloat = 10
+        static let hero: CGFloat = 12
     }
 }
 
@@ -330,6 +359,26 @@ struct GradientCardModifier: ViewModifier {
                         color: Design.Shadow.md.color,
                         radius: Design.Shadow.md.radius,
                         y: Design.Shadow.md.y
+                    )
+            )
+    }
+}
+
+// Macro Pill Card Style (Cal AI-style horizontal macro cards)
+struct MacroPillCardModifier: ViewModifier {
+    let accentColor: Color
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, Design.Spacing.md)
+            .padding(.vertical, Design.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: Design.Radius.lg)
+                    .fill(Color.cardBackground)
+                    .shadow(
+                        color: Design.Shadow.sm.color,
+                        radius: Design.Shadow.sm.radius,
+                        y: Design.Shadow.sm.y
                     )
             )
     }
@@ -425,6 +474,18 @@ extension View {
 
     func floatingButton() -> some View {
         modifier(FloatingButtonModifier())
+    }
+
+    func macroPillCard(accent: Color = .clear) -> some View {
+        modifier(MacroPillCardModifier(accentColor: accent))
+    }
+
+    // Cal AI-style warm background (subtle peach tint at top only)
+    func warmBackground() -> some View {
+        self.background(
+            LinearGradient.warmTopGradient
+                .ignoresSafeArea()
+        )
     }
 
     func shimmer() -> some View {

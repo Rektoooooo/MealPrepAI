@@ -45,6 +45,23 @@ struct TodayView: View {
         return plan.sortedDays.first(where: { calendar.isDate($0.date, inSameDayAs: selectedDate) })
     }
 
+    // MARK: - Eaten-only nutrition totals
+    private var eatenCalories: Int {
+        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.calories ?? 0) }
+    }
+
+    private var eatenProtein: Int {
+        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.proteinGrams ?? 0) }
+    }
+
+    private var eatenCarbs: Int {
+        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.carbsGrams ?? 0) }
+    }
+
+    private var eatenFat: Int {
+        todaysMeals.filter { $0.isEaten }.reduce(0) { $0 + ($1.recipe?.fatGrams ?? 0) }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
@@ -64,12 +81,27 @@ struct TodayView: View {
                             .opacity(animateCards ? 1 : 0)
                             .offset(y: animateCards ? 0 : 20)
                     } else {
-                        // Progress Hero Card
+                        // Greeting row (compact)
                         progressHeroCard
                             .opacity(animateCards ? 1 : 0)
                             .offset(y: animateCards ? 0 : 20)
 
-                        // Date Selector + Nutrition
+                        // Hero Calorie Section
+                        heroCalorieSection
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Macro Pill Cards
+                        macroPillsSection
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Motivational micro-copy
+                        motivationalCopy
+                            .opacity(animateCards ? 1 : 0)
+                            .offset(y: animateCards ? 0 : 20)
+
+                        // Date Selector
                         dateSelector
                             .opacity(animateCards ? 1 : 0)
                             .offset(y: animateCards ? 0 : 20)
@@ -86,9 +118,9 @@ struct TodayView: View {
                     }
                 }
                 .padding(.horizontal, Design.Spacing.md)
-                .padding(.bottom, Design.Spacing.xxl)
+                .padding(.bottom, 100) // Extra bottom padding for floating tab bar
             }
-            .background(LinearGradient.mintBackgroundGradient.ignoresSafeArea())
+            .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -247,96 +279,185 @@ struct TodayView: View {
         todaysMeals.filter { $0.isEaten }.count
     }
 
-    // MARK: - Date Selector + Nutrition
-    private var dateSelector: some View {
-        VStack(spacing: Design.Spacing.sm) {
-            // Date row
-            HStack {
-                Button(action: { moveDate(by: -1) }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "212121"))
-                        .padding(Design.Spacing.sm)
-                        .background(
-                            Circle()
-                                .fill(Color(hex: "212121").opacity(0.1))
-                        )
-                }
-                .accessibilityLabel("Previous day")
+    // MARK: - Hero Calorie Section
+    private var heroCalorieSection: some View {
+        HStack {
+            // Left: Hero number — only counts eaten meals
+            VStack(alignment: .leading, spacing: 2) {
+                if let profile = userProfile {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text(eatenCalories.formatted())
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .contentTransition(.numericText())
 
-                Spacer()
+                        Text("/\(profile.dailyCalorieTarget.formatted())")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                    .minimumScaleFactor(0.6)
 
-                VStack(spacing: 2) {
-                    Text(selectedDate.formatted(.dateTime.weekday(.wide)))
-                        .font(.headline)
-                        .foregroundStyle(Color.textPrimary)
-
-                    Text(selectedDate.formatted(.dateTime.month(.wide).day()))
+                    Text("Calories eaten")
                         .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("0")
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
 
-                Spacer()
-
-                Button(action: { moveDate(by: 1) }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "212121"))
-                        .padding(Design.Spacing.sm)
-                        .background(
-                            Circle()
-                                .fill(Color(hex: "212121").opacity(0.1))
-                        )
+                    Text("Calories eaten")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .accessibilityLabel("Next day")
             }
 
-            // Nutrition row
-            if let day = todaysDay, let profile = userProfile {
-                Divider()
+            Spacer()
 
-                HStack(spacing: Design.Spacing.md) {
-                    // Calories
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color(hex: "FF9500"))
-                        Text("\(day.totalCalories)")
-                            .font(.system(.caption, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Color.textPrimary)
-                        Text("/ \(profile.dailyCalorieTarget)")
-                            .font(.system(.caption2, design: .rounded))
-                            .foregroundStyle(Color.textSecondary)
-                    }
+            // Right: Thick progress ring — based on eaten vs target
+            if let profile = userProfile {
+                let progress = profile.dailyCalorieTarget > 0 ? Double(eatenCalories) / Double(profile.dailyCalorieTarget) : 0
+                ZStack {
+                    ProgressRing(
+                        progress: progress,
+                        lineWidth: Design.Ring.thick,
+                        gradient: LinearGradient(
+                            colors: [Color(hex: "FF6B6B"), Color(hex: "FF9500")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        showLabel: false
+                    )
+                    .frame(width: 80, height: 80)
 
-                    Spacer()
-
-                    HStack(spacing: 3) {
-                        Circle().fill(Color(hex: "FF453A")).frame(width: 6, height: 6)
-                        Text("P \(day.totalProtein)g")
-                            .font(.caption2)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-
-                    HStack(spacing: 3) {
-                        Circle().fill(Color(hex: "FF9F0A")).frame(width: 6, height: 6)
-                        Text("C \(day.totalCarbs)g")
-                            .font(.caption2)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-
-                    HStack(spacing: 3) {
-                        Circle().fill(Color(hex: "0A84FF")).frame(width: 6, height: 6)
-                        Text("F \(day.totalFat)g")
-                            .font(.caption2)
-                            .foregroundStyle(Color.textSecondary)
-                    }
+                    Text("\(Int(min(progress, 1.0) * 100))%")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Calories: \(day.totalCalories) of \(profile.dailyCalorieTarget). Protein: \(day.totalProtein) grams. Carbs: \(day.totalCarbs) grams. Fat: \(day.totalFat) grams")
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: eatenCalories)
             }
+        }
+        .padding(Design.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.card)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.card.color,
+                    radius: Design.Shadow.card.radius,
+                    y: Design.Shadow.card.y
+                )
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Calories eaten: \(eatenCalories) of \(userProfile?.dailyCalorieTarget ?? 0)")
+    }
+
+    // MARK: - Macro Pill Cards
+    private var macroPillsSection: some View {
+        HStack(spacing: Design.Spacing.sm) {
+            if let profile = userProfile {
+                MacroPillCard(
+                    label: "Protein",
+                    emoji: "🥩",
+                    current: eatenProtein,
+                    target: profile.proteinGrams,
+                    color: .proteinColor
+                )
+
+                MacroPillCard(
+                    label: "Carbs",
+                    emoji: "🍞",
+                    current: eatenCarbs,
+                    target: profile.carbsGrams,
+                    color: .carbColor
+                )
+
+                MacroPillCard(
+                    label: "Fat",
+                    emoji: "🥑",
+                    current: eatenFat,
+                    target: profile.fatGrams,
+                    color: .fatColor
+                )
+            }
+        }
+    }
+
+    // MARK: - Motivational Copy
+    private var motivationalCopy: some View {
+        Group {
+            if let profile = userProfile {
+                let calorieProgress = profile.dailyCalorieTarget > 0 ? Double(eatenCalories) / Double(profile.dailyCalorieTarget) : 0
+                let message = motivationalMessage(for: calorieProgress)
+
+                Text(message)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color(hex: "34C759"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, Design.Spacing.xs)
+            }
+        }
+    }
+
+    private func motivationalMessage(for progress: Double) -> String {
+        switch progress {
+        case 0:
+            return "Time to fuel your day!"
+        case 0..<0.3:
+            return "Good start! Keep going."
+        case 0.3..<0.6:
+            return "You're on track today!"
+        case 0.6..<0.9:
+            return "Almost there, great job!"
+        case 0.9..<1.1:
+            return "Nailed it! Right on target."
+        default:
+            return "You're over target today."
+        }
+    }
+
+    // MARK: - Date Selector
+    private var dateSelector: some View {
+        HStack {
+            Button(action: { moveDate(by: -1) }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(Design.Spacing.sm)
+                    .background(
+                        Circle()
+                            .fill(Color.surfaceOverlay)
+                    )
+            }
+            .accessibilityLabel("Previous day")
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                Text(selectedDate.formatted(.dateTime.weekday(.wide)))
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text(selectedDate.formatted(.dateTime.month(.wide).day()))
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+
+            Spacer()
+
+            Button(action: { moveDate(by: 1) }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(Design.Spacing.sm)
+                    .background(
+                        Circle()
+                            .fill(Color.surfaceOverlay)
+                    )
+            }
+            .accessibilityLabel("Next day")
         }
         .padding(.vertical, Design.Spacing.sm)
         .padding(.horizontal, Design.Spacing.md)
@@ -459,6 +580,60 @@ struct TodayView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Macro Pill Card (Cal AI-style)
+struct MacroPillCard: View {
+    let label: String
+    let emoji: String
+    let current: Int
+    let target: Int
+    let color: Color
+
+    private var progress: Double {
+        guard target > 0 else { return 0 }
+        return Double(current) / Double(target)
+    }
+
+    var body: some View {
+        VStack(spacing: Design.Spacing.xs) {
+            // Emoji + mini ring
+            ZStack {
+                ProgressRing(
+                    progress: progress,
+                    lineWidth: Design.Ring.thin,
+                    gradient: LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                    showLabel: false
+                )
+                .frame(width: 40, height: 40)
+
+                Text(emoji)
+                    .font(.system(size: 16))
+            }
+
+            Text(label)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(.secondary)
+
+            Text("\(current)/\(target)g")
+                .font(.system(.caption2, design: .rounded, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Design.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.lg)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: Design.Shadow.sm.color,
+                    radius: Design.Shadow.sm.radius,
+                    y: Design.Shadow.sm.y
+                )
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(current) of \(target) grams")
     }
 }
 

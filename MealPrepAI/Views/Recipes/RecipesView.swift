@@ -289,15 +289,12 @@ struct RecipesView: View {
                         .opacity(animateContent ? 1 : 0)
                     }
                 }
-                .padding(.bottom, Design.Spacing.xxl)
+                .padding(.bottom, 100)
             }
             .refreshable {
                 await refreshRecipes()
             }
-            .background(
-                LinearGradient.mintBackgroundGradient
-                    .ignoresSafeArea()
-            )
+            .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
