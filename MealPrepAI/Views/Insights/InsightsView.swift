@@ -8,6 +8,7 @@ struct InsightsView: View {
     let carbsTarget: Int
     let fatTarget: Int
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var cardAppeared: [Bool] = Array(repeating: false, count: 4)
 
     private var days: [Day] {
@@ -69,8 +70,12 @@ struct InsightsView: View {
         .onAppear {
             for index in 0..<cardAppeared.count {
                 if !cardAppeared[index] {
-                    withAnimation(Design.Animation.smooth.delay(Double(index) * 0.1)) {
+                    if reduceMotion {
                         cardAppeared[index] = true
+                    } else {
+                        withAnimation(Design.Animation.smooth.delay(Double(index) * 0.1)) {
+                            cardAppeared[index] = true
+                        }
                     }
                 }
             }
@@ -155,5 +160,7 @@ struct InsightsView: View {
                 y: 8
             )
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Weekly adherence: \(weeklyAdherencePercent) percent. \(daysOnTarget) of \(days.count) days on target.")
     }
 }

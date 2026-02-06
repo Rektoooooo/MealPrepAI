@@ -19,6 +19,7 @@ import { handleSwapMeal } from './api/swapMeal';
 import { handleSubstituteIngredient } from './api/substituteIngredient';
 import { handleVerifySubscription } from './api/verifySubscription';
 import { handleAppStoreWebhook } from './api/appStoreWebhook';
+import { handleRevokeAppleToken } from './api/revokeAppleToken';
 import { cleanupExpiredRateLimits } from './utils/rateLimiter';
 import { requireSubscription } from './utils/subscriptionMiddleware';
 import { incrementPlansGenerated } from './utils/subscriptionVerifier';
@@ -625,6 +626,15 @@ app.post('/v1/substitute-ingredient', verifyAppCheck, requireSubscription, async
       error: 'Internal server error',
     });
   }
+});
+
+/**
+ * POST /api/revokeAppleToken
+ * Revoke Apple Sign In token for account deletion (Apple requirement)
+ * Protected by App Check verification
+ */
+app.post('/revokeAppleToken', verifyAppCheck, async (req: Request, res: Response) => {
+  await handleRevokeAppleToken(req, res);
 });
 
 /**

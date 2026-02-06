@@ -149,10 +149,12 @@ struct PaywallStepView: View {
                 .disabled(subscriptionManager.isLoading)
                 .buttonStyle(OnboardingScaleButtonStyle())
 
-                // Price info
-                Text("7 days free, then \(selectedPriceText) per year")
-                    .font(OnboardingDesign.Typography.footnote)
+                // Price info + auto-renew disclosure
+                Text("7 days free, then \(selectedPriceText)\(selectedPeriodText). Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.")
+                    .font(OnboardingDesign.Typography.caption)
                     .foregroundStyle(OnboardingDesign.Colors.textMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, OnboardingDesign.Spacing.md)
 
                 // Legal links
                 HStack(spacing: OnboardingDesign.Spacing.md) {
@@ -165,14 +167,14 @@ struct PaywallStepView: View {
                     Text("·")
                         .foregroundStyle(OnboardingDesign.Colors.textMuted)
 
-                    Link("Terms", destination: URL(string: "https://example.com/terms")!)
+                    Link("Terms", destination: URL(string: "https://mealprepai.app/terms")!)
                         .font(OnboardingDesign.Typography.caption)
                         .foregroundStyle(OnboardingDesign.Colors.textTertiary)
 
                     Text("·")
                         .foregroundStyle(OnboardingDesign.Colors.textMuted)
 
-                    Link("Privacy", destination: URL(string: "https://example.com/privacy")!)
+                    Link("Privacy", destination: URL(string: "https://mealprepai.app/privacy")!)
                         .font(OnboardingDesign.Typography.caption)
                         .foregroundStyle(OnboardingDesign.Colors.textTertiary)
                 }

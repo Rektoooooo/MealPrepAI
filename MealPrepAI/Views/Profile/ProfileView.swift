@@ -11,7 +11,9 @@ struct ProfileView: View {
     @Environment(HealthKitManager.self) var healthKitManager
     @Environment(SubscriptionManager.self) var subscriptionManager
     @Query private var userProfiles: [UserProfile]
-    @Query private var recipes: [Recipe]
+    @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var favoriteRecipes: [Recipe]
+    // allRecipes is needed to compute total mealsLogged (sum of timesUsed across every recipe)
+    @Query private var allRecipes: [Recipe]
 
     @State private var showingEditProfile = false
     @State private var showingSignOutAlert = false
@@ -27,12 +29,10 @@ struct ProfileView: View {
         userProfiles.first
     }
 
-    private var favoriteRecipes: [Recipe] {
-        recipes.filter { $0.isFavorite }
-    }
+    // favoriteRecipes is now provided directly by the filtered @Query above
 
     private var mealsLogged: Int {
-        recipes.reduce(0) { $0 + $1.timesUsed }
+        allRecipes.reduce(0) { $0 + $1.timesUsed }
     }
 
     var body: some View {
@@ -891,8 +891,10 @@ struct ProfileView: View {
             // Settings Section
             makeSettingsSection()
 
-            // Developer Section
+            // Developer Section (debug only)
+            #if DEBUG
             makeDeveloperSection()
+            #endif
 
             // Danger Zone Section
             makeDangerZoneSection()
@@ -1210,17 +1212,25 @@ struct ProfileView: View {
     }
 
     private func deleteAccountAndResetOnboarding() {
-        // Sign out from Apple ID if signed in
+        // Revoke Apple Sign in token and sign out (Apple requirement for account deletion)
         if authManager.hasAppleID {
+            Task {
+                await authManager.revokeAppleSignIn()
+            }
+        } else {
             authManager.signOut()
         }
 
         // Sign out from Firebase Auth (persists in Keychain!)
         do {
             try Auth.auth().signOut()
+            #if DEBUG
             print("🔐 [Firebase Auth] Signed out successfully")
+            #endif
         } catch {
+            #if DEBUG
             print("🔐 [Firebase Auth] Sign out error: \(error.localizedDescription)")
+            #endif
         }
 
         // Clear meal prep preferences
@@ -1268,7 +1278,9 @@ struct ProfileView: View {
                authError.code == .canceled {
                 return
             }
+            #if DEBUG
             print("Sign in failed: \(error.localizedDescription)")
+            #endif
         }
     }
 

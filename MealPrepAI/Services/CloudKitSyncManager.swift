@@ -81,9 +81,10 @@ final class CloudKitSyncManager {
         startMonitoring()
     }
 
-    deinit {
-        stopMonitoring()
-    }
+    // Note: No deinit — callers must invoke stopMonitoring() before releasing
+    // this object. deinit is nonisolated and cannot safely access @MainActor
+    // state; using MainActor.assumeIsolated in deinit crashes when dealloc
+    // happens on a background thread.
 
     // MARK: - Sync Event Monitoring
 
@@ -99,13 +100,12 @@ final class CloudKitSyncManager {
         }
     }
 
-    nonisolated func stopMonitoring() {
-        // Cannot remove on MainActor from deinit; use nonisolated
-        MainActor.assumeIsolated {
-            if let observer = eventObserver {
-                NotificationCenter.default.removeObserver(observer)
-                eventObserver = nil
-            }
+    /// Call this explicitly before releasing the object to clean up the
+    /// notification observer. Safe to call from any isolation context.
+    func stopMonitoring() {
+        if let observer = eventObserver {
+            NotificationCenter.default.removeObserver(observer)
+            eventObserver = nil
         }
     }
 
@@ -169,7 +169,9 @@ final class CloudKitSyncManager {
                 cloudKitAvailability = .couldNotDetermine
             }
         } catch {
+            #if DEBUG
             print("CloudKit availability error: \(error.localizedDescription)")
+            #endif
             cloudKitAvailability = .couldNotDetermine
         }
     }
@@ -210,23 +212,35 @@ final class CloudKitSyncManager {
 
         let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
 
+        #if DEBUG
         print("[CloudKit] Deleting CloudKit zone: \(zoneID.zoneName)...")
+        #endif
 
         do {
             try await privateDatabase.deleteRecordZone(withID: zoneID)
+            #if DEBUG
             print("[CloudKit] Successfully deleted CloudKit zone")
+            #endif
         } catch {
             if let ckError = error as? CKError {
                 switch ckError.code {
                 case .zoneNotFound:
+                    #if DEBUG
                     print("[CloudKit] Zone not found (already deleted or never created)")
+                    #endif
                 case .userDeletedZone:
+                    #if DEBUG
                     print("[CloudKit] Zone was already deleted by user")
+                    #endif
                 default:
+                    #if DEBUG
                     print("[CloudKit] Error deleting zone: \(ckError.localizedDescription)")
+                    #endif
                 }
             } else {
+                #if DEBUG
                 print("[CloudKit] Error deleting zone: \(error.localizedDescription)")
+                #endif
             }
         }
     }

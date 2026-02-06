@@ -272,14 +272,22 @@ actor APIService {
         structuredPreferences: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = nil,
         duration: Int = 7
     ) async throws -> GeneratePlanAPIResponse {
+        #if DEBUG
         print("[DEBUG:API] ========== GENERATE MEAL PLAN START ==========")
+        #if DEBUG
         print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
+        #endif
+        #endif
 
         // Use mock data for development
         if apiConfigUseMockData {
+            #if DEBUG
             print("[DEBUG:API] Using mock data, sleeping 1.5s...")
+            #endif
             try await Task.sleep(nanoseconds: 1_500_000_000)
+            #if DEBUG
             print("[DEBUG:API] Returning mock response")
+            #endif
             return GeneratePlanAPIResponse(
                 success: true,
                 mealPlan: nil, // Will use local mock
@@ -291,15 +299,21 @@ actor APIService {
         }
 
         let urlString = "\(apiConfigBaseURL)/v1/generate-plan"
+        #if DEBUG
         print("[DEBUG:API] URL: \(urlString)")
+        #endif
 
         guard let url = URL(string: urlString) else {
+            #if DEBUG
             print("[DEBUG:API] ERROR: Invalid URL")
+            #endif
             throw APIError.invalidURL
         }
 
         let deviceId = await DeviceIdentifier.shared.deviceId
+        #if DEBUG
         print("[DEBUG:API] Device ID: \(deviceId.prefix(8))...")
+        #endif
 
         let requestBody = GeneratePlanRequest(
             userProfile: userProfile,
@@ -312,14 +326,20 @@ actor APIService {
             weeklyBusyness: structuredPreferences?.weeklyBusyness
         )
 
+        #if DEBUG
         print("[DEBUG:API] User Profile:", String(describing: [
             "calories": userProfile.dailyCalorieTarget,
             "protein": userProfile.proteinGrams,
             "restrictions": userProfile.dietaryRestrictions,
             "allergies": userProfile.allergies,
         ]))
+        #if DEBUG
         print("[DEBUG:API] Weekly Preferences: \(weeklyPreferences ?? "None")")
+        #endif
+        #if DEBUG
         print("[DEBUG:API] Exclude Recipes: \(excludeRecipeNames.joined(separator: ", "))")
+        #endif
+        #endif
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -329,51 +349,83 @@ actor APIService {
         // Add App Check token for security
         if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
             urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+            #if DEBUG
             print("[DEBUG:API] App Check token added")
+            #endif
         } else {
+            #if DEBUG
             print("[DEBUG:API] WARNING: No App Check token available")
+            #endif
         }
 
+        #if DEBUG
         print("[DEBUG:API] Sending request (5min timeout)...")
+        #endif
         let startTime = Date()
 
         // Use long timeout session for meal plan generation (2 batches + processing)
         let (data, response) = try await longTimeoutSession.data(for: urlRequest)
 
+        #if DEBUG
         let duration = Date().timeIntervalSince(startTime)
+        #if DEBUG
         print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+        #endif
+        #if DEBUG
         print("[DEBUG:API] Response size: \(data.count) bytes")
+        #endif
+        #endif
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            #if DEBUG
             print("[DEBUG:API] ERROR: Invalid response type")
+            #endif
             throw APIError.invalidResponse
         }
 
+        #if DEBUG
         print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
+        #endif
 
         switch httpResponse.statusCode {
         case 200...299:
             let apiResponse = try decoder.decode(GeneratePlanAPIResponse.self, from: data)
+            #if DEBUG
             print("[DEBUG:API] SUCCESS: \(apiResponse.mealPlan?.days.count ?? 0) days, \(apiResponse.recipesAdded ?? 0) new recipes")
+            #if DEBUG
             print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+            #endif
+            #if DEBUG
             print("[DEBUG:API] ========== GENERATE MEAL PLAN SUCCESS ==========")
+            #endif
+            #endif
             return apiResponse
         case 403:
+            #if DEBUG
             print("[DEBUG:API] ERROR: Subscription required")
+            #endif
             throw APIError.subscriptionRequired
         case 429:
+            #if DEBUG
             print("[DEBUG:API] ERROR: Rate limited")
+            #endif
             throw APIError.rateLimited
         default:
             if let errorResponse = try? decoder.decode(GeneratePlanAPIResponse.self, from: data),
                let errorMessage = errorResponse.error {
+                #if DEBUG
                 print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                #endif
                 throw APIError.serverError(errorMessage)
             }
+            #if DEBUG
             print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
             if let responseText = String(data: data, encoding: .utf8) {
+                #if DEBUG
                 print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+                #endif
             }
+            #endif
             throw APIError.httpError(statusCode: httpResponse.statusCode)
         }
     }
@@ -385,15 +437,25 @@ actor APIService {
         excludeRecipeNames: [String] = [],
         weeklyPreferences: String? = nil
     ) async throws -> SwapMealAPIResponse {
+        #if DEBUG
         print("[DEBUG:API] ========== SWAP MEAL START ==========")
+        #if DEBUG
         print("[DEBUG:API] Meal Type: \(mealType)")
+        #endif
+        #if DEBUG
         print("[DEBUG:API] Mock mode: \(apiConfigUseMockData)")
+        #endif
+        #endif
 
         // Use mock data for development
         if apiConfigUseMockData {
+            #if DEBUG
             print("[DEBUG:API] Using mock data, sleeping 1s...")
+            #endif
             try await Task.sleep(nanoseconds: 1_000_000_000)
+            #if DEBUG
             print("[DEBUG:API] Returning mock response")
+            #endif
             return SwapMealAPIResponse(
                 success: true,
                 recipe: nil, // Will use local mock
@@ -403,15 +465,21 @@ actor APIService {
         }
 
         let urlString = "\(apiConfigBaseURL)/v1/swap-meal"
+        #if DEBUG
         print("[DEBUG:API] URL: \(urlString)")
+        #endif
 
         guard let url = URL(string: urlString) else {
+            #if DEBUG
             print("[DEBUG:API] ERROR: Invalid URL")
+            #endif
             throw APIError.invalidURL
         }
 
         let deviceId = await DeviceIdentifier.shared.deviceId
+        #if DEBUG
         print("[DEBUG:API] Device ID: \(deviceId.prefix(8))...")
+        #endif
 
         let requestBody = SwapMealRequest(
             userProfile: userProfile,
@@ -421,8 +489,12 @@ actor APIService {
             deviceId: deviceId
         )
 
+        #if DEBUG
         print("[DEBUG:API] Exclude Recipes: \(excludeRecipeNames.joined(separator: ", "))")
+        #if DEBUG
         print("[DEBUG:API] Weekly Preferences: \(weeklyPreferences ?? "None")")
+        #endif
+        #endif
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -432,50 +504,82 @@ actor APIService {
         // Add App Check token for security
         if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
             urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+            #if DEBUG
             print("[DEBUG:API] App Check token added")
+            #endif
         } else {
+            #if DEBUG
             print("[DEBUG:API] WARNING: No App Check token available")
+            #endif
         }
 
+        #if DEBUG
         print("[DEBUG:API] Sending request...")
+        #endif
         let startTime = Date()
 
         let (data, response) = try await session.data(for: urlRequest)
 
+        #if DEBUG
         let duration = Date().timeIntervalSince(startTime)
+        #if DEBUG
         print("[DEBUG:API] Response received in \(String(format: "%.2f", duration))s")
+        #endif
+        #if DEBUG
         print("[DEBUG:API] Response size: \(data.count) bytes")
+        #endif
+        #endif
 
         guard let httpResponse = response as? HTTPURLResponse else {
+            #if DEBUG
             print("[DEBUG:API] ERROR: Invalid response type")
+            #endif
             throw APIError.invalidResponse
         }
 
+        #if DEBUG
         print("[DEBUG:API] HTTP Status: \(httpResponse.statusCode)")
+        #endif
 
         switch httpResponse.statusCode {
         case 200...299:
             let apiResponse = try decoder.decode(SwapMealAPIResponse.self, from: data)
+            #if DEBUG
             print("[DEBUG:API] SUCCESS: Recipe - \(apiResponse.recipe?.name ?? "nil")")
+            #if DEBUG
             print("[DEBUG:API] Rate limit remaining: \(apiResponse.rateLimitInfo?.remaining ?? -1)")
+            #endif
+            #if DEBUG
             print("[DEBUG:API] ========== SWAP MEAL SUCCESS ==========")
+            #endif
+            #endif
             return apiResponse
         case 403:
+            #if DEBUG
             print("[DEBUG:API] ERROR: Subscription required")
+            #endif
             throw APIError.subscriptionRequired
         case 429:
+            #if DEBUG
             print("[DEBUG:API] ERROR: Rate limited")
+            #endif
             throw APIError.rateLimited
         default:
             if let errorResponse = try? decoder.decode(SwapMealAPIResponse.self, from: data),
                let errorMessage = errorResponse.error {
+                #if DEBUG
                 print("[DEBUG:API] ERROR: Server error - \(errorMessage)")
+                #endif
                 throw APIError.serverError(errorMessage)
             }
+            #if DEBUG
             print("[DEBUG:API] ERROR: HTTP \(httpResponse.statusCode)")
             if let responseText = String(data: data, encoding: .utf8) {
+                #if DEBUG
                 print("[DEBUG:API] Response body: \(responseText.prefix(500))")
+                #endif
             }
+            #endif
             throw APIError.httpError(statusCode: httpResponse.statusCode)
         }
     }
@@ -489,8 +593,12 @@ actor APIService {
         dietaryRestrictions: [String],
         allergies: [String]
     ) async throws -> SubstituteIngredientResponse {
+        #if DEBUG
         print("[DEBUG:API] ========== SUBSTITUTE INGREDIENT START ==========")
+        #if DEBUG
         print("[DEBUG:API] Ingredient: \(ingredientName)")
+        #endif
+        #endif
 
         let urlString = "\(apiConfigBaseURL)/v1/substitute-ingredient"
 
@@ -528,7 +636,9 @@ actor APIService {
         switch httpResponse.statusCode {
         case 200...299:
             let apiResponse = try decoder.decode(SubstituteIngredientResponse.self, from: data)
+            #if DEBUG
             print("[DEBUG:API] SUCCESS: \(apiResponse.substitutes?.count ?? 0) substitutes")
+            #endif
             return apiResponse
         case 403:
             throw APIError.subscriptionRequired

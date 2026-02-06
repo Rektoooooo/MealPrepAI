@@ -134,6 +134,7 @@ struct GroceryListView: View {
                             .font(.system(size: 18))
                             .foregroundStyle(Color.textSecondary)
                     }
+                    .accessibilityLabel("More options")
                 }
             }
             .sheet(isPresented: $showingAddItem) {
@@ -326,26 +327,38 @@ struct GroceryListView: View {
     }
 
     private func generateGroceryList() {
+        #if DEBUG
         print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST START ==========")
+        #endif
         guard let mealPlan = currentMealPlan else {
+            #if DEBUG
             print("[DEBUG:Grocery] ERROR: No current meal plan found")
+            #endif
             return
         }
+        #if DEBUG
         print("[DEBUG:Grocery] Meal plan ID: \(mealPlan.id)")
+        #endif
+        #if DEBUG
         print("[DEBUG:Grocery] Days in meal plan: \(mealPlan.sortedDays.count)")
+        #endif
 
         // Create or clear existing grocery list
         let list: GroceryList
         if let existingList = mealPlan.groceryList {
             // Clear existing items
             let existingCount = existingList.items?.count ?? 0
+            #if DEBUG
             print("[DEBUG:Grocery] Clearing existing list with \(existingCount) items")
+            #endif
             for item in existingList.items ?? [] {
                 modelContext.delete(item)
             }
             list = existingList
         } else {
+            #if DEBUG
             print("[DEBUG:Grocery] Creating new grocery list")
+            #endif
             list = GroceryList()
             modelContext.insert(list)
             mealPlan.groceryList = list
@@ -360,13 +373,19 @@ struct GroceryListView: View {
             for meal in day.sortedMeals {
                 totalMeals += 1
                 guard let recipe = meal.recipe else {
+                    #if DEBUG
                     print("[DEBUG:Grocery] WARNING: Meal '\(meal.mealType.rawValue)' on day \(day.dayOfWeek) has no recipe")
+                    #endif
                     continue
                 }
+                #if DEBUG
                 print("[DEBUG:Grocery] Processing recipe: \(recipe.name) (\(recipe.ingredients?.count ?? 0) ingredients)")
+                #endif
                 for recipeIngredient in recipe.ingredients ?? [] {
                     guard let ingredient = recipeIngredient.ingredient else {
+                        #if DEBUG
                         print("[DEBUG:Grocery] WARNING: RecipeIngredient has no ingredient")
+                        #endif
                         continue
                     }
                     totalRecipeIngredients += 1
@@ -382,9 +401,15 @@ struct GroceryListView: View {
             }
         }
 
+        #if DEBUG
         print("[DEBUG:Grocery] Total meals processed: \(totalMeals)")
+        #endif
+        #if DEBUG
         print("[DEBUG:Grocery] Total recipe ingredients: \(totalRecipeIngredients)")
+        #endif
+        #if DEBUG
         print("[DEBUG:Grocery] Unique ingredients: \(ingredientQuantities.count)")
+        #endif
 
         // Create grocery items
         for (name, (ingredient, quantity, unit)) in ingredientQuantities {
@@ -398,17 +423,25 @@ struct GroceryListView: View {
             groceryItem.ingredient = ingredient
             groceryItem.groceryList = list
             modelContext.insert(groceryItem)
+            #if DEBUG
             print("[DEBUG:Grocery] Added: \(name) - \(quantity) \(unit.rawValue)")
+            #endif
         }
 
         list.lastModified = Date()
         do {
             try modelContext.save()
+            #if DEBUG
             print("[DEBUG:Grocery] SUCCESS: Grocery list saved with \(ingredientQuantities.count) items")
+            #endif
         } catch {
+            #if DEBUG
             print("[DEBUG:Grocery] ERROR: Failed to save - \(error.localizedDescription)")
+            #endif
         }
+        #if DEBUG
         print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST END ==========")
+        #endif
     }
 }
 
@@ -554,6 +587,7 @@ struct AddGroceryItemSheet: View {
                                     .font(.title2)
                                     .foregroundStyle(quantity > 0.5 ? Color.accentPurple : Color.textSecondary)
                             }
+                            .accessibilityLabel("Decrease quantity")
                             Text(String(format: quantity.truncatingRemainder(dividingBy: 1) == 0 ? "%.0f" : "%.1f", quantity))
                                 .font(.headline)
                                 .frame(width: 40)
@@ -562,6 +596,7 @@ struct AddGroceryItemSheet: View {
                                     .font(.title2)
                                     .foregroundStyle(Color.accentPurple)
                             }
+                            .accessibilityLabel("Increase quantity")
                         }
                         .padding(Design.Spacing.sm)
                         .background(
@@ -685,6 +720,9 @@ struct CategoryChip: View {
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(category.rawValue) category")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

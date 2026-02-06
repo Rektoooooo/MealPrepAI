@@ -137,7 +137,9 @@ class OnboardingViewModel {
             return true
         } catch {
             saveError = error
+            #if DEBUG
             print("Failed to save profile: \(error)")
+            #endif
             // Remove the profile from context since save failed
             modelContext.delete(profile)
             return false

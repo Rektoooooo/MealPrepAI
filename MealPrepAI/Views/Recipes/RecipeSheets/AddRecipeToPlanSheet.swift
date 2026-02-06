@@ -150,7 +150,9 @@ struct AddRecipeToPlanSheet: View {
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
         } catch {
+            #if DEBUG
             print("Failed to save: \(error)")
+            #endif
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.error)
         }

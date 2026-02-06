@@ -85,11 +85,10 @@ final class NotificationManager {
         center.removeAllPendingNotificationRequests()
 
         // Only schedule if the user has granted notification permission
-        center.getNotificationSettings { [weak self] settings in
+        Task {
+            let settings = await center.notificationSettings()
             guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
-            Task { @MainActor in
-                self?.scheduleAll(activePlan: activePlan, isSubscribed: isSubscribed, trialStartDate: trialStartDate)
-            }
+            scheduleAll(activePlan: activePlan, isSubscribed: isSubscribed, trialStartDate: trialStartDate)
         }
     }
 
@@ -123,9 +122,13 @@ final class NotificationManager {
 
         #if DEBUG
         center.getPendingNotificationRequests { requests in
+            #if DEBUG
             print("📬 [NotificationManager] Scheduled \(requests.count) pending notifications")
+            #endif
             for req in requests {
+                #if DEBUG
                 print("  - \(req.identifier): \(req.content.title)")
+                #endif
             }
         }
         #endif

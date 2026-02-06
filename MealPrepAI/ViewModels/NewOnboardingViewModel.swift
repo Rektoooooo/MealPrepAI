@@ -269,7 +269,9 @@ class NewOnboardingViewModel {
             return true
         } catch {
             saveError = error
+            #if DEBUG
             print("Failed to save profile: \(error)")
+            #endif
             modelContext.delete(profile)
             return false
         }

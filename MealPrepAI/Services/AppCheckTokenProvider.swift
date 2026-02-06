@@ -19,10 +19,14 @@ actor AppCheckTokenProvider {
     func getToken() async -> String? {
         do {
             let tokenResult = try await AppCheck.appCheck().token(forcingRefresh: false)
+            #if DEBUG
             print("🔒 [AppCheck] Token obtained, expires: \(tokenResult.expirationDate)")
+            #endif
             return tokenResult.token
         } catch {
+            #if DEBUG
             print("🔒 [AppCheck] ERROR getting token: \(error.localizedDescription)")
+            #endif
             return nil
         }
     }

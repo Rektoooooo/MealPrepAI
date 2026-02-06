@@ -17,21 +17,29 @@ final class DeviceIdentifier {
 
     /// Get the unique device identifier, creating one if it doesn't exist
     var deviceId: String {
+        #if DEBUG
         print("[DEBUG:DeviceId] Getting device identifier...")
+        #endif
 
         if let cached = cachedDeviceId {
+            #if DEBUG
             print("[DEBUG:DeviceId] Using cached device ID: \(cached.prefix(8))...")
+            #endif
             return cached
         }
 
         if let existing = retrieveFromKeychain() {
+            #if DEBUG
             print("[DEBUG:DeviceId] Retrieved from Keychain: \(existing.prefix(8))...")
+            #endif
             cachedDeviceId = existing
             return existing
         }
 
         let newId = UUID().uuidString
+        #if DEBUG
         print("[DEBUG:DeviceId] Created new device ID: \(newId.prefix(8))...")
+        #endif
         saveToKeychain(newId)
         cachedDeviceId = newId
         return newId
@@ -61,7 +69,9 @@ final class DeviceIdentifier {
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         if status != errSecSuccess {
+            #if DEBUG
             print("DeviceIdentifier: Failed to save to Keychain: \(status)")
+            #endif
         }
     }
 

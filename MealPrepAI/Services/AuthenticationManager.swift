@@ -34,6 +34,7 @@ final class AuthenticationManager {
 
     private let userIDKey = "com.mealprepai.appleUserID"
     private let guestModeKey = "com.mealprepai.isGuestMode"
+    private let authorizationCodeKey = "com.mealprepai.appleAuthCode"
 
     // MARK: - Initialization
 
@@ -97,6 +98,12 @@ final class AuthenticationManager {
         UserDefaults.standard.set(userID, forKey: userIDKey)
         UserDefaults.standard.set(false, forKey: guestModeKey)
 
+        // Store authorization code for future token revocation (account deletion)
+        if let authorizationCode = credential.authorizationCode,
+           let codeString = String(data: authorizationCode, encoding: .utf8) {
+            UserDefaults.standard.set(codeString, forKey: authorizationCodeKey)
+        }
+
         // Store optional user info (only provided on first sign in)
         currentUserID = userID
         userEmail = credential.email
@@ -120,6 +127,38 @@ final class AuthenticationManager {
         authState = .unauthenticated
     }
 
+    /// Revoke Sign in with Apple token for account deletion (Apple requirement)
+    func revokeAppleSignIn() async {
+        guard let storedCode = UserDefaults.standard.string(forKey: authorizationCodeKey) else {
+            // No stored authorization code - just clear credentials
+            clearStoredCredentials()
+            return
+        }
+
+        // Call backend to revoke the Apple token using the stored authorization code
+        // The backend exchanges the code for a token and calls Apple's revoke endpoint
+        do {
+            var request = URLRequest(url: URL(string: "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api/revokeAppleToken")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(["authorizationCode": storedCode])
+
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                #if DEBUG
+                print("Apple token revoked successfully")
+                #endif
+            }
+        } catch {
+            // Token revocation failed - still proceed with local cleanup
+            #if DEBUG
+            print("Apple token revocation failed: \(error.localizedDescription)")
+            #endif
+        }
+
+        clearStoredCredentials()
+    }
+
     /// Upgrade from guest to authenticated user
     func upgradeFromGuest(credential: ASAuthorizationAppleIDCredential) {
         signInWithApple(credential: credential)
@@ -140,6 +179,7 @@ final class AuthenticationManager {
     private func clearStoredCredentials() {
         UserDefaults.standard.removeObject(forKey: userIDKey)
         UserDefaults.standard.removeObject(forKey: guestModeKey)
+        UserDefaults.standard.removeObject(forKey: authorizationCodeKey)
         currentUserID = nil
         userEmail = nil
         userFullName = nil
@@ -200,13 +240,14 @@ class SignInWithAppleCoordinator: NSObject, ASAuthorizationControllerDelegate, A
             }
 
             // Fallback: create a new window from first available scene
-            // This should rarely happen as we already iterate scenes above
-            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
-                fatalError("No window scene available for Sign in with Apple")
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                let fallbackWindow = UIWindow(windowScene: windowScene)
+                fallbackWindow.makeKeyAndVisible()
+                return fallbackWindow
             }
-            let fallbackWindow = UIWindow(windowScene: windowScene)
-            fallbackWindow.makeKeyAndVisible()
-            return fallbackWindow
+
+            // Last resort: return an empty window (should never happen in practice)
+            return UIWindow()
         }
     }
 }

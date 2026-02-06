@@ -30,24 +30,16 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         // Firebase is configured in MealPrepAIApp.init() before this runs
+        #if DEBUG
         print("🔥 [AppDelegate] didFinishLaunchingWithOptions")
+        #endif
         return true
     }
 }
 
-// Create ModelContainer with CloudKit sync for user data
+// Create ModelContainer with CloudKit sync and schema versioning
 let sharedModelContainer: ModelContainer = {
-    let schema = Schema([
-        UserProfile.self,
-        MealPlan.self,
-        Day.self,
-        Meal.self,
-        Recipe.self,
-        RecipeIngredient.self,
-        Ingredient.self,
-        GroceryList.self,
-        GroceryItem.self
-    ])
+    let schema = Schema(versionedSchema: SchemaV1.self)
 
     // Enable CloudKit sync with the iCloud container
     let modelConfiguration = ModelConfiguration(
@@ -57,9 +49,31 @@ let sharedModelContainer: ModelContainer = {
     )
 
     do {
-        return try ModelContainer(for: schema, configurations: [modelConfiguration])
+        return try ModelContainer(
+            for: schema,
+            migrationPlan: MealPrepAIMigrationPlan.self,
+            configurations: [modelConfiguration]
+        )
     } catch {
-        fatalError("Could not create ModelContainer: \(error)")
+        // If the schema is corrupted, try again without CloudKit
+        // This prevents infinite crash loops for existing users
+        #if DEBUG
+        print("⚠️ [App] CloudKit ModelContainer failed: \(error). Falling back to local-only.")
+        #endif
+        do {
+            let fallbackConfig = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: .none
+            )
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: MealPrepAIMigrationPlan.self,
+                configurations: [fallbackConfig]
+            )
+        } catch {
+            fatalError("Could not create ModelContainer: \(error)")
+        }
     }
 }()
 
@@ -87,12 +101,16 @@ struct MealPrepAIApp: App {
         let providerFactory = CustomAppAttestProviderFactory()
         #endif
         AppCheck.setAppCheckProviderFactory(providerFactory)
+        #if DEBUG
         print("🔒 [App] App Check configured with \(type(of: providerFactory))")
+        #endif
 
         // Configure Firebase FIRST, before any Firebase services are created
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
+            #if DEBUG
             print("🔥 [App] Firebase configured in init")
+            #endif
         }
 
         // Configure Superwall for analytics tracking
@@ -148,23 +166,6 @@ struct MealPrepAIApp: App {
     }
 }
 
-/* DISABLED FOR TESTING - Original body:
-            Group {
-                switch authManager.authState {
-                case .unknown:
-                    SplashView()
-                case .unauthenticated:
-                    AuthenticationView()
-                        .environment(authManager)
-                case .guest, .authenticated:
-                    RootView()
-                        .environment(authManager)
-                        .environment(syncManager)
-                        .environment(healthKitManager)
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: authManager.authState)
-*/
 
 // MARK: - Splash View
 struct SplashView: View {

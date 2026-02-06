@@ -10,8 +10,8 @@ struct LaunchScreenView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // White background to prevent black bars
-                Color.white
+                // Background to prevent bars during image load
+                Color(UIColor.systemBackground)
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
 
@@ -35,14 +35,14 @@ struct LaunchScreenView: View {
                         Text("Meal prepping\nmade easier than\never")
                             .font(.system(size: 34, weight: .bold, design: .default))
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(Color.primary)
                             .lineSpacing(2)
 
                         // Subtitle
                         Text("Make your week meal plan in less than 2 minutes")
                             .font(.system(size: 15, weight: .regular))
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(Color.black.opacity(0.6))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                     }
                     .padding(.horizontal, 24)
                     .opacity(appeared ? 1 : 0)
@@ -66,7 +66,7 @@ struct LaunchScreenView: View {
                                 .frame(height: 56)
                                 .background(
                                     RoundedRectangle(cornerRadius: 28)
-                                        .fill(Color.black)
+                                        .fill(Color.primary)
                                 )
                         }
                         .buttonStyle(LaunchButtonStyle())
@@ -79,9 +79,9 @@ struct LaunchScreenView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Text("Already have an account?")
-                                    .foregroundStyle(Color.black.opacity(0.5))
+                                    .foregroundStyle(Color.primary.opacity(0.5))
                                 Text("Sign In")
-                                    .foregroundStyle(Color.black)
+                                    .foregroundStyle(Color.primary)
                                     .fontWeight(.semibold)
                             }
                             .font(.system(size: 14))

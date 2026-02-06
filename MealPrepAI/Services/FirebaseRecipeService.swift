@@ -48,7 +48,9 @@ final class FirebaseRecipeService {
 
     // MARK: - Initialization
     init() {
+        #if DEBUG
         print("🔥 [FirebaseRecipeService] Initializing...")
+        #endif
         // Sign in anonymously on init
         Task {
             await ensureAuthenticated()
@@ -63,16 +65,24 @@ final class FirebaseRecipeService {
     /// Ensure user is signed in anonymously to Firebase
     private func ensureAuthenticated() async {
         if let user = Auth.auth().currentUser {
+            #if DEBUG
             print("🔐 [Firebase Auth] Already signed in as: \(user.uid)")
+            #endif
             return
         }
 
+        #if DEBUG
         print("🔐 [Firebase Auth] No user found, signing in anonymously...")
+        #endif
         do {
             let result = try await Auth.auth().signInAnonymously()
+            #if DEBUG
             print("✅ [Firebase Auth] Signed in anonymously as: \(result.user.uid)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ [Firebase Auth] Sign-in failed: \(error.localizedDescription)")
+            #endif
             errorMessage = "Authentication failed: \(error.localizedDescription)"
         }
     }
@@ -81,7 +91,9 @@ final class FirebaseRecipeService {
 
     /// Fetch all recipes from the recipes collection
     func fetchRecipes(limit: Int = 100) async throws -> [FirebaseRecipe] {
+        #if DEBUG
         print("📥 [Firestore] Fetching recipes (limit: \(limit))...")
+        #endif
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -90,7 +102,9 @@ final class FirebaseRecipeService {
         await ensureAuthenticated()
 
         let recipes = try await fetchRecipesFromCollection(recipesCollection, limit: limit)
+        #if DEBUG
         print("✅ [Firestore] Fetched \(recipes.count) recipes")
+        #endif
         lastFetchTime = Date()
 
         return recipes
@@ -98,13 +112,17 @@ final class FirebaseRecipeService {
 
     /// Helper: Fetch recipes from a specific collection
     private func fetchRecipesFromCollection(_ collection: String, limit: Int) async throws -> [FirebaseRecipe] {
+        #if DEBUG
         print("📥 [Firestore] Querying collection: \(collection)")
+        #endif
         let snapshot = try await db.collection(collection)
             .order(by: "createdAt", descending: true)
             .limit(to: limit)
             .getDocuments()
 
+        #if DEBUG
         print("📥 [Firestore] Got \(snapshot.documents.count) documents from \(collection)")
+        #endif
 
         var successCount = 0
         var failCount = 0
@@ -117,12 +135,16 @@ final class FirebaseRecipeService {
                 return recipe
             } catch {
                 failCount += 1
+                #if DEBUG
                 print("⚠️ [Firestore] Error decoding recipe \(document.documentID): \(error)")
+                #endif
                 return nil
             }
         }
 
+        #if DEBUG
         print("✅ [Firestore] Decoded \(successCount) recipes from \(collection), \(failCount) failed")
+        #endif
         return recipes
     }
 
@@ -147,7 +169,9 @@ final class FirebaseRecipeService {
                 recipe.id = document.documentID
                 return recipe
             } catch {
+                #if DEBUG
                 print("Error decoding recipe: \(error)")
+                #endif
                 return nil
             }
         }
@@ -172,7 +196,9 @@ final class FirebaseRecipeService {
                 recipe.id = document.documentID
                 return recipe
             } catch {
+                #if DEBUG
                 print("Error decoding recipe: \(error)")
+                #endif
                 return nil
             }
         }
@@ -197,7 +223,9 @@ final class FirebaseRecipeService {
                 recipe.id = document.documentID
                 return recipe
             } catch {
+                #if DEBUG
                 print("Error decoding recipe: \(error)")
+                #endif
                 return nil
             }
         }
@@ -238,7 +266,9 @@ final class FirebaseRecipeService {
                 recipe.id = document.documentID
                 return recipe
             } catch {
+                #if DEBUG
                 print("Error decoding recipe: \(error)")
+                #endif
                 return nil
             }
         }
@@ -263,7 +293,9 @@ final class FirebaseRecipeService {
     /// Firestore doesn't support full-text search, so we fetch a limited set and filter client-side
     /// For better performance, we use multiple search strategies
     func searchRecipes(query: String) async throws -> [FirebaseRecipe] {
+        #if DEBUG
         print("🔍 [Firestore] Searching for: '\(query)'")
+        #endif
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -292,7 +324,9 @@ final class FirebaseRecipeService {
             }
         }
 
+        #if DEBUG
         print("🔍 [Firestore] Prefix search found \(prefixSnapshot.documents.count) results")
+        #endif
 
         // Strategy 2: If prefix search didn't find enough, do a broader search with limit
         if allResults.count < 20 {
@@ -320,11 +354,15 @@ final class FirebaseRecipeService {
                 }
             }
 
+            #if DEBUG
             print("🔍 [Firestore] Broad search added \(allResults.count - prefixSnapshot.documents.count) more results")
+            #endif
         }
 
         let results = Array(allResults.values)
+        #if DEBUG
         print("🔍 [Firestore] Total: \(results.count) results for '\(query)'")
+        #endif
         return results
     }
 
@@ -334,12 +372,16 @@ final class FirebaseRecipeService {
     func resetPagination() {
         lastDocument = nil
         hasMoreRecipes = true
+        #if DEBUG
         print("🔄 [Firestore] Pagination reset")
+        #endif
     }
 
     /// Fetch initial page of recipes from the recipes collection
     func fetchInitialRecipes() async throws -> [FirebaseRecipe] {
+        #if DEBUG
         print("📥 [Firestore] Fetching initial page...")
+        #endif
         resetPagination()
 
         isLoading = true
@@ -351,7 +393,9 @@ final class FirebaseRecipeService {
         // Get total count
         let countResult = try await db.collection(recipesCollection).count.getAggregation(source: .server)
         totalRecipesCount = Int(truncating: countResult.count)
+        #if DEBUG
         print("📊 [Firestore] Total recipes available: \(totalRecipesCount)")
+        #endif
 
         // Fetch initial page
         let snapshot = try await db.collection(recipesCollection)
@@ -372,23 +416,31 @@ final class FirebaseRecipeService {
                 recipe.id = document.documentID
                 return recipe
             } catch {
+                #if DEBUG
                 print("⚠️ [Firestore] Error decoding recipe \(document.documentID): \(error)")
+                #endif
                 return nil
             }
         }
 
+        #if DEBUG
         print("✅ [Firestore] Fetched \(recipes.count) recipes (hasMore: \(hasMoreRecipes))")
+        #endif
         return recipes
     }
 
     /// Fetch next page of recipes
     func fetchMoreRecipes() async throws -> [FirebaseRecipe] {
         guard hasMoreRecipes, let lastDoc = lastDocument else {
+            #if DEBUG
             print("📥 [Firestore] No more recipes to fetch")
+            #endif
             return []
         }
 
+        #if DEBUG
         print("📥 [Firestore] Fetching next page...")
+        #endif
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -415,36 +467,43 @@ final class FirebaseRecipeService {
             }
         }
 
+        #if DEBUG
         print("✅ [Firestore] Fetched \(recipes.count) more recipes (hasMore: \(hasMoreRecipes))")
+        #endif
         return recipes
     }
 
     // MARK: - Real-time Listening
 
     /// Start listening for real-time updates to recipes
-    func listenForUpdates(onUpdate: @escaping ([FirebaseRecipe]) -> Void) {
+    func listenForUpdates(onUpdate: @escaping @MainActor ([FirebaseRecipe]) -> Void) {
         listener = db.collection(recipesCollection)
             .order(by: "createdAt", descending: true)
             .limit(to: defaultLimit)
             .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    self?.errorMessage = error.localizedDescription
-                    return
-                }
-
-                guard let documents = snapshot?.documents else { return }
-
-                let recipes = documents.compactMap { document -> FirebaseRecipe? in
-                    do {
-                        var recipe = try document.data(as: FirebaseRecipe.self)
-                        recipe.id = document.documentID
-                        return recipe
-                    } catch {
-                        return nil
+                // Firestore calls this closure on a background thread.
+                // Dispatch all @MainActor-isolated state mutations to the
+                // main actor to avoid a data race.
+                Task { @MainActor [weak self] in
+                    if let error = error {
+                        self?.errorMessage = error.localizedDescription
+                        return
                     }
-                }
 
-                onUpdate(recipes)
+                    guard let documents = snapshot?.documents else { return }
+
+                    let recipes = documents.compactMap { document -> FirebaseRecipe? in
+                        do {
+                            var recipe = try document.data(as: FirebaseRecipe.self)
+                            recipe.id = document.documentID
+                            return recipe
+                        } catch {
+                            return nil
+                        }
+                    }
+
+                    onUpdate(recipes)
+                }
             }
     }
 

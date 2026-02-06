@@ -38,8 +38,8 @@ let _verifier: SignedDataVerifier | null = null;
 function getVerifier(): SignedDataVerifier {
   if (_verifier) return _verifier;
 
-  const bundleId = process.env.APPLE_BUNDLE_ID || 'com.mealprepai';
-  const appAppleId = parseInt(process.env.APPLE_APP_ID || '0', 10);
+  const bundleId = process.env.APPLE_BUNDLE_ID || 'ic-servis.com.MealPrepAI';
+  const appAppleId = parseInt(process.env.APPLE_APP_ID || '6741357908', 10);
   const isProduction = process.env.FUNCTIONS_EMULATOR !== 'true';
   const environment = isProduction ? Environment.PRODUCTION : Environment.SANDBOX;
 

@@ -19,6 +19,7 @@ struct TodayView: View {
     @State private var selectedRecipe: Recipe?
     @State private var generator = MealPlanGenerator()
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -138,8 +139,12 @@ struct TodayView: View {
                 NotificationsView()
             }
             .onAppear {
-                withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                if reduceMotion {
                     animateCards = true
+                } else {
+                    withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                        animateCards = true
+                    }
                 }
             }
             .fullScreenCover(isPresented: $showingGenerateSheet) {
@@ -551,7 +556,9 @@ struct TodayView: View {
                             meal.healthKitSampleIDs = sampleIDs
                             userProfile?.lastHealthKitSync = Date()
                         } catch {
+                            #if DEBUG
                             print("Failed to sync meal to HealthKit: \(error)")
+                            #endif
                         }
                     }
                 }
@@ -566,7 +573,9 @@ struct TodayView: View {
                             try await healthKitManager.deleteMealNutrition(sampleIDs: sampleIDs)
                             meal.healthKitSampleIDs = nil
                         } catch {
+                            #if DEBUG
                             print("Failed to remove meal from HealthKit: \(error)")
+                            #endif
                         }
                     }
                 }
@@ -750,6 +759,8 @@ struct GenerateMealPlanSheet: View {
     /// Weekly preferences text input for custom requests
     @State private var weeklyPreferences: String = ""
     @FocusState private var isTextFieldFocused: Bool
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     private var userProfile: UserProfile? {
         userProfiles.first
@@ -913,6 +924,11 @@ struct GenerateMealPlanSheet: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
+        .alert("Something Went Wrong", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
 
     private func generatePlan() {
@@ -944,7 +960,11 @@ struct GenerateMealPlanSheet: View {
 
                 dismiss()
             } catch {
+                #if DEBUG
                 print("Failed to generate meal plan: \(error)")
+                #endif
+                errorMessage = "We couldn't generate your meal plan. Please try again.\n\nDetails: \(error.localizedDescription)"
+                showErrorAlert = true
             }
         }
     }
@@ -985,6 +1005,7 @@ struct ProfileStatBadge: View {
 struct GeneratingMealPlanView: View {
     let progress: String
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
     @State private var pulseScale: CGFloat = 1.0
     @State private var rotationAngle: Double = 0
@@ -1010,69 +1031,86 @@ struct GeneratingMealPlanView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Main animated area
-            ZStack {
-                // Outer pulsing ring
-                Circle()
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.black.opacity(0.1), Color.black.opacity(0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2
-                    )
-                    .frame(width: 200, height: 200)
-                    .scaleEffect(pulseScale)
-                    .opacity(2.2 - pulseScale)
+            if reduceMotion {
+                // Static progress indicator for reduce motion users
+                VStack(spacing: Design.Spacing.lg) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: "F5F5F5"))
+                            .frame(width: 110, height: 110)
+                            .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
 
-                // Second pulsing ring (delayed)
-                Circle()
-                    .stroke(Color.black.opacity(0.08), lineWidth: 1.5)
-                    .frame(width: 160, height: 160)
-                    .scaleEffect(pulseScale * 0.9)
-                    .opacity(2.2 - pulseScale)
-
-                // Rotating dashed circle
-                Circle()
-                    .stroke(
-                        Color.black.opacity(0.15),
-                        style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
-                    )
-                    .frame(width: 130, height: 130)
-                    .rotationEffect(.degrees(rotationAngle))
-
-                // Center solid circle
-                Circle()
-                    .fill(Color(hex: "F5F5F5"))
-                    .frame(width: 110, height: 110)
-                    .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
-
-                // Center content - floating icon
-                VStack(spacing: 6) {
-                    Image(systemName: cookingIcons[currentTipIndex % cookingIcons.count])
-                        .font(.system(size: 40, weight: .medium))
-                        .foregroundStyle(Color.black)
-                        .offset(y: floatOffset)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                        .id("icon-\(currentTipIndex)")
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 40, weight: .medium))
+                            .foregroundStyle(Color.black)
+                    }
                 }
-
-                // Orbiting elements
-                ForEach(0..<4, id: \.self) { index in
-                    let angle = Double(index) * 90 + rotationAngle
-                    let iconNames = ["sparkle", "circle.fill", "sparkle", "circle.fill"]
-
-                    Image(systemName: iconNames[index])
-                        .font(.system(size: index % 2 == 0 ? 10 : 6, weight: .medium))
-                        .foregroundStyle(Color.black.opacity(index % 2 == 0 ? 0.6 : 0.3))
-                        .offset(
-                            x: cos(angle * .pi / 180) * 85,
-                            y: sin(angle * .pi / 180) * 85
+                .frame(height: 220)
+            } else {
+                // Main animated area
+                ZStack {
+                    // Outer pulsing ring
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.1), Color.black.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
                         )
+                        .frame(width: 200, height: 200)
+                        .scaleEffect(pulseScale)
+                        .opacity(2.2 - pulseScale)
+
+                    // Second pulsing ring (delayed)
+                    Circle()
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1.5)
+                        .frame(width: 160, height: 160)
+                        .scaleEffect(pulseScale * 0.9)
+                        .opacity(2.2 - pulseScale)
+
+                    // Rotating dashed circle
+                    Circle()
+                        .stroke(
+                            Color.black.opacity(0.15),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
+                        )
+                        .frame(width: 130, height: 130)
+                        .rotationEffect(.degrees(rotationAngle))
+
+                    // Center solid circle
+                    Circle()
+                        .fill(Color(hex: "F5F5F5"))
+                        .frame(width: 110, height: 110)
+                        .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
+
+                    // Center content - floating icon
+                    VStack(spacing: 6) {
+                        Image(systemName: cookingIcons[currentTipIndex % cookingIcons.count])
+                            .font(.system(size: 40, weight: .medium))
+                            .foregroundStyle(Color.black)
+                            .offset(y: floatOffset)
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                            .id("icon-\(currentTipIndex)")
+                    }
+
+                    // Orbiting elements
+                    ForEach(0..<4, id: \.self) { index in
+                        let angle = Double(index) * 90 + rotationAngle
+                        let iconNames = ["sparkle", "circle.fill", "sparkle", "circle.fill"]
+
+                        Image(systemName: iconNames[index])
+                            .font(.system(size: index % 2 == 0 ? 10 : 6, weight: .medium))
+                            .foregroundStyle(Color.black.opacity(index % 2 == 0 ? 0.6 : 0.3))
+                            .offset(
+                                x: cos(angle * .pi / 180) * 85,
+                                y: sin(angle * .pi / 180) * 85
+                            )
+                    }
                 }
+                .frame(height: 220)
             }
-            .frame(height: 220)
 
             Spacer()
                 .frame(height: 40)
@@ -1088,7 +1126,7 @@ struct GeneratingMealPlanView: View {
                     .foregroundStyle(Color(hex: "6B6B6B"))
                     .multilineTextAlignment(.center)
                     .frame(height: 24)
-                    .animation(.easeInOut(duration: 0.4), value: currentTipIndex)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: currentTipIndex)
                     .id("tip-\(currentTipIndex)")
             }
             .padding(.horizontal, 40)
@@ -1098,22 +1136,30 @@ struct GeneratingMealPlanView: View {
 
             // Progress indicator
             VStack(spacing: 16) {
-                // Clean progress bar
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        // Background
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color(hex: "E5E5E5"))
-                            .frame(height: 6)
+                if reduceMotion {
+                    // Static indeterminate progress for reduce motion
+                    ProgressView()
+                        .scaleEffect(1.2)
+                        .tint(Color.black)
+                        .padding(.horizontal, 50)
+                } else {
+                    // Clean progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Background
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color(hex: "E5E5E5"))
+                                .frame(height: 6)
 
-                        // Progress fill
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.black)
-                            .frame(width: geometry.size.width * progressWidth, height: 6)
+                            // Progress fill
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.black)
+                                .frame(width: geometry.size.width * progressWidth, height: 6)
+                        }
                     }
+                    .frame(height: 6)
+                    .padding(.horizontal, 50)
                 }
-                .frame(height: 6)
-                .padding(.horizontal, 50)
 
                 // Time estimate
                 HStack(spacing: 6) {
@@ -1141,6 +1187,16 @@ struct GeneratingMealPlanView: View {
 
     private func startAnimations() {
         isAnimating = true
+
+        // Skip all continuous animations when reduce motion is enabled
+        guard !reduceMotion else {
+            // Still cycle tips for text updates (no animation)
+            let tipTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
+                currentTipIndex += 1
+            }
+            animationTimers.append(tipTimer)
+            return
+        }
 
         withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
             pulseScale = 1.2
@@ -1171,6 +1227,7 @@ struct GeneratingMealPlanView: View {
 struct SwapMealSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let meals: [Meal]
     @Bindable var generator: MealPlanGenerator
@@ -1183,6 +1240,8 @@ struct SwapMealSheet: View {
     @State private var swapMessageIndex = 0
     @State private var swapEmojiOffset: CGFloat = 0
     @State private var animationTimers: [Timer] = []
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     private let swapMessages = [
         "Finding the perfect recipe...",
@@ -1200,48 +1259,68 @@ struct SwapMealSheet: View {
                 if generator.isGenerating || isSwapping {
                     Spacer()
 
-                    // Animated progress ring
-                    ZStack {
-                        Circle()
-                            .stroke(Color.accentPurple.opacity(0.15), lineWidth: 6)
-                            .frame(width: 130, height: 130)
+                    if reduceMotion {
+                        // Static progress indicator for reduce motion users
+                        VStack(spacing: Design.Spacing.lg) {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.accentPurple.opacity(0.15), lineWidth: 6)
+                                    .frame(width: 130, height: 130)
 
-                        Circle()
-                            .trim(from: 0, to: swapRingProgress)
-                            .stroke(
-                                AngularGradient(
-                                    colors: [Color.accentPurple, Color.brandGreen, Color.accentPurple],
-                                    center: .center
-                                ),
-                                style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                            )
-                            .frame(width: 130, height: 130)
-                            .rotationEffect(.degrees(-90))
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 40, weight: .medium))
+                                    .foregroundStyle(Color.accentPurple)
+                            }
 
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 40, weight: .medium))
-                            .foregroundStyle(Color.accentPurple)
-                            .symbolEffect(.rotate, options: .repeating)
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .tint(Color.accentPurple)
+                        }
+                        .padding(.bottom, Design.Spacing.lg)
+                    } else {
+                        // Animated progress ring
+                        ZStack {
+                            Circle()
+                                .stroke(Color.accentPurple.opacity(0.15), lineWidth: 6)
+                                .frame(width: 130, height: 130)
+
+                            Circle()
+                                .trim(from: 0, to: swapRingProgress)
+                                .stroke(
+                                    AngularGradient(
+                                        colors: [Color.accentPurple, Color.brandGreen, Color.accentPurple],
+                                        center: .center
+                                    ),
+                                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                                )
+                                .frame(width: 130, height: 130)
+                                .rotationEffect(.degrees(-90))
+
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 40, weight: .medium))
+                                .foregroundStyle(Color.accentPurple)
+                                .symbolEffect(.rotate, options: .repeating)
+                        }
+                        .padding(.bottom, Design.Spacing.lg)
+
+                        // Food emoji carousel
+                        HStack(spacing: Design.Spacing.md) {
+                            ForEach(0..<5, id: \.self) { i in
+                                Text(foodEmojis[(i + Int(swapEmojiOffset)) % foodEmojis.count])
+                                    .font(.title)
+                                    .scaleEffect(i == 2 ? 1.3 : 0.8)
+                                    .opacity(i == 2 ? 1 : 0.5)
+                            }
+                        }
+                        .padding(.top, Design.Spacing.sm)
                     }
-                    .padding(.bottom, Design.Spacing.lg)
 
-                    // Cycling messages
+                    // Cycling messages (shown in both modes)
                     Text(swapMessages[swapMessageIndex % swapMessages.count])
                         .font(.headline)
                         .foregroundStyle(Color.textPrimary)
                         .contentTransition(.numericText())
-                        .animation(.easeInOut, value: swapMessageIndex)
-
-                    // Food emoji carousel
-                    HStack(spacing: Design.Spacing.md) {
-                        ForEach(0..<5, id: \.self) { i in
-                            Text(foodEmojis[(i + Int(swapEmojiOffset)) % foodEmojis.count])
-                                .font(.title)
-                                .scaleEffect(i == 2 ? 1.3 : 0.8)
-                                .opacity(i == 2 ? 1 : 0.5)
-                        }
-                    }
-                    .padding(.top, Design.Spacing.sm)
+                        .animation(reduceMotion ? nil : .easeInOut, value: swapMessageIndex)
 
                     Spacer()
 
@@ -1318,6 +1397,11 @@ struct SwapMealSheet: View {
             animationTimers.forEach { $0.invalidate() }
             animationTimers.removeAll()
         }
+        .alert("Something Went Wrong", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
 
     private func startSwapAnimations() {
@@ -1328,25 +1412,33 @@ struct SwapMealSheet: View {
         swapMessageIndex = 0
         swapEmojiOffset = 0
 
-        withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: false)) {
-            swapRingProgress = 0.85
+        // Skip continuous animations when reduce motion is enabled
+        if !reduceMotion {
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: false)) {
+                swapRingProgress = 0.85
+            }
+
+            let emojiTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [generator] timer in
+                Task { @MainActor in
+                    if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { swapEmojiOffset += 1 }
+                }
+            }
+            animationTimers.append(emojiTimer)
         }
 
+        // Message cycling works in both modes (text updates without motion)
         let messageTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [generator] timer in
             Task { @MainActor in
                 if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
-                withAnimation(.easeInOut(duration: 0.5)) { swapMessageIndex += 1 }
+                if reduceMotion {
+                    swapMessageIndex += 1
+                } else {
+                    withAnimation(.easeInOut(duration: 0.5)) { swapMessageIndex += 1 }
+                }
             }
         }
         animationTimers.append(messageTimer)
-
-        let emojiTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [generator] timer in
-            Task { @MainActor in
-                if !generator.isGenerating && !isSwapping { timer.invalidate(); return }
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { swapEmojiOffset += 1 }
-            }
-        }
-        animationTimers.append(emojiTimer)
     }
 
     private func swapSelectedMeal() {
@@ -1367,11 +1459,18 @@ struct SwapMealSheet: View {
                 meal.recipe = result.recipe
                 try modelContext.save()
 
+                // Clean up the old recipe if it's now orphaned (no meals, not favorited)
+                modelContext.deleteOrphanedRecipes()
+
                 // Brief success pause then dismiss
                 try? await Task.sleep(for: .seconds(0.5))
                 dismiss()
             } catch {
+                #if DEBUG
                 print("Failed to swap meal: \(error)")
+                #endif
+                errorMessage = "We couldn't swap this meal. Please try again.\n\nDetails: \(error.localizedDescription)"
+                showErrorAlert = true
                 isSwapping = false
             }
         }
@@ -1458,6 +1557,8 @@ struct AddMealToTodaySheet: View {
 
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @State private var selectedMealType: MealType = .lunch
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     var body: some View {
         NavigationStack {
@@ -1539,6 +1640,11 @@ struct AddMealToTodaySheet: View {
             }
         }
         .presentationDetents([.medium])
+        .alert("Something Went Wrong", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
     }
 
     private func addMeal() {
@@ -1566,7 +1672,11 @@ struct AddMealToTodaySheet: View {
 
                 dismiss()
             } catch {
+                #if DEBUG
                 print("Failed to add meal: \(error)")
+                #endif
+                errorMessage = "We couldn't add this meal. Please try again.\n\nDetails: \(error.localizedDescription)"
+                showErrorAlert = true
             }
         }
     }

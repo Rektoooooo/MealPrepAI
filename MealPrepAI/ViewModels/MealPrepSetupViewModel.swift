@@ -295,7 +295,9 @@ final class MealPrepSetupViewModel {
                 isGenerating = false
                 generationProgress = ""
                 generationError = error
+                #if DEBUG
                 print("Failed to generate meal plan: \(error)")
+                #endif
             }
         }
     }

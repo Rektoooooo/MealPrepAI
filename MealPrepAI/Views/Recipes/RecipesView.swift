@@ -9,7 +9,12 @@ struct RecipesView: View {
     @Query private var userProfiles: [UserProfile]
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
-    @Query private var allIngredients: [Ingredient]
+    // NOTE: allIngredients @Query removed — ingredients are fetched on-demand in
+    // findOrCreateIngredient() via modelContext.fetch() to avoid keeping the full
+    // ingredient table in memory for the entire view lifecycle.
+
+    // MARK: - Accessibility
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - State
     @State private var searchText = ""
@@ -268,7 +273,7 @@ struct RecipesView: View {
                                     .opacity(animateContent ? 1 : 0)
                                     .offset(y: animateContent ? 0 : 20)
                                     .animation(
-                                        .easeOut(duration: 0.4).delay(hasAppeared ? 0 : Double(min(index, 10)) * 0.05),
+                                        reduceMotion ? .none : .easeOut(duration: 0.4).delay(hasAppeared ? 0 : Double(min(index, 10)) * 0.05),
                                         value: animateContent
                                     )
                                 }
@@ -359,11 +364,16 @@ struct RecipesView: View {
             }
             .onAppear {
                 if !animateContent {
-                    withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                    if reduceMotion {
                         animateContent = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                         hasAppeared = true
+                    } else {
+                        withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                            animateContent = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                            hasAppeared = true
+                        }
                     }
                 }
                 lastSyncDate = UserDefaults.standard.object(forKey: "lastRecipeSyncDate") as? Date
@@ -813,6 +823,7 @@ struct RecipesView: View {
     }
 
     /// Find or create an ingredient (prevents duplicates, handles plurals)
+    /// Fetches ingredients on-demand from modelContext to avoid keeping all ingredients in memory.
     private func findOrCreateIngredient(
         name: String,
         category: GroceryCategory,
@@ -820,6 +831,9 @@ struct RecipesView: View {
     ) -> Ingredient {
         let displayName = name.capitalized.trimmingCharacters(in: .whitespaces)
         let normalizedName = normalizeIngredientName(name)
+
+        // Fetch ingredients on-demand (only during sync, not kept in memory for entire view lifecycle)
+        let allIngredients = (try? modelContext.fetch(FetchDescriptor<Ingredient>())) ?? []
 
         // Search existing ingredients by normalized name (handles plurals)
         if let existing = allIngredients.first(where: {
@@ -877,7 +891,9 @@ struct RecipesView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("❌ [RecipesView] Failed to save context: \(error)")
+            #endif
             throw error
         }
     }
@@ -909,11 +925,15 @@ struct RecipesView: View {
     private func loadMoreRecipes() async {
         // Mutex: prevent concurrent sync operations
         guard !isLoadingMore && !isSyncing else { return }
+        #if DEBUG
         print("📥 [RecipesView] Loading more recipes...")
+        #endif
 
         // If pagination state is not initialized, do a full refresh instead
         if !firebaseService.isPaginationInitialized {
+            #if DEBUG
             print("📥 [RecipesView] Pagination not initialized, doing full refresh...")
+            #endif
             await refreshRecipes()
             return
         }
@@ -929,7 +949,9 @@ struct RecipesView: View {
 
         do {
             let moreRecipes = try await firebaseService.fetchMoreRecipes()
+            #if DEBUG
             print("✅ [RecipesView] Got \(moreRecipes.count) more recipes from Firebase")
+            #endif
 
             // Save to SwiftData with deduplication
             var newCount = 0
@@ -939,7 +961,9 @@ struct RecipesView: View {
             }
 
             try saveContext()
+            #if DEBUG
             print("✅ [RecipesView] Saved \(newCount) new recipes locally")
+            #endif
 
             if newCount > 0 {
                 showSyncSuccess(count: newCount)
@@ -949,7 +973,9 @@ struct RecipesView: View {
                 isOffline = false
             }
         } catch {
+            #if DEBUG
             print("❌ [RecipesView] Load more error: \(error)")
+            #endif
             loadMoreError = isNetworkError(error) ? "No internet connection" : "Failed to load recipes"
             withAnimation {
                 isOffline = isNetworkError(error)
@@ -963,7 +989,9 @@ struct RecipesView: View {
         let query = debouncedSearchText
         // Mutex: prevent concurrent operations
         guard !query.isEmpty && !isSyncing else { return }
+        #if DEBUG
         print("🔍 [RecipesView] Searching Firebase for: '\(query)'")
+        #endif
         isSearchingFirebase = true
         isSyncing = true
         searchError = nil
@@ -978,7 +1006,9 @@ struct RecipesView: View {
 
         do {
             let searchResults = try await firebaseService.searchRecipes(query: query)
+            #if DEBUG
             print("✅ [RecipesView] Firebase search returned \(searchResults.count) results")
+            #endif
 
             // Convert to local Recipe objects and save (with deduplication)
             var newRecipes: [Recipe] = []
@@ -995,13 +1025,17 @@ struct RecipesView: View {
             withAnimation {
                 isOffline = false
             }
+            #if DEBUG
             print("✅ [RecipesView] Added \(newRecipes.count) new recipes from search")
+            #endif
 
             if newRecipes.count > 0 {
                 showSyncSuccess(count: newRecipes.count)
             }
         } catch {
+            #if DEBUG
             print("❌ [RecipesView] Firebase search error: \(error)")
+            #endif
             searchError = isNetworkError(error) ? "No internet connection" : "Search failed"
             withAnimation {
                 isOffline = isNetworkError(error)
@@ -1017,7 +1051,9 @@ struct RecipesView: View {
     /// Initial sync if cache is empty or stale
     private func initialSyncIfNeeded() async {
         let hasFirebaseRecipes = allRecipes.contains { $0.isFromFirebase }
+        #if DEBUG
         print("📋 [RecipesView] Initial sync check: hasFirebaseRecipes=\(hasFirebaseRecipes)")
+        #endif
 
         if !hasFirebaseRecipes {
             await refreshRecipes()
@@ -1028,11 +1064,15 @@ struct RecipesView: View {
     private func refreshRecipes() async {
         // Mutex: prevent concurrent sync operations
         guard !isSyncing else {
+            #if DEBUG
             print("⚠️ [RecipesView] Sync already in progress, skipping refresh")
+            #endif
             return
         }
 
+        #if DEBUG
         print("🔄 [RecipesView] Starting refresh...")
+        #endif
         isRefreshing = true
         isLoading = true
         isSyncing = true
@@ -1045,14 +1085,20 @@ struct RecipesView: View {
             isRefreshing = false
             isLoading = false
             isSyncing = false
+            #if DEBUG
             print("🔄 [RecipesView] Refresh complete")
+            #endif
         }
 
         do {
             // Reset pagination and fetch initial page
+            #if DEBUG
             print("🔄 [RecipesView] Calling firebaseService.fetchInitialRecipes()...")
+            #endif
             let firebaseRecipes = try await firebaseService.fetchInitialRecipes()
+            #if DEBUG
             print("✅ [RecipesView] Fetched \(firebaseRecipes.count) recipes from Firebase")
+            #endif
 
             // Clear offline state on successful fetch
             withAnimation {
@@ -1072,7 +1118,9 @@ struct RecipesView: View {
                 }
             }
 
+            #if DEBUG
             print("💾 [RecipesView] Saving to SwiftData: \(newCount) new, \(updatedCount) updated")
+            #endif
 
             // Save changes
             try saveContext()
@@ -1086,10 +1134,16 @@ struct RecipesView: View {
                 showSyncSuccess(count: newCount)
             }
 
+            #if DEBUG
             print("✅ [RecipesView] Sync complete! Total local recipes: \(allRecipes.count)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ [RecipesView] Firebase sync error: \(error)")
+            #endif
+            #if DEBUG
             print("❌ [RecipesView] Error details: \(error.localizedDescription)")
+            #endif
 
             // Check if it's a network error
             if isNetworkError(error) {

@@ -287,6 +287,21 @@ struct Design {
     }
 }
 
+// MARK: - Reduce Motion Support
+
+extension View {
+    /// Conditionally applies animation based on the user's reduce motion preference.
+    /// Use this for key animations that would be disruptive for motion-sensitive users.
+    func animateIfAllowed(_ animation: Animation?, value: some Equatable) -> some View {
+        transaction { transaction in
+            if UIAccessibility.isReduceMotionEnabled {
+                transaction.animation = nil
+            }
+        }
+        .animation(UIAccessibility.isReduceMotionEnabled ? nil : animation, value: value)
+    }
+}
+
 // MARK: - Custom View Modifiers
 
 // Premium Card Style (Updated)

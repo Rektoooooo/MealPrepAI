@@ -36,6 +36,7 @@ struct ContentView: View {
 struct FloatingTabBar: View {
     @Binding var selectedTab: Int
     @Namespace private var tabAnimation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let tabs: [(icon: String, selectedIcon: String, label: String)] = [
         ("house", "house.fill", "Today"),
@@ -50,14 +51,14 @@ struct FloatingTabBar: View {
             ForEach(0..<tabs.count, id: \.self) { index in
                 let isSelected = selectedTab == index
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    withAnimation(reduceMotion ? .none : .spring(response: 0.35, dampingFraction: 0.75)) {
                         selectedTab = index
                     }
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: isSelected ? tabs[index].selectedIcon : tabs[index].icon)
                             .font(.system(size: isSelected ? 18 : 21, weight: isSelected ? .semibold : .medium))
-                            .symbolEffect(.bounce, value: selectedTab == index)
+                            .symbolEffect(.bounce, options: reduceMotion ? .nonRepeating : .default, value: selectedTab == index)
 
                         if isSelected {
                             Text(tabs[index].label)

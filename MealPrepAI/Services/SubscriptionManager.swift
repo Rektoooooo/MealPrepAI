@@ -37,8 +37,11 @@ final class SubscriptionManager {
         }
     }
 
-    func cancelListener() {
+    /// Cancel the transaction update listener. Call this before releasing the
+    /// object to prevent the detached Task from running indefinitely.
+    func stopListening() {
         updateListenerTask?.cancel()
+        updateListenerTask = nil
     }
 
     // MARK: - Load Products
@@ -50,7 +53,9 @@ final class SubscriptionManager {
             products = try await Product.products(for: Self.productIDs)
                 .sorted { $0.price < $1.price }
         } catch {
+            #if DEBUG
             print("[SubscriptionManager] Failed to load products: \(error)")
+            #endif
         }
     }
 
@@ -94,7 +99,9 @@ final class SubscriptionManager {
             }
         } catch {
             purchaseError = error.localizedDescription
+            #if DEBUG
             print("[SubscriptionManager] Purchase failed: \(error)")
+            #endif
             return false
         }
     }
@@ -109,7 +116,9 @@ final class SubscriptionManager {
             await checkEntitlements()
         } catch {
             purchaseError = error.localizedDescription
+            #if DEBUG
             print("[SubscriptionManager] Restore failed: \(error)")
+            #endif
         }
     }
 
@@ -133,10 +142,15 @@ final class SubscriptionManager {
     private func listenForTransactions() -> Task<Void, Never> {
         Task.detached { [weak self] in
             for await result in Transaction.updates {
+                // Exit if the task has been cancelled (object deallocated)
+                guard !Task.isCancelled else { return }
+                // Exit if self is gone — prevents running with nil self
+                guard let self else { return }
+
                 if case .verified(let transaction) = result {
                     await transaction.finish()
-                    await self?.checkEntitlements()
-                    await self?.syncJWSToBackend(result.jwsRepresentation)
+                    await self.checkEntitlements()
+                    await self.syncJWSToBackend(result.jwsRepresentation)
                 }
             }
         }
@@ -147,21 +161,27 @@ final class SubscriptionManager {
     /// Non-fatal on failure — local StoreKit remains the primary source of truth.
     private func syncJWSToBackend(_ jws: String) async {
         guard backendSyncFailCount < Self.maxSyncRetries else {
+            #if DEBUG
             print("[SubscriptionManager] Skipping backend sync — reached \(Self.maxSyncRetries) failures this session")
+            #endif
             return
         }
 
         do {
-            let deviceId = await DeviceIdentifier.shared.deviceId
+            let deviceId = DeviceIdentifier.shared.deviceId
             _ = try await APIService.shared.verifySubscription(
                 deviceId: deviceId,
                 signedTransactionJWS: jws
             )
             backendSyncFailCount = 0
+            #if DEBUG
             print("[SubscriptionManager] Backend sync succeeded")
+            #endif
         } catch {
             backendSyncFailCount += 1
+            #if DEBUG
             print("[SubscriptionManager] Backend sync failed (\(backendSyncFailCount)/\(Self.maxSyncRetries)): \(error)")
+            #endif
         }
     }
 

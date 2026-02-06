@@ -26,6 +26,8 @@ struct EditRecipeSheet: View {
     @State private var fiber: String
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var recipeImageData: Data?
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     init(recipe: Recipe) {
         self.recipe = recipe
@@ -159,6 +161,11 @@ struct EditRecipeSheet: View {
                         .foregroundStyle(recipeName.isEmpty ? .gray : Color.accentPurple)
                         .disabled(recipeName.isEmpty)
                 }
+            }
+            .alert("Something Went Wrong", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
             }
         }
     }
@@ -430,10 +437,14 @@ struct EditRecipeSheet: View {
         do {
             try modelContext.save()
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            dismiss()
         } catch {
+            #if DEBUG
             print("Failed to save: \(error)")
+            #endif
             UINotificationFeedbackGenerator().notificationOccurred(.error)
+            errorMessage = "We couldn't save your changes. Please try again.\n\nDetails: \(error.localizedDescription)"
+            showErrorAlert = true
         }
-        dismiss()
     }
 }

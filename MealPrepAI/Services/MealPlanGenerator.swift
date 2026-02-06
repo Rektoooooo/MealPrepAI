@@ -36,10 +36,18 @@ class MealPlanGenerator {
         modelContext: ModelContext
     ) async throws -> MealPlan {
         let generationStartTime = Date()
+        #if DEBUG
         print("[DEBUG:Generator] ========== GENERATE MEAL PLAN START ==========")
+        #if DEBUG
         print("[DEBUG:Generator] Start Date: \(startDate)")
+        #endif
+        #if DEBUG
         print("[DEBUG:Generator] Weekly Preferences: \(weeklyPreferences ?? "None")")
+        #endif
+        #if DEBUG
         print("[DEBUG:Generator] Profile calories: \(profile.dailyCalorieTarget)")
+        #endif
+        #endif
 
         isGenerating = true
         progress = "Building your personalized meal plan..."
@@ -48,18 +56,28 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            #if DEBUG
             let elapsedTime = Date().timeIntervalSince(generationStartTime)
+            #if DEBUG
             print("[DEBUG:Generator] ⏱️ Total generation time: \(String(format: "%.2f", elapsedTime)) seconds")
+            #endif
+            #if DEBUG
             print("[DEBUG:Generator] ========== GENERATE MEAL PLAN END ==========")
+            #endif
+            #endif
         }
 
         do {
             // Build API user profile from SwiftData profile
+            #if DEBUG
             print("[DEBUG:Generator] Building API user profile...")
+            #endif
             let apiProfile = buildAPIUserProfile(from: profile, overrides: macroOverrides, measurementSystem: measurementSystem)
 
             progress = "Generating recipes with AI..."
+            #if DEBUG
             print("[DEBUG:Generator] Calling generateMealPlan API...")
+            #endif
 
             // Gather recipe names from recent meal plans to avoid stale repeats
             let recentRecipeNames: [String] = {
@@ -79,9 +97,13 @@ class MealPlanGenerator {
                 }
                 return Array(Set(names)) // deduplicate
             }()
+            #if DEBUG
             if !recentRecipeNames.isEmpty {
+                #if DEBUG
                 print("[DEBUG:Generator] Excluding \(recentRecipeNames.count) recent recipe names")
+                #endif
             }
+            #endif
 
             // Call the new API endpoint
             let apiResponse = try await apiService.generateMealPlan(
@@ -91,38 +113,60 @@ class MealPlanGenerator {
                 duration: duration
             )
 
+            #if DEBUG
             print("[DEBUG:Generator] API response received")
+            #if DEBUG
             print("[DEBUG:Generator] Success: \(apiResponse.success)")
+            #endif
+            #if DEBUG
             print("[DEBUG:Generator] Recipes added: \(apiResponse.recipesAdded ?? 0)")
+            #endif
+            #if DEBUG
             print("[DEBUG:Generator] Recipes duplicate: \(apiResponse.recipesDuplicate ?? 0)")
+            #endif
+            #endif
 
             // Check for errors
             if !apiResponse.success {
+                #if DEBUG
                 print("[DEBUG:Generator] ERROR: API returned failure - \(apiResponse.error ?? "Unknown error")")
+                #endif
                 throw APIError.serverError(apiResponse.error ?? "Unknown error")
             }
 
             guard let apiMealPlan = apiResponse.mealPlan else {
+                #if DEBUG
                 print("[DEBUG:Generator] ERROR: No meal plan in response")
+                #endif
                 throw APIError.invalidResponse
             }
 
             progress = "Processing meal plan..."
 
             // Convert API response to MealPlanResponse format
+            #if DEBUG
             print("[DEBUG:Generator] Converting API response to MealPlanResponse...")
+            #endif
             let mealPlanResponse = convertAPIResponseToMealPlanResponse(apiMealPlan)
+            #if DEBUG
             print("[DEBUG:Generator] Converted \(mealPlanResponse.days.count) days")
+            #endif
 
             progress = "Saving to your library..."
 
             // Convert to SwiftData models and save
+            #if DEBUG
             print("[DEBUG:Generator] Converting to SwiftData models...")
+            #endif
             let result = mealPlanResponse.toSwiftDataModels(startDate: startDate, planDuration: duration)
+            #if DEBUG
             print("[DEBUG:Generator] Created: \(result.days.count) days, \(result.recipes.count) recipes, \(result.meals.count) meals")
+            #endif
 
             // Insert all models into context
+            #if DEBUG
             print("[DEBUG:Generator] Inserting models into context...")
+            #endif
             modelContext.insert(result.mealPlan)
             result.mealPlan.userProfile = profile
 
@@ -163,12 +207,16 @@ class MealPlanGenerator {
                     if !newPlanDates.contains(oldDayDate) {
                         // Move this day to the new plan
                         oldDay.mealPlan = newPlan
+                        #if DEBUG
                         print("[DEBUG:Generator] Migrated day \(oldDay.dayName) (\(oldDay.date)) from old plan to new plan")
+                        #endif
                     }
                 }
                 // Deactivate old plan (remaining overlapping days will cascade-delete with it, which is fine)
                 oldPlan.isActive = false
+                #if DEBUG
                 print("[DEBUG:Generator] Deactivated old plan \(oldPlan.id)")
+                #endif
             }
 
             // Update new plan's duration to cover all days
@@ -178,12 +226,22 @@ class MealPlanGenerator {
                 let totalDays = Calendar.current.dateComponents([.day], from: earliest.date, to: latest.date).day! + 1
                 newPlan.weekStartDate = earliest.date
                 newPlan.planDuration = totalDays
+                #if DEBUG
                 print("[DEBUG:Generator] Updated plan range: \(totalDays) days from \(earliest.date) to \(latest.date)")
+                #endif
             }
 
+            // Clean up orphaned recipes from deactivated plans (recipes no longer
+            // attached to any meal and not marked as favorites)
+            modelContext.deleteOrphanedRecipes()
+
+            #if DEBUG
             print("[DEBUG:Generator] Saving context...")
+            #endif
             try modelContext.save()
+            #if DEBUG
             print("[DEBUG:Generator] Context saved successfully")
+            #endif
 
             // Print weekly summary for analysis
             printWeeklySummary(mealPlan: result.mealPlan, profile: profile)
@@ -191,8 +249,12 @@ class MealPlanGenerator {
             return result.mealPlan
 
         } catch {
+            #if DEBUG
             print("[DEBUG:Generator] ERROR: \(error.localizedDescription)")
+            #if DEBUG
             print("[DEBUG:Generator] Error type: \(type(of: error))")
+            #endif
+            #endif
             self.error = error
             throw error
         }
@@ -211,9 +273,13 @@ class MealPlanGenerator {
         let carbs = overrides?.carbs ?? profile.carbsGrams
         let fat = overrides?.fat ?? profile.fatGrams
 
+        #if DEBUG
         if let overrides = overrides, overrides.hasOverrides {
+            #if DEBUG
             print("[DEBUG:Generator] Using macro overrides - Calories: \(calories), Protein: \(protein)g, Carbs: \(carbs)g, Fat: \(fat)g")
+            #endif
         }
+        #endif
 
         return GeneratePlanUserProfile(
             age: profile.age,
@@ -288,9 +354,15 @@ class MealPlanGenerator {
         modelContext: ModelContext
     ) async throws -> (recipe: Recipe, ingredients: [Ingredient], recipeIngredients: [RecipeIngredient]) {
         let swapStartTime = Date()
+        #if DEBUG
         print("[DEBUG:Generator] ========== REPLACEMENT MEAL START ==========")
+        #if DEBUG
         print("[DEBUG:Generator] Meal Type: \(mealType.rawValue)")
+        #endif
+        #if DEBUG
         print("[DEBUG:Generator] Exclude Recipes: \(excludeRecipes.joined(separator: ", "))")
+        #endif
+        #endif
 
         isGenerating = true
         progress = "Finding a new \(mealType.rawValue.lowercased())..."
@@ -299,14 +371,22 @@ class MealPlanGenerator {
         defer {
             isGenerating = false
             progress = ""
+            #if DEBUG
             let elapsedTime = Date().timeIntervalSince(swapStartTime)
+            #if DEBUG
             print("[DEBUG:Generator] ⏱️ Swap generation time: \(String(format: "%.2f", elapsedTime)) seconds")
+            #endif
+            #if DEBUG
             print("[DEBUG:Generator] ========== REPLACEMENT MEAL END ==========")
+            #endif
+            #endif
         }
 
         do {
             // Build API user profile for swap
+            #if DEBUG
             print("[DEBUG:Generator] Building swap API profile...")
+            #endif
             // Extract disliked cuisines from cuisinePreferencesMap
             let swapDislikedCuisines = profile.cuisinePreferencesMap
                 .filter { $0.value == .dislike }
@@ -328,28 +408,40 @@ class MealPlanGenerator {
                 measurementSystem: measurementSystem
             )
 
+            #if DEBUG
             print("[DEBUG:Generator] Calling swapMeal API...")
+            #endif
             let apiResponse = try await apiService.swapMeal(
                 userProfile: swapProfile,
                 mealType: mealType.rawValue.lowercased(),
                 excludeRecipeNames: excludeRecipes
             )
 
+            #if DEBUG
             print("[DEBUG:Generator] API response received")
+            #if DEBUG
             print("[DEBUG:Generator] Success: \(apiResponse.success)")
+            #endif
+            #endif
 
             // Check for errors
             if !apiResponse.success {
+                #if DEBUG
                 print("[DEBUG:Generator] ERROR: API returned failure - \(apiResponse.error ?? "Unknown error")")
+                #endif
                 throw APIError.serverError(apiResponse.error ?? "Unknown error")
             }
 
             guard let apiRecipe = apiResponse.recipe else {
+                #if DEBUG
                 print("[DEBUG:Generator] ERROR: No recipe in response")
+                #endif
                 throw APIError.invalidResponse
             }
 
+            #if DEBUG
             print("[DEBUG:Generator] Received recipe: \(apiRecipe.name)")
+            #endif
 
             // Convert API recipe to RecipeDTO
             let recipeDTO = RecipeDTO(
@@ -392,10 +484,14 @@ class MealPlanGenerator {
                 recipeIngredients.append(recipeIngredient)
             }
 
+            #if DEBUG
             print("[DEBUG:Generator] Created \(ingredients.count) ingredients")
+            #endif
 
             // Save to context
+            #if DEBUG
             print("[DEBUG:Generator] Saving to context...")
+            #endif
             modelContext.insert(recipe)
             for ingredient in ingredients {
                 modelContext.insert(ingredient)
@@ -404,13 +500,19 @@ class MealPlanGenerator {
                 modelContext.insert(ri)
             }
             try modelContext.save()
+            #if DEBUG
             print("[DEBUG:Generator] Context saved successfully")
+            #endif
 
             return (recipe, ingredients, recipeIngredients)
 
         } catch {
+            #if DEBUG
             print("[DEBUG:Generator] ERROR: \(error.localizedDescription)")
+            #if DEBUG
             print("[DEBUG:Generator] Error type: \(type(of: error))")
+            #endif
+            #endif
             self.error = error
             throw error
         }
@@ -418,12 +520,23 @@ class MealPlanGenerator {
 
     // MARK: - Print Weekly Summary
     private func printWeeklySummary(mealPlan: MealPlan, profile: UserProfile) {
+        #if DEBUG
         print("\n")
+        #if DEBUG
         print("╔══════════════════════════════════════════════════════════════════════════════╗")
+        #endif
+        #if DEBUG
         print("║                         WEEKLY MEAL PLAN SUMMARY                              ║")
+        #endif
+        #if DEBUG
         print("╠══════════════════════════════════════════════════════════════════════════════╣")
+        #endif
+        #if DEBUG
         print("║ TARGETS: \(profile.dailyCalorieTarget) cal | \(profile.proteinGrams)g protein | \(profile.carbsGrams)g carbs | \(profile.fatGrams)g fat")
+        #endif
+        #if DEBUG
         print("╚══════════════════════════════════════════════════════════════════════════════╝")
+        #endif
 
         let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         var weekTotalCal = 0
@@ -438,9 +551,15 @@ class MealPlanGenerator {
             var dayCarbs = 0
             var dayFat = 0
 
+            #if DEBUG
             print("\n┌─────────────────────────────────────────────────────────────────────────────┐")
+            #endif
+            #if DEBUG
             print("│ \(dayName.uppercased().padding(toLength: 75, withPad: " ", startingAt: 0)) │")
+            #endif
+            #if DEBUG
             print("├─────────────────────────────────────────────────────────────────────────────┤")
+            #endif
 
             for meal in day.sortedMeals {
                 guard let recipe = meal.recipe else { continue }
@@ -451,25 +570,37 @@ class MealPlanGenerator {
                 let carbs = recipe.carbsGrams
                 let fat = recipe.fatGrams
 
+                #if DEBUG
                 print("│ \(mealType) │ \(recipeName) │ \(String(cal).padding(toLength: 4, withPad: " ", startingAt: 0)) cal │ P:\(String(protein).padding(toLength: 3, withPad: " ", startingAt: 0))g C:\(String(carbs).padding(toLength: 3, withPad: " ", startingAt: 0))g F:\(String(fat).padding(toLength: 3, withPad: " ", startingAt: 0))g │")
+                #endif
 
                 // Print ingredients
                 if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+                    #if DEBUG
                     print("│   Ingredients:")
+                    #endif
                     for ri in ingredients {
                         let name = ri.ingredient?.name ?? "Unknown"
+                        #if DEBUG
                         print("│     - \(ri.displayWithGrams) \(name)\(ri.notes.map { " (\($0))" } ?? "")")
+                        #endif
                     }
                 }
 
                 // Print instructions
                 if !recipe.instructions.isEmpty {
+                    #if DEBUG
                     print("│   Instructions:")
+                    #endif
                     for (i, step) in recipe.instructions.enumerated() {
+                        #if DEBUG
                         print("│     \(i + 1). \(step)")
+                        #endif
                     }
                 }
+                #if DEBUG
                 print("│")
+                #endif
 
                 dayCal += cal
                 dayProtein += protein
@@ -482,9 +613,15 @@ class MealPlanGenerator {
             let calStatus = calDiff >= -100 && calDiff <= 100 ? "✅" : "❌"
             let proteinStatus = proteinDiff >= -10 && proteinDiff <= 10 ? "✅" : "❌"
 
+            #if DEBUG
             print("├─────────────────────────────────────────────────────────────────────────────┤")
+            #endif
+            #if DEBUG
             print("│ TOTAL: \(String(dayCal).padding(toLength: 4, withPad: " ", startingAt: 0)) cal (\(calDiff >= 0 ? "+" : "")\(calDiff)) \(calStatus) │ P:\(dayProtein)g (\(proteinDiff >= 0 ? "+" : "")\(proteinDiff)) \(proteinStatus) │ C:\(dayCarbs)g │ F:\(dayFat)g │")
+            #endif
+            #if DEBUG
             print("└─────────────────────────────────────────────────────────────────────────────┘")
+            #endif
 
             weekTotalCal += dayCal
             weekTotalProtein += dayProtein
@@ -497,13 +634,28 @@ class MealPlanGenerator {
         let avgCarbs = weekTotalCarbs / max(mealPlan.sortedDays.count, 1)
         let avgFat = weekTotalFat / max(mealPlan.sortedDays.count, 1)
 
+        #if DEBUG
         print("\n╔══════════════════════════════════════════════════════════════════════════════╗")
+        #endif
+        #if DEBUG
         print("║ WEEKLY AVERAGES                                                               ║")
+        #endif
+        #if DEBUG
         print("╠══════════════════════════════════════════════════════════════════════════════╣")
+        #endif
+        #if DEBUG
         print("║ Avg Daily: \(avgCal) cal (target: \(profile.dailyCalorieTarget)) | \(avgProtein)g protein (target: \(profile.proteinGrams)g)")
+        #endif
+        #if DEBUG
         print("║ Avg Daily: \(avgCarbs)g carbs (target: \(profile.carbsGrams)g) | \(avgFat)g fat (target: \(profile.fatGrams)g)")
+        #endif
+        #if DEBUG
         print("╚══════════════════════════════════════════════════════════════════════════════╝")
+        #endif
+        #if DEBUG
         print("\n")
+        #endif
+        #endif
     }
 
 }
