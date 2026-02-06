@@ -66,7 +66,7 @@ struct RecipesView: View {
     }
 
     private func updateFilteredRecipes() {
-        var recipes = allRecipes.filter { $0.isCustom || ($0.hasValidInstructions && $0.isFromFirebase) }
+        var recipes = allRecipes.filter { $0.isCustom || $0.isFromFirebase }
 
         if selectedCategory != .all {
             recipes = recipes.filter { recipe in
@@ -319,7 +319,7 @@ struct RecipesView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingAddRecipe = true }) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 18))
+                            .font(Design.Typography.bodyLarge)
                             .foregroundStyle(Color.accentPurple)
                     }
                     .accessibilityIdentifier("recipes_add")
@@ -348,7 +348,7 @@ struct RecipesView: View {
                 if showSyncSuccessToast {
                     HStack(spacing: 10) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(Design.Typography.title3)
                             .foregroundStyle(.white)
 
                         Text(syncSuccessMessage)
@@ -521,7 +521,7 @@ struct RecipesView: View {
                                     .frame(width: 28, height: 28)
 
                                 Image(systemName: filter.icon)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(Design.Typography.footnote.weight(.semibold))
                                     .foregroundStyle(isSelected ? .white : filter.color)
                             }
 
@@ -578,7 +578,7 @@ struct RecipesView: View {
                                     .frame(width: 28, height: 28)
 
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(Design.Typography.caption.weight(.bold))
                                     .foregroundStyle(.white)
                             }
 
@@ -730,7 +730,7 @@ struct RecipesView: View {
                     .frame(width: 120, height: 120)
 
                 Image(systemName: isLoading ? "arrow.triangle.2.circlepath" : "book.closed.fill")
-                    .font(.system(size: 50))
+                    .font(Design.Typography.iconMedium)
                     .foregroundStyle(Color.mintVibrant)
                     .rotationEffect(.degrees(isLoading ? 360 : 0))
                     .animation(isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isLoading)

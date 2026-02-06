@@ -13,11 +13,10 @@ function getDb() {
 }
 
 // Rate limit configurations per endpoint
-// Increased for testing - TODO: reduce for production
 export const RATE_LIMITS = {
-  'generate-plan': { limit: 50, windowHours: 24 },
-  'swap-meal': { limit: 100, windowHours: 24 },
-  'substitute-ingredient': { limit: 100, windowHours: 24 },
+  'generate-plan': { limit: 5, windowHours: 24 },
+  'swap-meal': { limit: 20, windowHours: 24 },
+  'substitute-ingredient': { limit: 30, windowHours: 24 },
 } as const;
 
 export type RateLimitEndpoint = keyof typeof RATE_LIMITS;

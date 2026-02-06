@@ -171,7 +171,7 @@ struct IngredientSubstitutionSheet: View {
                 ForEach(0..<5, id: \.self) { index in
                     let actualIndex = (foodIndex + index) % foods.count
                     Text(foods[actualIndex])
-                        .font(.system(size: 36))
+                        .font(Design.Typography.iconSmall)
                         .frame(width: 52, height: 52)
                         .background(
                             RoundedRectangle(cornerRadius: Design.Radius.md)
@@ -184,11 +184,11 @@ struct IngredientSubstitutionSheet: View {
             Spacer()
         }
         .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.7)) {
                 loadingAppeared = true
             }
-            // Progress ring animation
-            withAnimation(.linear(duration: 4.0)) {
+            // Progress ring animation — slow fill so it feels unhurried
+            withAnimation(.easeOut(duration: 8.0)) {
                 loadingProgress = 0.9
             }
         }
@@ -199,7 +199,7 @@ struct IngredientSubstitutionSheet: View {
             // Message cycling
             for (index, message) in loadingMessages.enumerated() {
                 if index > 0 {
-                    try? await Task.sleep(for: .milliseconds(850))
+                    try? await Task.sleep(for: .milliseconds(1500))
                     guard !Task.isCancelled else { return }
                 }
                 withAnimation {
@@ -211,9 +211,9 @@ struct IngredientSubstitutionSheet: View {
             // Food carousel — auto-cancelled when isLoading changes or view disappears
             guard isLoading else { return }
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(3000))
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(.easeInOut(duration: 0.5)) {
                     foodIndex = (foodIndex + 1) % foods.count
                 }
             }
@@ -230,6 +230,7 @@ struct IngredientSubstitutionSheet: View {
                     currentIngredientHeader
                         .opacity(resultsAppeared ? 1 : 0)
                         .offset(y: resultsAppeared ? 0 : 20)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: resultsAppeared)
 
                     // Substitutes
                     VStack(spacing: Design.Spacing.sm) {
@@ -239,7 +240,7 @@ struct IngredientSubstitutionSheet: View {
                                 .offset(y: resultsAppeared ? 0 : 30)
                                 .animation(
                                     .spring(response: 0.5, dampingFraction: 0.75)
-                                        .delay(Double(index) * 0.1 + 0.15),
+                                        .delay(Double(index) * 0.15 + 0.15),
                                     value: resultsAppeared
                                 )
                         }
@@ -266,7 +267,12 @@ struct IngredientSubstitutionSheet: View {
             }
         }
         .onAppear {
-            resultsAppeared = true
+            // Small delay so view settles before cascade starts
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                withAnimation {
+                    resultsAppeared = true
+                }
+            }
         }
     }
 
@@ -334,7 +340,7 @@ struct IngredientSubstitutionSheet: View {
             Spacer()
 
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
+                .font(Design.Typography.iconMedium)
                 .foregroundStyle(.orange)
 
             Text(error)
