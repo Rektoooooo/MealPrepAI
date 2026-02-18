@@ -1058,12 +1058,15 @@ struct RecipesView: View {
 
     /// Initial sync if cache is empty or stale
     private func initialSyncIfNeeded() async {
+        // Use UserDefaults flag instead of @Query (which may not have loaded yet,
+        // causing a race condition that triggers unnecessary Firebase fetches)
+        let hasEverSynced = UserDefaults.standard.object(forKey: "lastRecipeSyncDate") != nil
         let hasFirebaseRecipes = allRecipes.contains { $0.isFromFirebase }
         #if DEBUG
-        print("📋 [RecipesView] Initial sync check: hasFirebaseRecipes=\(hasFirebaseRecipes)")
+        print("📋 [RecipesView] Initial sync check: hasEverSynced=\(hasEverSynced), hasFirebaseRecipes=\(hasFirebaseRecipes)")
         #endif
 
-        if !hasFirebaseRecipes {
+        if !hasEverSynced && !hasFirebaseRecipes {
             await refreshRecipes()
         }
     }
@@ -1082,7 +1085,8 @@ struct RecipesView: View {
         print("🔄 [RecipesView] Starting refresh...")
         #endif
         isRefreshing = true
-        isLoading = true
+        // Only show loading skeleton if there are no local recipes to display
+        isLoading = allRecipes.isEmpty
         isSyncing = true
         errorMessage = nil
         firebaseSearchResults = []

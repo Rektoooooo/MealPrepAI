@@ -57,7 +57,7 @@ struct HelpSupportNavigationView: View {
                 .accessibilityHint("Opens the App Store rating prompt")
 
                 ShareLink(
-                    item: URL(string: "https://apps.apple.com/app/mealprepai")!,
+                    item: URL(string: "https://apps.apple.com/app/id6758867234")!,
                     subject: Text("Check out MealPrepAI"),
                     message: Text("I've been using MealPrepAI to plan my meals. It's a great app for meal prep and nutrition tracking!")
                 ) {

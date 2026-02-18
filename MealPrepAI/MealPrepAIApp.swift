@@ -52,11 +52,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 let sharedModelContainer: ModelContainer = {
     let schema = Schema(versionedSchema: SchemaV1.self)
 
-    // Enable CloudKit sync with the iCloud container
+    // Local-only storage (CloudKit requires all relationships to be optional;
+    // enable CloudKit later once model relationships are updated)
     let modelConfiguration = ModelConfiguration(
         schema: schema,
         isStoredInMemoryOnly: false,
-        cloudKitDatabase: .private("iCloud.com.mealprepai.MealPrepAI")
+        cloudKitDatabase: .none
     )
 
     do {
@@ -66,25 +67,7 @@ let sharedModelContainer: ModelContainer = {
             configurations: [modelConfiguration]
         )
     } catch {
-        // If the schema is corrupted, try again without CloudKit
-        // This prevents infinite crash loops for existing users
-        #if DEBUG
-        print("⚠️ [App] CloudKit ModelContainer failed: \(error). Falling back to local-only.")
-        #endif
-        do {
-            let fallbackConfig = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: false,
-                cloudKitDatabase: .none
-            )
-            return try ModelContainer(
-                for: schema,
-                migrationPlan: MealPrepAIMigrationPlan.self,
-                configurations: [fallbackConfig]
-            )
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
+        fatalError("Could not create ModelContainer: \(error)")
     }
 }()
 
