@@ -222,6 +222,18 @@ class NewOnboardingViewModel {
         saveError = nil
         didSaveSuccessfully = false
 
+        // Clamp inputs to safe ranges
+        let clampedAge = min(max(age, 13), 120)
+        let clampedWeightKg = min(max(weightKg, 20), 500)
+        let clampedHeightCm = min(max(heightCm, 50), 300)
+        let clampedTargetWeightKg = min(max(targetWeightKg, 20), 500)
+
+        // Apply clamped values back so computed properties use safe values
+        age = clampedAge
+        weightKg = clampedWeightKg
+        heightCm = clampedHeightCm
+        targetWeightKg = clampedTargetWeightKg
+
         // Convert allergies set to array, filtering out .none
         let allergiesArray = Array(allergies).filter { $0 != .none }
 

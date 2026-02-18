@@ -67,7 +67,20 @@ let sharedModelContainer: ModelContainer = {
             configurations: [modelConfiguration]
         )
     } catch {
-        fatalError("Could not create ModelContainer: \(error)")
+        #if DEBUG
+        print("ModelContainer creation failed: \(error). Falling back to in-memory store.")
+        #endif
+        // Fallback to in-memory store so the app can still launch
+        let fallbackConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        do {
+            return try ModelContainer(for: schema, configurations: [fallbackConfig])
+        } catch {
+            fatalError("Could not create even in-memory ModelContainer: \(error)")
+        }
     }
 }()
 

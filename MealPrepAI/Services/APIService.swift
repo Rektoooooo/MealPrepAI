@@ -240,7 +240,7 @@ actor APIService {
                 }
             }
         }
-        throw lastError!
+        throw lastError ?? URLError(.unknown)
     }
 
     /// Determines if an error is retryable (server/network errors only, not client errors).

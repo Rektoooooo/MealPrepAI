@@ -752,3 +752,17 @@ extension GroceryCategory {
         }
     }
 }
+
+// MARK: - App URLs
+/// Centralized URL constants to avoid force unwraps throughout the app.
+enum AppURLs {
+    // swiftlint:disable force_unwrapping
+    static let terms = URL(string: "https://mealprepai.app/terms")!
+    static let privacy = URL(string: "https://mealprepai.app/privacy")!
+    static let licenses = URL(string: "https://mealprepai.app/licenses")!
+    static let emailSupport = URL(string: "mailto:support@mealprepai.app")!
+    static let helpCenter = URL(string: "https://mealprepai.app/help")!
+    static let twitter = URL(string: "https://twitter.com/mealprepai")!
+    static let appStore = URL(string: "https://apps.apple.com/app/id6758867234")!
+    // swiftlint:enable force_unwrapping
+}

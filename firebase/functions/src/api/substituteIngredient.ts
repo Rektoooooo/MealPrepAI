@@ -200,10 +200,9 @@ Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "
     };
   } catch (error) {
     console.error('[DEBUG] Substitute ingredient error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return {
       success: false,
-      error: `Failed to generate substitutes: ${errorMessage}`,
+      error: 'Failed to generate substitutes. Please try again.',
     };
   }
 }

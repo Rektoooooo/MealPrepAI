@@ -256,6 +256,17 @@ final class MealPrepSetupViewModel {
                     return nil
                 }()
 
+                // Build structured preferences for the API
+                let structuredPrefs: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = {
+                    let focus = preferences.weeklyFocus.map { $0.rawValue }
+                    let exclusions = preferences.temporaryExclusionsForAPI
+                    let busyness = preferences.weeklyBusyness.rawValue
+                    if focus.isEmpty && exclusions.isEmpty && busyness == WeeklyBusyness.normal.rawValue {
+                        return nil
+                    }
+                    return (weeklyFocus: focus, temporaryExclusions: exclusions, weeklyBusyness: busyness)
+                }()
+
                 _ = try await generator.generateMealPlan(
                     for: profile,
                     startDate: selectedStartDate,
@@ -263,6 +274,7 @@ final class MealPrepSetupViewModel {
                     macroOverrides: macroOverrides,
                     duration: planDuration,
                     measurementSystem: measurementSystem,
+                    structuredPreferences: structuredPrefs,
                     modelContext: modelContext
                 )
 

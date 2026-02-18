@@ -33,6 +33,7 @@ class MealPlanGenerator {
         macroOverrides: MacroOverrides? = nil,
         duration: Int = 7,
         measurementSystem: String = "Metric",
+        structuredPreferences: (weeklyFocus: [String], temporaryExclusions: [String], weeklyBusyness: String)? = nil,
         modelContext: ModelContext
     ) async throws -> MealPlan {
         let generationStartTime = Date()
@@ -110,6 +111,7 @@ class MealPlanGenerator {
                 userProfile: apiProfile,
                 weeklyPreferences: weeklyPreferences,
                 excludeRecipeNames: recentRecipeNames,
+                structuredPreferences: structuredPreferences,
                 duration: duration
             )
 

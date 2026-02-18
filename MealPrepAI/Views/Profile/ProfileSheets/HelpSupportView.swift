@@ -33,15 +33,15 @@ struct HelpSupportNavigationView: View {
             }
 
             Section {
-                Link(destination: URL(string: "mailto:support@mealprepai.app")!) {
+                Link(destination: AppURLs.emailSupport) {
                     Label("Email Support", systemImage: "envelope")
                 }
 
-                Link(destination: URL(string: "https://mealprepai.app/help")!) {
+                Link(destination: AppURLs.helpCenter) {
                     Label("Online Help Center", systemImage: "globe")
                 }
 
-                Link(destination: URL(string: "https://twitter.com/mealprepai")!) {
+                Link(destination: AppURLs.twitter) {
                     Label("Twitter @MealPrepAI", systemImage: "bubble.left")
                 }
             } header: {
@@ -57,7 +57,7 @@ struct HelpSupportNavigationView: View {
                 .accessibilityHint("Opens the App Store rating prompt")
 
                 ShareLink(
-                    item: URL(string: "https://apps.apple.com/app/id6758867234")!,
+                    item: AppURLs.appStore,
                     subject: Text("Check out MealPrepAI"),
                     message: Text("I've been using MealPrepAI to plan my meals. It's a great app for meal prep and nutrition tracking!")
                 ) {

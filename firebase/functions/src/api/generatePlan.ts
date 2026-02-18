@@ -141,7 +141,7 @@ STRICT CALORIE & MACRO REQUIREMENTS
 
 CRITICAL: Each day's totals MUST hit targets closely:
 - Daily calories: within 100 kcal of target (NOT 300 - must be close!)
-- Daily protein: within 10g of target (this is critical for muscle)
+- Daily protein: within 5g of target (do NOT exceed target + 5g — if individual meals run high, reduce protein in snacks to compensate)
 - Carbs and fat: within 15g of target
 
 CALORIE DISTRIBUTION per day (percentages - apply to user's specific targets):
@@ -172,6 +172,8 @@ VARIETY REQUIREMENTS (CRITICAL)
 - Follow the rotation pattern provided in the user's prompt
 - Each breakfast should be DIFFERENT - rotate daily!
 - Snacks can repeat but vary the accompaniments
+- NEVER generate two recipes with the same primary protein AND cooking method in the same plan
+- Each recipe name must be distinct — no duplicates across the entire plan
 
 ═══════════════════════════════════════════════════════════════
 MEAL GUIDELINES
@@ -257,10 +259,32 @@ RESTRICTIONS
 - Every ingredient in instructions MUST be in ingredients list`;
 }
 
+// Module-level constant: maps compound food categories to individual ingredients
+const DISLIKE_EXPANSIONS: Record<string, string[]> = {
+  'seafood': ['salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'crab', 'lobster', 'clam', 'mussel', 'scallop'],
+  'fish': ['salmon', 'tuna', 'cod', 'tilapia', 'trout', 'bass', 'halibut', 'mackerel'],
+  'beans': ['black beans', 'chickpeas', 'lentils', 'kidney beans'],
+  'spicy food': ['chili', 'jalapeño', 'cayenne', 'hot sauce'],
+};
+
+/**
+ * Expand a list of food terms using DISLIKE_EXPANSIONS
+ */
+function expandFoodTerms(terms: string[]): string[] {
+  const expanded: string[] = [];
+  for (const t of terms) {
+    expanded.push(t);
+    if (DISLIKE_EXPANSIONS[t]) {
+      expanded.push(...DISLIKE_EXPANSIONS[t]);
+    }
+  }
+  return expanded;
+}
+
 /**
  * Build dynamic ingredient list based on user preferences
  */
-function buildIngredientList(profile: UserProfile): {
+function buildIngredientList(profile: UserProfile, temporaryExclusions?: string[]): {
   proteins: string[];
   carbs: string[];
   vegetables: string[];
@@ -270,22 +294,8 @@ function buildIngredientList(profile: UserProfile): {
   proteinRotation: string;
 } {
   const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
-  // Expand compound dislikes into individual ingredient names
-  const dislikeExpansions: Record<string, string[]> = {
-    'seafood': ['salmon', 'tuna', 'shrimp', 'cod', 'tilapia', 'crab', 'lobster', 'clam', 'mussel', 'scallop'],
-    'fish': ['salmon', 'tuna', 'cod', 'tilapia', 'trout', 'bass', 'halibut', 'mackerel'],
-    'beans': ['black beans', 'chickpeas', 'lentils', 'kidney beans'],
-    'spicy food': ['chili', 'jalapeño', 'cayenne', 'hot sauce'],
-  };
   const rawDislikes = (profile.foodDislikes || []).map(d => d.toLowerCase());
-  const expandedDislikes: string[] = [];
-  for (const d of rawDislikes) {
-    expandedDislikes.push(d);
-    if (dislikeExpansions[d]) {
-      expandedDislikes.push(...dislikeExpansions[d]);
-    }
-  }
-  const dislikes = expandedDislikes;
+  const dislikes = expandFoodTerms(rawDislikes);
   const allergies = profile.allergies.map(a => a.toLowerCase());
 
   const isVegan = restrictions.includes('vegan');
@@ -323,13 +333,13 @@ function buildIngredientList(profile: UserProfile): {
     : filterItems(['rice', 'oats', 'whole wheat bread', 'potato', 'pasta', 'sweet potato', 'quinoa', 'couscous', 'tortilla']);
 
   // Build vegetable list
-  const vegetables = filterItems(['broccoli', 'spinach', 'bell pepper', 'onion', 'tomato', 'carrot', 'zucchini', 'mushrooms', 'asparagus', 'green beans', 'cauliflower', 'cucumber', 'corn', 'kale', 'cabbage']);
+  let vegetables = filterItems(['broccoli', 'spinach', 'bell pepper', 'onion', 'tomato', 'carrot', 'zucchini', 'mushrooms', 'asparagus', 'green beans', 'cauliflower', 'cucumber', 'corn', 'kale', 'cabbage']);
 
   // Build fruit list
-  const fruits = filterItems(['banana', 'apple', 'mixed berries', 'mango', 'strawberries', 'blueberries', 'pear', 'orange']);
+  let fruits = filterItems(['banana', 'apple', 'mixed berries', 'mango', 'strawberries', 'blueberries', 'pear', 'orange']);
 
   // Build snack ingredients list
-  const snackIngredients = filterItems(['peanut butter', 'almonds', 'walnuts', 'hummus', 'hard boiled eggs', 'rice cakes', 'dark chocolate', 'trail mix', 'edamame', 'protein smoothie']);
+  let snackIngredients = filterItems(['peanut butter', 'almonds', 'walnuts', 'hummus', 'hard boiled eggs', 'rice cakes', 'dark chocolate', 'trail mix', 'edamame', 'protein smoothie']);
 
   // Build dairy list
   let dairy: string[] = [];
@@ -337,6 +347,25 @@ function buildIngredientList(profile: UserProfile): {
     dairy = filterItems(['olive oil', 'butter', 'cheese', 'milk']);
   } else {
     dairy = filterItems(['olive oil', 'almond milk', 'coconut oil']);
+  }
+
+  // Apply temporary exclusions (treat like dislikes for this generation)
+  if (temporaryExclusions && temporaryExclusions.length > 0) {
+    const expandedExclusions = expandFoodTerms(temporaryExclusions.map(e => e.toLowerCase()));
+    const filterExcluded = (items: string[]) =>
+      items.filter(item => !expandedExclusions.includes(item.toLowerCase()));
+
+    proteins = filterExcluded(proteins);
+    carbs = filterExcluded(carbs);
+    vegetables = filterExcluded(vegetables);
+    fruits = filterExcluded(fruits);
+    dairy = filterExcluded(dairy);
+    snackIngredients = filterExcluded(snackIngredients);
+
+    // Rebuild proteinRotation to exclude removed proteins
+    proteinRotation = proteins.length > 0
+      ? proteins.map(p => p.split(' ')[0]).join(' → ') + ' → ' + proteins[0].split(' ')[0] + '...'
+      : '';
   }
 
   return { proteins, carbs, vegetables, fruits, dairy, snackIngredients, proteinRotation };
@@ -370,9 +399,10 @@ function buildSkeletonPrompt(
   profile: UserProfile,
   duration: number,
   weeklyPreferences?: string,
-  excludeRecipeNames?: string[]
+  excludeRecipeNames?: string[],
+  temporaryExclusions?: string[]
 ): string {
-  const ingredients = buildIngredientList(profile);
+  const ingredients = buildIngredientList(profile, temporaryExclusions);
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
   const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
@@ -434,9 +464,10 @@ RULES:
 3. Each breakfast must be a different concept AND must be quick (≤15 min total)
 4. At least 5 different snack concepts across the week (NOT just yogurt/berries every day)
 5. Same protein can appear multiple times but cooked differently (grilled vs stir-fry vs baked)
-6. Rotate through the user's preferred cuisines across the week
-7. Each meal concept should be 1 short phrase (e.g. "teriyaki salmon stir-fry")
-8. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
+6. Rotate through the user's preferred cuisines across the week — spread them evenly
+7. Each meal concept must be UNIQUE — no repeated concepts across the plan
+8. Include the SPECIFIC cooking method in each concept (e.g. "pan-seared", "baked", "grilled", not just "chicken with rice")
+9. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
 
 Return JSON:
 {
@@ -465,11 +496,12 @@ async function generateSkeleton(
   profile: UserProfile,
   duration: number,
   weeklyPreferences?: string,
-  excludeRecipeNames?: string[]
+  excludeRecipeNames?: string[],
+  temporaryExclusions?: string[]
 ): Promise<WeekSkeleton | null> {
   try {
-    const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames);
-    const maxTokens = duration <= 7 ? 800 : 1400;
+    const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames, temporaryExclusions);
+    const maxTokens = duration <= 7 ? 1200 : 2000;
 
     console.log('[DEBUG] Generating skeleton with Haiku...');
     const startTime = Date.now();
@@ -527,7 +559,9 @@ function buildUserPrompt(
   endDay: number,
   weeklyPreferences?: string,
   excludeRecipeNames?: string[],
-  skeleton?: WeekSkeleton | null
+  skeleton?: WeekSkeleton | null,
+  temporaryExclusions?: string[],
+  allSkeletonConcepts?: string[]
 ): string {
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
@@ -538,14 +572,10 @@ function buildUserPrompt(
 
   const isMetric = (profile.measurementSystem || 'Metric') === 'Metric';
 
-  const mealTypes = profile.includeSnacks
-    ? 'breakfast, morning snack, lunch, afternoon snack, and dinner (5 meals total)'
-    : 'breakfast, lunch, and dinner';
-
   const numDays = endDay - startDay + 1;
 
-  // Build dynamic ingredient list based on user preferences
-  const ingredients = buildIngredientList(profile);
+  // Build dynamic ingredient list based on user preferences (with temporary exclusions)
+  const ingredients = buildIngredientList(profile, temporaryExclusions);
   const allIngredients = [
     ...ingredients.proteins,
     ...ingredients.carbs,
@@ -651,8 +681,14 @@ Weekly grocery list: ${skeleton.weeklyGroceryList.join(', ')}
 
 ${skeletonLines}
 
-Use the assigned proteins, cuisines, and cooking styles above. Use ingredients from the weekly grocery list.
+Generate the EXACT recipe matching each concept above. Do NOT substitute different recipes.
+Use the assigned proteins, cuisines, and cooking styles. Use ingredients from the weekly grocery list.
 `;
+
+      // Add cross-batch awareness if we have all concepts
+      if (allSkeletonConcepts && allSkeletonConcepts.length > 0) {
+        skeletonSection += `\nOther batches are generating these recipes — do NOT duplicate them:\n${allSkeletonConcepts.join(', ')}\n`;
+      }
     }
   }
 
@@ -685,7 +721,14 @@ ${pantryNote}
 ${weeklyPreferences ? `═══ THIS WEEK (STRICT — temporary exclusions are like allergies!) ═══\n${weeklyPreferences}` : ''}
 ${excludeList ? `═══ AVOID THESE RECIPES ═══\n${excludeList}` : ''}
 
-Each day: ${mealTypes}
+CRITICAL MEAL ORDER: Each day MUST contain exactly these meals in this order:
+1. breakfast (1 meal)
+2. snack (morning snack)
+3. lunch (1 meal)
+4. snack (afternoon snack)
+5. dinner (1 meal)
+The "mealType" field MUST be exactly one of: "breakfast", "snack", "lunch", "dinner"
+Never label a snack as "breakfast" or vice versa.
 
 ═══ MEASUREMENT SYSTEM (STRICT — use ONLY this system everywhere) ═══
 ${isMetric
@@ -716,7 +759,7 @@ ${skeletonSection}
 - No repeated protein for lunch/dinner on consecutive days
 - CARBS: Include a proper carb source in lunch and dinner (rice, potato, quinoa, pasta, bread)
 
-Respond with JSON:
+Respond with JSON (each day MUST have exactly 5 meals in this order):
 {
   "days": [
     {
@@ -725,11 +768,11 @@ Respond with JSON:
         {
           "mealType": "breakfast",
           "recipe": {
-            "name": "Recipe Name",
-            "description": "Brief description",
+            "name": "Veggie Egg Scramble",
+            "description": "Quick scrambled eggs with vegetables",
             "instructions": ["Step 1", "Step 2"],
-            "prepTimeMinutes": 10,
-            "cookTimeMinutes": 5,
+            "prepTimeMinutes": 5,
+            "cookTimeMinutes": 8,
             "servings": 1,
             "complexity": "easy",
             "cuisineType": "american",
@@ -737,9 +780,93 @@ Respond with JSON:
             "proteinGrams": ${breakfastProtein},
             "carbsGrams": ${breakfastCarbs},
             "fatGrams": ${breakfastFat},
-            "fiberGrams": 5,
+            "fiberGrams": 3,
             "ingredients": [
               {"name": "eggs", "quantity": 3, "unit": "piece", "category": "dairy"}
+            ]
+          }
+        },
+        {
+          "mealType": "snack",
+          "recipe": {
+            "name": "Apple Peanut Butter Bites",
+            "description": "Morning snack",
+            "instructions": ["Step 1"],
+            "prepTimeMinutes": 3,
+            "cookTimeMinutes": 0,
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "american",
+            "calories": ${snackCal},
+            "proteinGrams": ${snackProtein},
+            "carbsGrams": ${snackCarbs},
+            "fatGrams": ${snackFat},
+            "fiberGrams": 2,
+            "ingredients": [
+              {"name": "apple", "quantity": 1, "unit": "piece", "category": "produce"}
+            ]
+          }
+        },
+        {
+          "mealType": "lunch",
+          "recipe": {
+            "name": "Grilled Chicken Rice Bowl",
+            "description": "Protein-packed lunch bowl",
+            "instructions": ["Step 1", "Step 2"],
+            "prepTimeMinutes": 10,
+            "cookTimeMinutes": 20,
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "asian",
+            "calories": ${lunchCal},
+            "proteinGrams": ${lunchProtein},
+            "carbsGrams": ${lunchCarbs},
+            "fatGrams": ${lunchFat},
+            "fiberGrams": 4,
+            "ingredients": [
+              {"name": "chicken breast", "quantity": 200, "unit": "gram", "category": "meat"}
+            ]
+          }
+        },
+        {
+          "mealType": "snack",
+          "recipe": {
+            "name": "Trail Mix Energy Bites",
+            "description": "Afternoon snack",
+            "instructions": ["Step 1"],
+            "prepTimeMinutes": 2,
+            "cookTimeMinutes": 0,
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "american",
+            "calories": ${snackCal},
+            "proteinGrams": ${snackProtein},
+            "carbsGrams": ${snackCarbs},
+            "fatGrams": ${snackFat},
+            "fiberGrams": 2,
+            "ingredients": [
+              {"name": "trail mix", "quantity": 40, "unit": "gram", "category": "pantry"}
+            ]
+          }
+        },
+        {
+          "mealType": "dinner",
+          "recipe": {
+            "name": "Baked Salmon with Asparagus",
+            "description": "Herb-seasoned salmon dinner",
+            "instructions": ["Step 1", "Step 2"],
+            "prepTimeMinutes": 10,
+            "cookTimeMinutes": 20,
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "mediterranean",
+            "calories": ${dinnerCal},
+            "proteinGrams": ${dinnerProtein},
+            "carbsGrams": ${dinnerCarbs},
+            "fatGrams": ${dinnerFat},
+            "fiberGrams": 4,
+            "ingredients": [
+              {"name": "salmon", "quantity": 180, "unit": "gram", "category": "meat"}
             ]
           }
         }
@@ -754,7 +881,13 @@ Valid categories: produce, meat, dairy, pantry
 
 dayOfWeek: ${startDay}-${endDay}
 
-NOTE: Vary the macros naturally each day - some days can be ${profile.proteinGrams - 15}g protein, others ${profile.proteinGrams + 10}g. Don't make every day identical!`;
+FINAL CHECK: Each day's meals must sum to:
+- Calories: ~${profile.dailyCalorieTarget} ± 100 kcal
+- Protein: ~${profile.proteinGrams}g ± 5g (do NOT exceed ${profile.proteinGrams + 5}g)
+- Carbs: ~${profile.carbsGrams}g ± 15g
+- Fat: ~${profile.fatGrams}g ± 10g
+
+NOTE: Vary the macros naturally each day - some days can be ${profile.proteinGrams - 5}g protein, others ${profile.proteinGrams + 3}g. Don't make every day identical!`;
 }
 
 /**
@@ -800,7 +933,8 @@ function parseClaudeResponse(content: string, batchLabel: string = 'unknown'): M
 export async function handleGeneratePlan(
   req: GeneratePlanRequest
 ): Promise<GeneratePlanResponse> {
-  const { userProfile, weeklyPreferences, excludeRecipeNames, deviceId, weeklyFocus, temporaryExclusions, weeklyBusyness } = req;
+  const { userProfile, weeklyPreferences, deviceId, weeklyFocus, temporaryExclusions, weeklyBusyness } = req;
+  const excludeRecipeNames = (req.excludeRecipeNames || []).slice(0, 200);
   const duration = Math.min(14, Math.max(1, req.duration ?? 7));
 
   console.log('[DEBUG] ========== GENERATE PLAN START ==========');
@@ -874,8 +1008,21 @@ export async function handleGeneratePlan(
     const client = getAnthropicClient();
     console.log('[DEBUG] Claude client initialized successfully');
 
+    // Resolve temporary exclusions: prefer structured field, fallback to parsing weeklyPreferences string
+    const resolvedExclusions: string[] = temporaryExclusions && temporaryExclusions.length > 0
+      ? temporaryExclusions
+      : (() => {
+          if (!weeklyPreferences) return [];
+          const match = weeklyPreferences.match(/AVOID THESE INGREDIENTS THIS WEEK[^:]*:\n([\s\S]*?)(?:\n\n|$)/);
+          if (!match) return [];
+          return match[1].split('\n').map(line => line.replace(/^-\s*/, '').trim()).filter(Boolean);
+        })();
+    if (resolvedExclusions.length > 0) {
+      console.log('[DEBUG] Resolved temporary exclusions:', resolvedExclusions.join(', '));
+    }
+
     // Log the dynamic ingredient list being used
-    const ingredientList = buildIngredientList(userProfile);
+    const ingredientList = buildIngredientList(userProfile, resolvedExclusions);
     console.log('[DEBUG] Dynamic ingredient list based on preferences:');
     console.log('[DEBUG]   Proteins:', ingredientList.proteins.join(', '));
     console.log('[DEBUG]   Carbs:', ingredientList.carbs.join(', '));
@@ -885,7 +1032,7 @@ export async function handleGeneratePlan(
     console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
 
     // Step 1: Generate skeleton for the week
-    const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames);
+    const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames, resolvedExclusions);
     if (skeleton) {
       console.log(`[DEBUG] Skeleton: ${JSON.stringify(skeleton)}`);
     } else {
@@ -907,6 +1054,18 @@ export async function handleGeneratePlan(
       batches.push([i, endDay]);
     }
 
+    // Build cross-batch awareness: collect ALL skeleton concepts for each batch to see
+    let allSkeletonConcepts: string[] = [];
+    if (skeleton) {
+      for (const day of skeleton.days) {
+        allSkeletonConcepts.push(day.breakfast.concept);
+        allSkeletonConcepts.push(day.lunch.concept);
+        allSkeletonConcepts.push(day.dinner.concept);
+        if (day.snack1) allSkeletonConcepts.push(day.snack1.concept);
+        if (day.snack2) allSkeletonConcepts.push(day.snack2.concept);
+      }
+    }
+
     // Run all batches IN PARALLEL for speed
     console.log(`[DEBUG] Starting ${batches.length} batches in PARALLEL for ${duration}-day plan...`);
     const parallelStartTime = Date.now();
@@ -915,7 +1074,15 @@ export async function handleGeneratePlan(
       const batchNum = i + 1;
       console.log(`[DEBUG] Batch ${batchNum}: Days ${startDay}-${endDay} - STARTING`);
 
-      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames, skeleton);
+      // For cross-batch awareness, exclude concepts from THIS batch so other batch concepts are listed
+      const otherBatchConcepts = skeleton ? allSkeletonConcepts.filter((_, idx) => {
+        const conceptsPerDay = skeleton.days[0]?.snack1 ? 5 : 3;
+        const dayIdx = Math.floor(idx / conceptsPerDay);
+        const day = skeleton.days[dayIdx];
+        return day && (day.day < startDay || day.day > endDay);
+      }) : [];
+
+      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames, skeleton, resolvedExclusions, otherBatchConcepts);
       const startTime = Date.now();
 
       const response = await client.messages.create({
@@ -957,6 +1124,42 @@ export async function handleGeneratePlan(
 
     const totalMeals = mealPlan.days.reduce((acc, day) => acc + day.meals.length, 0);
     console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
+
+    // Post-generation validation: check meal type distribution per day
+    for (const day of mealPlan.days) {
+      const mealTypeCounts: Record<string, number> = {};
+      for (const meal of day.meals) {
+        mealTypeCounts[meal.mealType] = (mealTypeCounts[meal.mealType] || 0) + 1;
+      }
+      const expectedBreakfast = 1;
+      const expectedSnack = userProfile.includeSnacks ? 2 : 0;
+      const expectedLunch = 1;
+      const expectedDinner = 1;
+
+      if ((mealTypeCounts['breakfast'] || 0) !== expectedBreakfast) {
+        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedBreakfast} breakfast, got ${mealTypeCounts['breakfast'] || 0}`);
+      }
+      if ((mealTypeCounts['snack'] || 0) !== expectedSnack) {
+        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedSnack} snacks, got ${mealTypeCounts['snack'] || 0}`);
+      }
+      if ((mealTypeCounts['lunch'] || 0) !== expectedLunch) {
+        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedLunch} lunch, got ${mealTypeCounts['lunch'] || 0}`);
+      }
+      if ((mealTypeCounts['dinner'] || 0) !== expectedDinner) {
+        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedDinner} dinner, got ${mealTypeCounts['dinner'] || 0}`);
+      }
+    }
+
+    // Validation: check for recipe name uniqueness
+    const recipeNames = new Set<string>();
+    for (const day of mealPlan.days) {
+      for (const meal of day.meals) {
+        if (recipeNames.has(meal.recipe.name)) {
+          console.warn(`[VALIDATION] Duplicate recipe name: "${meal.recipe.name}"`);
+        }
+        recipeNames.add(meal.recipe.name);
+      }
+    }
 
     // AI-generated recipes don't get images — iOS shows gradient placeholders
     const allRecipes: GeneratedRecipeDTO[] = [];
@@ -1017,12 +1220,9 @@ export async function handleGeneratePlan(
     console.error('[DEBUG] Error message:', error instanceof Error ? error.message : String(error));
     console.error('[DEBUG] Full error:', error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error occurred';
-
     return {
       success: false,
-      error: `Failed to generate meal plan: ${errorMessage}`,
+      error: 'Failed to generate meal plan. Please try again.',
     };
   }
 }

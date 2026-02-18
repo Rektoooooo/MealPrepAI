@@ -76,6 +76,7 @@ struct LoginStepView: View {
                 SignInWithAppleButton(
                     onRequest: { request in
                         request.requestedScopes = [.fullName, .email]
+                        authManager.prepareRequest(request)
                     },
                     onCompletion: { result in
                         switch result {

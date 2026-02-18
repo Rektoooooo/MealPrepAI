@@ -42,9 +42,9 @@ struct AboutNavigationView: View {
 
                 // Links
                 VStack(spacing: Design.Spacing.sm) {
-                    aboutLink(icon: "doc.text", title: "Privacy Policy", url: "https://mealprepai.app/privacy")
-                    aboutLink(icon: "doc.plaintext", title: "Terms of Service", url: "https://mealprepai.app/terms")
-                    aboutLink(icon: "info.circle", title: "Open Source Licenses", url: "https://mealprepai.app/licenses")
+                    aboutLink(icon: "doc.text", title: "Privacy Policy", url: AppURLs.privacy)
+                    aboutLink(icon: "doc.plaintext", title: "Terms of Service", url: AppURLs.terms)
+                    aboutLink(icon: "info.circle", title: "Open Source Licenses", url: AppURLs.licenses)
                 }
                 .padding(.horizontal)
 
@@ -68,8 +68,8 @@ struct AboutNavigationView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func aboutLink(icon: String, title: String, url: String) -> some View {
-        Link(destination: URL(string: url)!) {
+    private func aboutLink(icon: String, title: String, url: URL) -> some View {
+        Link(destination: url) {
             HStack {
                 Image(systemName: icon)
                     .font(Design.Typography.callout)

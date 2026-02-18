@@ -422,12 +422,9 @@ export async function handleSwapMeal(
     console.error('[DEBUG] Error message:', error instanceof Error ? error.message : String(error));
     console.error('[DEBUG] Full error:', error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error occurred';
-
     return {
       success: false,
-      error: `Failed to generate replacement meal: ${errorMessage}`,
+      error: 'Failed to generate replacement meal. Please try again.',
     };
   }
 }

@@ -7,8 +7,10 @@
 
 import Foundation
 import AuthenticationServices
+import CryptoKit
 import SwiftUI
 import UIKit
+import Security
 
 /// Manages user authentication state using Sign in with Apple
 @MainActor @Observable
@@ -32,13 +34,20 @@ final class AuthenticationManager {
 
     // MARK: - Private Properties
 
-    private let userIDKey = "com.mealprepai.appleUserID"
     private let guestModeKey = "com.mealprepai.isGuestMode"
-    private let authorizationCodeKey = "com.mealprepai.appleAuthCode"
+
+    // Keychain service/account keys for secure credential storage
+    private let keychainService = "com.mealprepai.auth"
+    private let keychainUserIDAccount = "appleUserID"
+    private let keychainAuthCodeAccount = "appleAuthCode"
+
+    /// Nonce used for the current Sign In with Apple request
+    private(set) var currentNonce: String?
 
     // MARK: - Initialization
 
     init() {
+        migrateFromUserDefaultsIfNeeded()
         checkAuthState()
     }
 
@@ -52,8 +61,8 @@ final class AuthenticationManager {
             return
         }
 
-        // Check for stored Apple User ID
-        guard let storedUserID = UserDefaults.standard.string(forKey: userIDKey) else {
+        // Check for stored Apple User ID in Keychain
+        guard let storedUserID = keychainRead(account: keychainUserIDAccount) else {
             authState = .unauthenticated
             return
         }
@@ -90,18 +99,57 @@ final class AuthenticationManager {
         }
     }
 
+    /// Generate a nonce and prepare an Apple ID request with nonce set
+    func prepareRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        request.nonce = sha256(nonce)
+    }
+
     /// Handle successful Sign in with Apple
     func signInWithApple(credential: ASAuthorizationAppleIDCredential) {
+        // Validate nonce if one was set
+        if let expectedNonce = currentNonce {
+            guard let identityToken = credential.identityToken,
+                  let tokenString = String(data: identityToken, encoding: .utf8) else {
+                #if DEBUG
+                print("Sign In with Apple: missing identity token for nonce validation")
+                #endif
+                currentNonce = nil
+                return
+            }
+
+            // Decode JWT payload to verify nonce
+            let segments = tokenString.split(separator: ".")
+            if segments.count >= 2 {
+                var base64 = String(segments[1])
+                // Pad base64 string
+                while base64.count % 4 != 0 { base64.append("=") }
+                if let data = Data(base64Encoded: base64),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let tokenNonce = json["nonce"] as? String {
+                    guard tokenNonce == expectedNonce else {
+                        #if DEBUG
+                        print("Sign In with Apple: nonce mismatch")
+                        #endif
+                        currentNonce = nil
+                        return
+                    }
+                }
+            }
+            currentNonce = nil
+        }
+
         let userID = credential.user
 
-        // Store the user ID
-        UserDefaults.standard.set(userID, forKey: userIDKey)
+        // Store the user ID in Keychain
+        keychainSave(value: userID, account: keychainUserIDAccount)
         UserDefaults.standard.set(false, forKey: guestModeKey)
 
-        // Store authorization code for future token revocation (account deletion)
+        // Store authorization code in Keychain for future token revocation (account deletion)
         if let authorizationCode = credential.authorizationCode,
            let codeString = String(data: authorizationCode, encoding: .utf8) {
-            UserDefaults.standard.set(codeString, forKey: authorizationCodeKey)
+            keychainSave(value: codeString, account: keychainAuthCodeAccount)
         }
 
         // Store optional user info (only provided on first sign in)
@@ -115,7 +163,7 @@ final class AuthenticationManager {
     /// Continue using the app as a guest without Apple ID
     func continueAsGuest() {
         UserDefaults.standard.set(true, forKey: guestModeKey)
-        UserDefaults.standard.removeObject(forKey: userIDKey)
+        keychainDelete(account: keychainUserIDAccount)
 
         currentUserID = nil
         authState = .guest
@@ -127,9 +175,11 @@ final class AuthenticationManager {
         authState = .unauthenticated
     }
 
+    private static let revokeTokenURL = URL(string: "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api/revokeAppleToken")
+
     /// Revoke Sign in with Apple token for account deletion (Apple requirement)
     func revokeAppleSignIn() async {
-        guard let storedCode = UserDefaults.standard.string(forKey: authorizationCodeKey) else {
+        guard let storedCode = keychainRead(account: keychainAuthCodeAccount) else {
             // No stored authorization code - just clear credentials
             clearStoredCredentials()
             return
@@ -137,8 +187,13 @@ final class AuthenticationManager {
 
         // Call backend to revoke the Apple token using the stored authorization code
         // The backend exchanges the code for a token and calls Apple's revoke endpoint
+        guard let url = Self.revokeTokenURL else {
+            clearStoredCredentials()
+            return
+        }
+
         do {
-            var request = URLRequest(url: URL(string: "https://us-central1-mealprepai-b6ac0.cloudfunctions.net/api/revokeAppleToken")!)
+            var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(["authorizationCode": storedCode])
@@ -177,12 +232,109 @@ final class AuthenticationManager {
     // MARK: - Private Methods
 
     private func clearStoredCredentials() {
-        UserDefaults.standard.removeObject(forKey: userIDKey)
+        keychainDelete(account: keychainUserIDAccount)
+        keychainDelete(account: keychainAuthCodeAccount)
         UserDefaults.standard.removeObject(forKey: guestModeKey)
-        UserDefaults.standard.removeObject(forKey: authorizationCodeKey)
         currentUserID = nil
         userEmail = nil
         userFullName = nil
+    }
+
+    // MARK: - Keychain Helpers
+
+    private func keychainSave(value: String, account: String) {
+        guard let data = value.data(using: .utf8) else { return }
+
+        // Delete any existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        // Add the new item
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status != errSecSuccess {
+            #if DEBUG
+            print("AuthenticationManager: Failed to save to Keychain (\(account)): \(status)")
+            #endif
+        }
+    }
+
+    private func keychainRead(account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let value = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+
+        return value
+    }
+
+    private func keychainDelete(account: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    // MARK: - Migration from UserDefaults to Keychain
+
+    private func migrateFromUserDefaultsIfNeeded() {
+        let legacyUserIDKey = "com.mealprepai.appleUserID"
+        let legacyAuthCodeKey = "com.mealprepai.appleAuthCode"
+
+        if let legacyUserID = UserDefaults.standard.string(forKey: legacyUserIDKey) {
+            keychainSave(value: legacyUserID, account: keychainUserIDAccount)
+            UserDefaults.standard.removeObject(forKey: legacyUserIDKey)
+        }
+
+        if let legacyAuthCode = UserDefaults.standard.string(forKey: legacyAuthCodeKey) {
+            keychainSave(value: legacyAuthCode, account: keychainAuthCodeAccount)
+            UserDefaults.standard.removeObject(forKey: legacyAuthCodeKey)
+        }
+    }
+
+    // MARK: - Nonce Helpers
+
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        var randomBytes = [UInt8](repeating: 0, count: length)
+        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
+        if errorCode != errSecSuccess {
+            // Fallback to UUID-based nonce if SecRandom fails
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        }
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(randomBytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashed = SHA256.hash(data: inputData)
+        return hashed.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -193,11 +345,12 @@ class SignInWithAppleCoordinator: NSObject, ASAuthorizationControllerDelegate, A
 
     private var completion: ((Result<ASAuthorizationAppleIDCredential, Error>) -> Void)?
 
-    func signIn(completion: @escaping (Result<ASAuthorizationAppleIDCredential, Error>) -> Void) {
+    func signIn(authManager: AuthenticationManager, completion: @escaping (Result<ASAuthorizationAppleIDCredential, Error>) -> Void) {
         self.completion = completion
 
         let request = ASAuthorizationAppleIDProvider().createRequest()
         request.requestedScopes = [.fullName, .email]
+        authManager.prepareRequest(request)
 
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self

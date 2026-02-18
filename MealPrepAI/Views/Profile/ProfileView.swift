@@ -566,6 +566,7 @@ struct ProfileView: View {
                     // Sign In with Apple Button
                     SignInWithAppleButton(.signIn, onRequest: { request in
                         request.requestedScopes = [.fullName, .email]
+                        authManager.prepareRequest(request)
                     }, onCompletion: handleSignInResult)
                     .signInWithAppleButtonStyle(.black)
                     .frame(height: 44)

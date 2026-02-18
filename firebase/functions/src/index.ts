@@ -49,6 +49,10 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
 // Recipes collection name
 const RECIPES_COLLECTION = 'recipes';
 
+// Minimum health score (0-100) for recipe ingestion
+// Recipes below this threshold are filtered out before saving to Firestore
+const MIN_HEALTH_SCORE = 40;
+
 // Interface for Spoonacular recipe response
 interface SpoonacularRecipe {
   id: number;
@@ -113,20 +117,24 @@ function getNutrient(nutrients: { name: string; amount: number }[], name: string
 
 /**
  * Fetch recipes from Spoonacular with given params and save new ones to Firestore.
- * Returns { added, skipped }.
+ * Filters out recipes with healthScore below MIN_HEALTH_SCORE.
+ * Returns { added, skipped, filtered }.
  */
 async function fetchAndSaveRecipes(params: {
   cuisine?: string;
   type?: string;
   number: number;
-}): Promise<{ added: number; skipped: number }> {
+  offset?: number;
+}): Promise<{ added: number; skipped: number; filtered: number }> {
   let added = 0;
   let skipped = 0;
+  let filtered = 0;
 
   const queryParts = [
     params.cuisine ? `cuisine=${params.cuisine}` : '',
     params.type ? `type=${params.type}` : '',
-    `sort=random`,
+    params.offset == null ? `sort=random` : '',
+    params.offset != null ? `offset=${params.offset}` : '',
     `addRecipeNutrition=true`,
     `addRecipeInstructions=true`,
     `number=${params.number}`,
@@ -140,13 +148,20 @@ async function fetchAndSaveRecipes(params: {
   const response = await fetch(url);
   if (!response.ok) {
     console.error(`API error for ${label}: ${response.status} ${response.statusText}`);
-    return { added, skipped };
+    return { added, skipped, filtered };
   }
 
   const data: SpoonacularResponse = await response.json();
   console.log(`Found ${data.results.length} ${label} recipes`);
 
-  for (const recipe of data.results) {
+  // Filter out recipes below health score threshold
+  const healthyRecipes = data.results.filter(r => (r.healthScore || 0) >= MIN_HEALTH_SCORE);
+  filtered = data.results.length - healthyRecipes.length;
+  if (filtered > 0) {
+    console.log(`Filtered out ${filtered} ${label} recipes with healthScore < ${MIN_HEALTH_SCORE}`);
+  }
+
+  for (const recipe of healthyRecipes) {
     try {
       const existingQuery = await db.collection(RECIPES_COLLECTION)
         .where('externalId', '==', recipe.id)
@@ -198,7 +213,7 @@ async function fetchAndSaveRecipes(params: {
     }
   }
 
-  return { added, skipped };
+  return { added, skipped, filtered };
 }
 
 /**
@@ -226,6 +241,7 @@ export const collectRecipes = functions.pubsub
 
     let totalAdded = 0;
     let totalSkipped = 0;
+    let totalFiltered = 0;
 
     // Part 1: Fetch random recipes by cuisine (6 per cuisine)
     for (const cuisine of CUISINES) {
@@ -233,6 +249,7 @@ export const collectRecipes = functions.pubsub
         const result = await fetchAndSaveRecipes({ cuisine, number: 10 });
         totalAdded += result.added;
         totalSkipped += result.skipped;
+        totalFiltered += result.filtered;
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Error fetching ${cuisine}:`, error);
@@ -252,13 +269,14 @@ export const collectRecipes = functions.pubsub
         const result = await fetchAndSaveRecipes(query);
         totalAdded += result.added;
         totalSkipped += result.skipped;
+        totalFiltered += result.filtered;
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`Error fetching ${query.type}:`, error);
       }
     }
 
-    console.log(`Recipe collection complete! Added: ${totalAdded}, Skipped: ${totalSkipped}`);
+    console.log(`Recipe collection complete! Added: ${totalAdded}, Skipped: ${totalSkipped}, Filtered (health score < ${MIN_HEALTH_SCORE}): ${totalFiltered}`);
     return null;
   });
 
@@ -291,65 +309,29 @@ export const triggerRecipeCollection = functions.https.onRequest(async (req, res
     return;
   }
 
-  // Run the collection logic (same as scheduled function)
+  // Run the collection logic (same as scheduled function, but only 2 cuisines)
   let totalAdded = 0;
+  let totalSkipped = 0;
+  let totalFiltered = 0;
 
-  for (const cuisine of CUISINES.slice(0, 2)) {  // Only 2 cuisines for manual trigger
+  for (const cuisine of CUISINES.slice(0, 2)) {
     try {
-      const url = `https://api.spoonacular.com/recipes/complexSearch?` +
-        `cuisine=${cuisine}` +
-        `&addRecipeNutrition=true` +
-        `&addRecipeInstructions=true` +
-        `&number=5` +
-        `&apiKey=${SPOONACULAR_API_KEY}`;
-
-      const response = await fetch(url);
-      const data: SpoonacularResponse = await response.json();
-
-      for (const recipe of data.results) {
-        const existingQuery = await db.collection(RECIPES_COLLECTION)
-          .where('externalId', '==', recipe.id)
-          .limit(1)
-          .get();
-
-        if (existingQuery.empty) {
-          const nutrients = recipe.nutrition?.nutrients || [];
-
-          await db.collection(RECIPES_COLLECTION).add({
-            externalId: recipe.id,
-            title: recipe.title,
-            imageUrl: recipe.image,
-            readyInMinutes: recipe.readyInMinutes || 30,
-            servings: recipe.servings || 4,
-            calories: getNutrient(nutrients, 'Calories'),
-            proteinGrams: getNutrient(nutrients, 'Protein'),
-            carbsGrams: getNutrient(nutrients, 'Carbohydrates'),
-            fatGrams: getNutrient(nutrients, 'Fat'),
-            instructions: recipe.analyzedInstructions?.[0]?.steps?.map(s => s.step) || [],
-            cuisineType: cuisine.toLowerCase(),
-            mealType: determineMealType(recipe.dishTypes),
-            diets: recipe.diets || [],
-            dishTypes: recipe.dishTypes || [],
-            healthScore: recipe.healthScore || 0,
-            sourceUrl: recipe.sourceUrl,
-            creditsText: recipe.creditsText,
-            ingredients: (recipe.nutrition?.ingredients || []).map(ing => ({
-              name: ing.name,
-              amount: ing.amount,
-              unit: ing.unit,
-              aisle: ing.aisle || 'Other'
-            })),
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          totalAdded++;
-        }
-      }
+      const result = await fetchAndSaveRecipes({ cuisine, number: 5 });
+      totalAdded += result.added;
+      totalSkipped += result.skipped;
+      totalFiltered += result.filtered;
     } catch (error) {
       console.error(`Error fetching ${cuisine}:`, error);
     }
   }
 
-  res.json({ success: true, recipesAdded: totalAdded });
+  res.json({
+    success: true,
+    recipesAdded: totalAdded,
+    recipesSkipped: totalSkipped,
+    recipesFilteredByHealthScore: totalFiltered,
+    minHealthScore: MIN_HEALTH_SCORE,
+  });
 });
 
 /**
@@ -357,6 +339,21 @@ export const triggerRecipeCollection = functions.https.onRequest(async (req, res
  * Returns counts of recipes by cuisine and meal type
  */
 export const getRecipeStats = functions.https.onRequest(async (req, res) => {
+  // Verify request has proper authorization
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).send('Unauthorized');
+    return;
+  }
+
+  const token = authHeader.split('Bearer ')[1];
+  try {
+    await admin.auth().verifyIdToken(token);
+  } catch {
+    res.status(401).send('Invalid token');
+    return;
+  }
+
   try {
     // Get total count
     const totalSnapshot = await db.collection(RECIPES_COLLECTION).count().get();
@@ -382,10 +379,36 @@ export const getRecipeStats = functions.https.onRequest(async (req, res) => {
       mealTypeCounts[mealType] = snapshot.data().count;
     }
 
+    // Health score distribution
+    const healthScoreSnapshot = await db.collection(RECIPES_COLLECTION)
+      .select('healthScore')
+      .get();
+
+    const scores = healthScoreSnapshot.docs.map(doc => (doc.data().healthScore as number) || 0);
+    const distribution: Record<string, number> = {};
+    for (let bucket = 0; bucket <= 90; bucket += 10) {
+      const upper = bucket === 90 ? 100 : bucket + 9;
+      const label = `${bucket}-${upper}`;
+      distribution[label] = scores.filter(s => s >= bucket && s <= upper).length;
+    }
+
+    const belowThreshold = scores.filter(s => s < MIN_HEALTH_SCORE).length;
+
     res.json({
       totalRecipes: totalCount,
       byCuisine: cuisineCounts,
-      byMealType: mealTypeCounts
+      byMealType: mealTypeCounts,
+      healthScore: {
+        distribution,
+        average: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+        min: scores.length > 0 ? Math.min(...scores) : 0,
+        max: scores.length > 0 ? Math.max(...scores) : 0,
+        currentThreshold: MIN_HEALTH_SCORE,
+        belowThreshold,
+        percentBelowThreshold: scores.length > 0
+          ? Math.round((belowThreshold / scores.length) * 100)
+          : 0,
+      },
     });
   } catch (error) {
     console.error('Error getting stats:', error);
@@ -394,10 +417,104 @@ export const getRecipeStats = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * HTTP Function: Remove existing recipes with low health scores
+ * Auth-protected. Use ?dryRun=true to preview, ?threshold=N to override default.
+ */
+export const cleanupLowHealthScoreRecipes = functions
+  .runWith({ timeoutSeconds: 300 })
+  .https.onRequest(async (req, res) => {
+    // Verify request has proper authorization
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).send('Unauthorized');
+      return;
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+    try {
+      await admin.auth().verifyIdToken(token);
+    } catch {
+      res.status(401).send('Invalid token');
+      return;
+    }
+
+    const dryRun = req.query.dryRun === 'true';
+    const threshold = Math.min(100, Math.max(0, parseInt(req.query.threshold as string) || MIN_HEALTH_SCORE));
+
+    console.log(`Cleanup low health score recipes (threshold: ${threshold}, dryRun: ${dryRun})`);
+
+    try {
+      const snapshot = await db.collection(RECIPES_COLLECTION)
+        .where('healthScore', '<', threshold)
+        .get();
+
+      if (snapshot.empty) {
+        res.json({ success: true, message: 'No recipes below threshold', threshold, deleted: 0 });
+        return;
+      }
+
+      if (dryRun) {
+        const preview = snapshot.docs.slice(0, 20).map(doc => {
+          const data = doc.data();
+          return { id: doc.id, title: data.title, healthScore: data.healthScore };
+        });
+
+        res.json({
+          dryRun: true,
+          threshold,
+          totalToDelete: snapshot.size,
+          preview,
+        });
+        return;
+      }
+
+      // Batch delete (max 500 per batch — Firestore limit)
+      let deleted = 0;
+      const batchSize = 500;
+      const docs = snapshot.docs;
+
+      for (let i = 0; i < docs.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = docs.slice(i, i + batchSize);
+        for (const doc of chunk) {
+          batch.delete(doc.ref);
+        }
+        await batch.commit();
+        deleted += chunk.length;
+        console.log(`Deleted batch: ${deleted}/${docs.length}`);
+      }
+
+      res.json({
+        success: true,
+        threshold,
+        deleted,
+      });
+    } catch (error) {
+      console.error('Error cleaning up recipes:', error);
+      res.status(500).json({ error: 'Failed to cleanup recipes' });
+    }
+  });
+
+/**
  * HTTP Function: Initial database population (no auth required)
  * Use this once to populate the database, then disable
  */
 export const populateRecipes = functions.https.onRequest(async (req, res) => {
+  // Verify request has proper authorization
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).send('Unauthorized');
+    return;
+  }
+
+  const token = authHeader.split('Bearer ')[1];
+  try {
+    await admin.auth().verifyIdToken(token);
+  } catch {
+    res.status(401).send('Invalid token');
+    return;
+  }
+
   console.log('Starting initial recipe population...');
 
   if (!SPOONACULAR_API_KEY) {
@@ -406,90 +523,32 @@ export const populateRecipes = functions.https.onRequest(async (req, res) => {
   }
 
   // Get offset from query param (default 0) to fetch different recipes each time
-  const offset = parseInt(req.query.offset as string) || 0;
-  const number = parseInt(req.query.number as string) || 10;
+  const offset = Math.min(parseInt(req.query.offset as string) || 0, 5000);
+  const number = Math.min(parseInt(req.query.number as string) || 10, 50);
 
   let totalAdded = 0;
+  let totalFiltered = 0;
   const errors: string[] = [];
 
-  // Fetch from all cuisines
   for (const cuisine of CUISINES) {
     try {
-      console.log(`Fetching ${cuisine} recipes (offset: ${offset})...`);
-
-      const url = `https://api.spoonacular.com/recipes/complexSearch?` +
-        `cuisine=${cuisine}` +
-        `&addRecipeNutrition=true` +
-        `&addRecipeInstructions=true` +
-        `&number=${number}` +
-        `&offset=${offset}` +
-        `&apiKey=${SPOONACULAR_API_KEY}`;
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        errors.push(`${cuisine}: API error ${response.status}`);
-        continue;
-      }
-
-      const data: SpoonacularResponse = await response.json();
-      console.log(`Got ${data.results.length} ${cuisine} recipes`);
-
-      for (const recipe of data.results) {
-        try {
-          // Check if exists
-          const existing = await db.collection(RECIPES_COLLECTION)
-            .where('externalId', '==', recipe.id)
-            .limit(1)
-            .get();
-
-          if (!existing.empty) continue;
-
-          const nutrients = recipe.nutrition?.nutrients || [];
-
-          await db.collection(RECIPES_COLLECTION).add({
-            externalId: recipe.id,
-            title: recipe.title,
-            imageUrl: recipe.image,
-            readyInMinutes: recipe.readyInMinutes || 30,
-            servings: recipe.servings || 4,
-            calories: getNutrient(nutrients, 'Calories'),
-            proteinGrams: getNutrient(nutrients, 'Protein'),
-            carbsGrams: getNutrient(nutrients, 'Carbohydrates'),
-            fatGrams: getNutrient(nutrients, 'Fat'),
-            instructions: recipe.analyzedInstructions?.[0]?.steps?.map(s => s.step) || [],
-            cuisineType: cuisine.toLowerCase(),
-            mealType: determineMealType(recipe.dishTypes),
-            diets: recipe.diets || [],
-            dishTypes: recipe.dishTypes || [],
-            healthScore: recipe.healthScore || 0,
-            sourceUrl: recipe.sourceUrl,
-            creditsText: recipe.creditsText,
-            ingredients: (recipe.nutrition?.ingredients || []).map(ing => ({
-              name: ing.name,
-              amount: ing.amount,
-              unit: ing.unit,
-              aisle: ing.aisle || 'Other'
-            })),
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
-          });
-          totalAdded++;
-          console.log(`Added: ${recipe.title}`);
-        } catch (e) {
-          console.error(`Error adding recipe:`, e);
-        }
-      }
-
-      // Small delay between requests
+      const result = await fetchAndSaveRecipes({ cuisine, number, offset });
+      totalAdded += result.added;
+      totalFiltered += result.filtered;
       await new Promise(resolve => setTimeout(resolve, 300));
-
     } catch (e) {
       errors.push(`${cuisine}: ${e}`);
     }
   }
 
-  console.log(`Done! Added ${totalAdded} recipes`);
-  res.json({ success: true, recipesAdded: totalAdded, errors });
+  console.log(`Done! Added ${totalAdded} recipes, Filtered: ${totalFiltered}`);
+  res.json({
+    success: true,
+    recipesAdded: totalAdded,
+    recipesFilteredByHealthScore: totalFiltered,
+    minHealthScore: MIN_HEALTH_SCORE,
+    errors,
+  });
 });
 
 // =============================================================================
@@ -502,7 +561,7 @@ export const populateRecipes = functions.https.onRequest(async (req, res) => {
 const app = express();
 
 // Middleware
-app.use(cors({ origin: true }));
+app.use(cors({ origin: false }));
 app.use(express.json());
 
 /**

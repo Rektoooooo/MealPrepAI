@@ -167,14 +167,14 @@ struct PaywallStepView: View {
                     Text("·")
                         .foregroundStyle(OnboardingDesign.Colors.textMuted)
 
-                    Link("Terms", destination: URL(string: "https://mealprepai.app/terms")!)
+                    Link("Terms", destination: AppURLs.terms)
                         .font(OnboardingDesign.Typography.caption)
                         .foregroundStyle(OnboardingDesign.Colors.textTertiary)
 
                     Text("·")
                         .foregroundStyle(OnboardingDesign.Colors.textMuted)
 
-                    Link("Privacy", destination: URL(string: "https://mealprepai.app/privacy")!)
+                    Link("Privacy", destination: AppURLs.privacy)
                         .font(OnboardingDesign.Typography.caption)
                         .foregroundStyle(OnboardingDesign.Colors.textTertiary)
                 }
