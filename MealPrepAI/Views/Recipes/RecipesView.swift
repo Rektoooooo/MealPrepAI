@@ -9,9 +9,8 @@ struct RecipesView: View {
     @Environment(\.userProfile) private var userProfile
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
-    // NOTE: allIngredients @Query removed — ingredients are fetched on-demand in
-    // findOrCreateIngredient() via modelContext.fetch() to avoid keeping the full
-    // ingredient table in memory for the entire view lifecycle.
+    // NOTE: Ingredients are fetched in syncRecipesInBackground() via a one-time
+    // bulk fetch into an in-memory cache, then looked up with O(1) dictionary access.
 
     // MARK: - Accessibility
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -66,43 +65,42 @@ struct RecipesView: View {
     }
 
     private func updateFilteredRecipes() {
-        var recipes = allRecipes.filter { $0.isCustom || $0.isFromFirebase }
+        let category = selectedCategory
+        let filters = selectedFilters
+        let search = debouncedSearchText
 
-        if selectedCategory != .all {
-            recipes = recipes.filter { recipe in
-                recipe.matchesCategory(selectedCategory)
+        // Single pass: check all predicates per recipe instead of chaining .filter() calls
+        var recipes = allRecipes.filter { recipe in
+            guard recipe.isCustom || recipe.isFromFirebase else { return false }
+            if category != .all && !recipe.matchesCategory(category) { return false }
+            for filter in filters {
+                if !filter.matches(recipe) { return false }
             }
+            if !search.isEmpty {
+                guard recipe.name.localizedCaseInsensitiveContains(search) ||
+                      recipe.recipeDescription.localizedCaseInsensitiveContains(search) else {
+                    return false
+                }
+            }
+            return true
         }
 
-        for filter in selectedFilters {
-            recipes = recipes.filter { recipe in
-                filter.matches(recipe)
-            }
-        }
-
-        if !debouncedSearchText.isEmpty {
-            recipes = recipes.filter {
-                $0.name.localizedCaseInsensitiveContains(debouncedSearchText) ||
-                $0.recipeDescription.localizedCaseInsensitiveContains(debouncedSearchText)
-            }
-
+        // Append unique Firebase search results when searching
+        if !search.isEmpty {
             let localFirebaseIds = Set(recipes.compactMap { $0.firebaseId })
             let localRecipeIds = Set(recipes.map { $0.id })
             let uniqueFirebaseResults = firebaseSearchResults.filter { recipe in
                 if let fbId = recipe.firebaseId, localFirebaseIds.contains(fbId) {
                     return false
                 }
-                if localRecipeIds.contains(recipe.id) {
-                    return false
-                }
-                return true
+                return !localRecipeIds.contains(recipe.id)
             }
             recipes.append(contentsOf: uniqueFirebaseResults)
         }
 
         cachedFilteredRecipes = recipes
 
-        if let featured = featuredRecipe, selectedCategory == .all && debouncedSearchText.isEmpty {
+        if let featured = featuredRecipe, category == .all && search.isEmpty {
             cachedGridRecipes = recipes.filter { $0.id != featured.id }
         } else {
             cachedGridRecipes = recipes
@@ -157,11 +155,15 @@ struct RecipesView: View {
     }
 
     // MARK: - Sync Status Text
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+
     private var syncStatusText: String? {
         if let lastSync = lastSyncDate {
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .abbreviated
-            return "Updated \(formatter.localizedString(for: lastSync, relativeTo: Date()))"
+            return "Updated \(Self.relativeDateFormatter.localizedString(for: lastSync, relativeTo: Date()))"
         }
         return nil
     }
@@ -274,22 +276,21 @@ struct RecipesView: View {
                                 GridItem(.flexible(), spacing: Design.Spacing.md),
                                 GridItem(.flexible(), spacing: Design.Spacing.md)
                             ], spacing: Design.Spacing.md) {
-                                ForEach(Array(gridRecipes.enumerated()), id: \.element.id) { index, recipe in
+                                ForEach(gridRecipes, id: \.id) { recipe in
                                     StackedRecipeCard(
                                         recipe: recipe,
                                         onTap: { selectedRecipe = recipe },
                                         onAdd: { addToMealPlan(recipe) }
                                     )
-                                    .accessibilityIdentifier("recipe_card_\(index)")
                                     .opacity(animateContent ? 1 : 0)
                                     .offset(y: animateContent ? 0 : 20)
-                                    .animation(
-                                        reduceMotion ? .none : .easeOut(duration: 0.4).delay(hasAppeared ? 0 : Double(min(index, 10)) * 0.05),
-                                        value: animateContent
-                                    )
                                 }
                             }
                             .padding(.horizontal, Design.Spacing.lg)
+                            .animation(
+                                reduceMotion ? .none : .easeOut(duration: 0.4),
+                                value: animateContent
+                            )
 
                             // Search Firebase prompt when local results are insufficient
                             if shouldShowSearchFirebasePrompt && debouncedSearchText.count >= 2 {
@@ -793,7 +794,8 @@ struct RecipesView: View {
     // MARK: - Firebase Sync Helpers
 
     /// Normalize ingredient name for comparison (handles plurals, common variations)
-    private func normalizeIngredientName(_ name: String) -> String {
+    /// Static + nonisolated so it can be called from @Sendable closures for background sync.
+    nonisolated private static func normalizeIngredientName(_ name: String) -> String {
         var normalized = name.lowercased().trimmingCharacters(in: .whitespaces)
 
         // Remove common plural suffixes
@@ -830,80 +832,91 @@ struct RecipesView: View {
         return normalized
     }
 
-    /// Find or create an ingredient (prevents duplicates, handles plurals)
-    /// Fetches ingredients on-demand from modelContext to avoid keeping all ingredients in memory.
-    private func findOrCreateIngredient(
-        name: String,
-        category: GroceryCategory,
-        unit: MeasurementUnit
-    ) -> Ingredient {
-        let displayName = name.capitalized.trimmingCharacters(in: .whitespaces)
-        let normalizedName = normalizeIngredientName(name)
+    /// Sync Firebase recipes to SwiftData in a background context to avoid blocking the UI.
+    /// Builds an ingredient cache once (O(1) lookups instead of O(n) per ingredient),
+    /// and performs all SwiftData writes on a background thread.
+    /// Returns (newCount, updatedCount, newFirebaseIds).
+    private func syncRecipesInBackground(
+        _ fbRecipes: [FirebaseRecipe],
+        container: ModelContainer
+    ) async throws -> (newCount: Int, updatedCount: Int, newFirebaseIds: [String]) {
+        let normalize = Self.normalizeIngredientName
 
-        // Fetch ingredients on-demand (only during sync, not kept in memory for entire view lifecycle)
-        let allIngredients = (try? modelContext.fetch(FetchDescriptor<Ingredient>())) ?? []
+        return try await Task.detached {
+            let bgContext = ModelContext(container)
 
-        // Search existing ingredients by normalized name (handles plurals)
-        if let existing = allIngredients.first(where: {
-            normalizeIngredientName($0.name) == normalizedName
-        }) {
-            return existing
-        }
-
-        // Create new ingredient with display name
-        let ingredient = Ingredient(
-            name: displayName,
-            category: category,
-            defaultUnit: unit
-        )
-        modelContext.insert(ingredient)
-        return ingredient
-    }
-
-    /// Sync a single Firebase recipe to SwiftData (handles deduplication and updates)
-    private func syncFirebaseRecipe(_ fbRecipe: FirebaseRecipe) -> (recipe: Recipe, isNew: Bool) {
-        // Check if recipe already exists locally
-        if let existingRecipe = allRecipes.first(where: { $0.firebaseId == fbRecipe.id }) {
-            // Update existing recipe with latest data
-            existingRecipe.update(from: fbRecipe)
-            return (existingRecipe, false)
-        }
-
-        // Create new local recipe from Firebase data
-        let recipe = Recipe(from: fbRecipe)
-        modelContext.insert(recipe)
-
-        // Create ingredients for this recipe (with deduplication)
-        for fbIngredient in fbRecipe.ingredients {
-            let ingredient = findOrCreateIngredient(
-                name: fbIngredient.name,
-                category: GroceryCategory.fromAisle(fbIngredient.aisle),
-                unit: MeasurementUnit.fromString(fbIngredient.unit)
+            // --- Build ingredient cache: ONE fetch instead of ~400 ---
+            let allIngredients = (try? bgContext.fetch(FetchDescriptor<Ingredient>())) ?? []
+            var ingredientCache: [String: Ingredient] = Dictionary(
+                minimumCapacity: allIngredients.count
             )
+            for ing in allIngredients {
+                ingredientCache[normalize(ing.name)] = ing
+            }
 
-            // Create the recipe-ingredient link
-            let recipeIngredient = RecipeIngredient(
-                quantity: fbIngredient.amount,
-                unit: MeasurementUnit.fromString(fbIngredient.unit)
+            // --- Build recipe lookup for deduplication ---
+            let allExisting = (try? bgContext.fetch(FetchDescriptor<Recipe>())) ?? []
+            var existingByFirebaseId: [String: Recipe] = Dictionary(
+                minimumCapacity: allExisting.count
             )
-            recipeIngredient.ingredient = ingredient
-            recipeIngredient.recipe = recipe
-            modelContext.insert(recipeIngredient)
-        }
+            for recipe in allExisting {
+                if let fbId = recipe.firebaseId {
+                    existingByFirebaseId[fbId] = recipe
+                }
+            }
 
-        return (recipe, true)
-    }
+            var newCount = 0
+            var updatedCount = 0
+            var newFirebaseIds: [String] = []
 
-    /// Save model context with proper error handling
-    private func saveContext() throws {
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("❌ [RecipesView] Failed to save context: \(error)")
-            #endif
-            throw error
-        }
+            for fbRecipe in fbRecipes {
+                // Deduplication: update if already exists
+                if let fbId = fbRecipe.id, let existing = existingByFirebaseId[fbId] {
+                    existing.update(from: fbRecipe)
+                    updatedCount += 1
+                    continue
+                }
+
+                // Create new recipe
+                let recipe = Recipe(from: fbRecipe)
+                bgContext.insert(recipe)
+
+                // Create ingredients with O(1) cache lookups
+                for fbIngredient in fbRecipe.ingredients {
+                    let normalizedName = normalize(fbIngredient.name)
+                    let ingredient: Ingredient
+
+                    if let cached = ingredientCache[normalizedName] {
+                        ingredient = cached
+                    } else {
+                        let newIng = Ingredient(
+                            name: fbIngredient.name.capitalized.trimmingCharacters(in: .whitespaces),
+                            category: GroceryCategory.fromAisle(fbIngredient.aisle),
+                            defaultUnit: MeasurementUnit.fromString(fbIngredient.unit)
+                        )
+                        bgContext.insert(newIng)
+                        ingredientCache[normalizedName] = newIng
+                        ingredient = newIng
+                    }
+
+                    let recipeIngredient = RecipeIngredient(
+                        quantity: fbIngredient.amount,
+                        unit: MeasurementUnit.fromString(fbIngredient.unit)
+                    )
+                    recipeIngredient.ingredient = ingredient
+                    recipeIngredient.recipe = recipe
+                    bgContext.insert(recipeIngredient)
+                }
+
+                newCount += 1
+                if let fbId = fbRecipe.id {
+                    newFirebaseIds.append(fbId)
+                }
+            }
+
+            try bgContext.save()
+            return (newCount, updatedCount, newFirebaseIds)
+        }.value
     }
 
     /// Show success feedback with toast
@@ -961,20 +974,15 @@ struct RecipesView: View {
             print("✅ [RecipesView] Got \(moreRecipes.count) more recipes from Firebase")
             #endif
 
-            // Save to SwiftData with deduplication
-            var newCount = 0
-            for fbRecipe in moreRecipes {
-                let (_, isNew) = syncFirebaseRecipe(fbRecipe)
-                if isNew { newCount += 1 }
-            }
-
-            try saveContext()
+            // Sync in background context (non-blocking)
+            let container = modelContext.container
+            let result = try await syncRecipesInBackground(moreRecipes, container: container)
             #if DEBUG
-            print("✅ [RecipesView] Saved \(newCount) new recipes locally")
+            print("✅ [RecipesView] Saved \(result.newCount) new recipes locally")
             #endif
 
-            if newCount > 0 {
-                showSyncSuccess(count: newCount)
+            if result.newCount > 0 {
+                showSyncSuccess(count: result.newCount)
             }
 
             withAnimation {
@@ -1018,27 +1026,31 @@ struct RecipesView: View {
             print("✅ [RecipesView] Firebase search returned \(searchResults.count) results")
             #endif
 
-            // Convert to local Recipe objects and save (with deduplication)
-            var newRecipes: [Recipe] = []
-            for fbRecipe in searchResults {
-                let (recipe, isNew) = syncFirebaseRecipe(fbRecipe)
-                if isNew {
-                    newRecipes.append(recipe)
-                }
-            }
+            // Sync in background context (non-blocking)
+            let container = modelContext.container
+            let result = try await syncRecipesInBackground(searchResults, container: container)
 
-            try saveContext()
-            firebaseSearchResults = newRecipes
+            // Fetch newly synced recipes from main context for search results display
+            if !result.newFirebaseIds.isEmpty {
+                let newIds = Set(result.newFirebaseIds)
+                let allLocal = (try? modelContext.fetch(FetchDescriptor<Recipe>())) ?? []
+                firebaseSearchResults = allLocal.filter { recipe in
+                    guard let fbId = recipe.firebaseId else { return false }
+                    return newIds.contains(fbId)
+                }
+            } else {
+                firebaseSearchResults = []
+            }
 
             withAnimation {
                 isOffline = false
             }
             #if DEBUG
-            print("✅ [RecipesView] Added \(newRecipes.count) new recipes from search")
+            print("✅ [RecipesView] Added \(result.newCount) new recipes from search")
             #endif
 
-            if newRecipes.count > 0 {
-                showSyncSuccess(count: newRecipes.count)
+            if result.newCount > 0 {
+                showSyncSuccess(count: result.newCount)
             }
         } catch {
             #if DEBUG
@@ -1117,25 +1129,15 @@ struct RecipesView: View {
                 isOffline = false
             }
 
-            // Sync to local SwiftData with deduplication
-            var newCount = 0
-            var updatedCount = 0
-
-            for fbRecipe in firebaseRecipes {
-                let (_, isNew) = syncFirebaseRecipe(fbRecipe)
-                if isNew {
-                    newCount += 1
-                } else {
-                    updatedCount += 1
-                }
-            }
+            // Sync in background context (non-blocking)
+            let container = modelContext.container
+            let result = try await syncRecipesInBackground(firebaseRecipes, container: container)
+            let newCount = result.newCount
+            let updatedCount = result.updatedCount
 
             #if DEBUG
-            print("💾 [RecipesView] Saving to SwiftData: \(newCount) new, \(updatedCount) updated")
+            print("💾 [RecipesView] Saved to SwiftData: \(newCount) new, \(updatedCount) updated")
             #endif
-
-            // Save changes
-            try saveContext()
 
             // Update last sync date
             lastSyncDate = Date()

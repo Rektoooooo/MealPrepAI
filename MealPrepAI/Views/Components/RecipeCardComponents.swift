@@ -14,7 +14,7 @@ struct FeaturedRecipeCard: View {
                 ZStack(alignment: .bottom) {
                     // Real image or colorful food-themed gradient placeholder
                     if let imageData = recipe.localImageData,
-                       let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
+                       let uiImage = UIImage.cachedDownsample(data: imageData, recipeId: recipe.id, maxDimension: 400) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -27,7 +27,8 @@ struct FeaturedRecipeCard: View {
                             cornerRadius: Design.Radius.featured,
                             showIcon: recipe.imageURL == nil,
                             iconSize: 60,
-                            imageName: recipe.highResImageURL ?? recipe.imageURL
+                            imageName: recipe.highResImageURL ?? recipe.imageURL,
+                            gradientSeed: recipe.name.hashValue
                         )
                     }
 
@@ -135,7 +136,7 @@ struct StackedRecipeCard: View {
                 // Image area with badges overlay
                 ZStack {
                     if let imageData = recipe.localImageData,
-                       let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
+                       let uiImage = UIImage.cachedDownsample(data: imageData, recipeId: recipe.id, maxDimension: 400) {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFill()
@@ -155,7 +156,8 @@ struct StackedRecipeCard: View {
                             cornerRadius: 0,
                             showIcon: recipe.imageURL == nil,
                             iconSize: 36,
-                            imageName: recipe.highResImageURL ?? recipe.imageURL
+                            imageName: recipe.highResImageURL ?? recipe.imageURL,
+                            gradientSeed: recipe.name.hashValue
                         )
                         .clipShape(
                             UnevenRoundedRectangle(

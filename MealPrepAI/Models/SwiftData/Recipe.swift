@@ -81,6 +81,38 @@ final class Recipe {
         prepTimeMinutes + cookTimeMinutes
     }
 
+    // MARK: - Performance caches (not persisted)
+
+    /// Cached lowercased "(name) (description)" for category matching — avoids
+    /// re-allocating and lowercasing on every `matchesCategory` call.
+    @Transient private var _cachedSearchText: String?
+
+    /// Cached lowercased diets array — avoids re-splitting `dietsRaw` and
+    /// lowercasing each element on every `RecipeFilter.matches` / `displayDiets` call.
+    @Transient private var _cachedLowercasedDiets: [String]?
+
+    var cachedSearchText: String {
+        if let cached = _cachedSearchText { return cached }
+        let text = (name + " " + recipeDescription).lowercased()
+        _cachedSearchText = text
+        return text
+    }
+
+    var cachedLowercasedDiets: [String] {
+        if let cached = _cachedLowercasedDiets { return cached }
+        let result = diets.map { $0.lowercased() }
+        _cachedLowercasedDiets = result
+        return result
+    }
+
+    /// Invalidate transient caches when recipe data changes (e.g. after update from Firebase).
+    func invalidateCaches() {
+        _cachedSearchText = nil
+        _cachedLowercasedDiets = nil
+        _cachedInferredAdvancePrep = nil
+        _cachedParsedInstructions = nil
+    }
+
     @Transient private var _cachedInferredAdvancePrep: Bool?
 
     var inferredAdvancePrep: Bool {
@@ -358,7 +390,7 @@ final class Recipe {
     }
 
     func matchesCategory(_ category: FoodCategory) -> Bool {
-        let searchText = (name + " " + recipeDescription).lowercased()
+        let searchText = cachedSearchText
 
         switch category {
         case .all:
@@ -403,8 +435,9 @@ final class Recipe {
                    searchText.contains("tilapia") || searchText.contains("scallop") ||
                    searchText.contains("prawns") || searchText.contains("mussels")
         case .vegetarian:
-            return diets.contains { $0.lowercased().contains("vegetarian") } ||
-                   diets.contains { $0.lowercased().contains("vegan") } ||
+            let lowerDiets = cachedLowercasedDiets
+            return lowerDiets.contains { $0.contains("vegetarian") } ||
+                   lowerDiets.contains { $0.contains("vegan") } ||
                    searchText.contains("vegetarian") || searchText.contains("vegan") ||
                    searchText.contains("plant-based") || searchText.contains("meatless")
         case .quick:
@@ -508,5 +541,6 @@ final class Recipe {
         self.dietsRaw = firebaseRecipe.diets.joined(separator: ",")
         self.sourceURL = firebaseRecipe.sourceUrl
         self.lastSyncedAt = Date()
+        invalidateCaches()
     }
 }

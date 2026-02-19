@@ -78,9 +78,9 @@ enum RecipeFilter: String, CaseIterable, Identifiable {
             return recipe.carbsGrams < 30
         case .lowFat:
             return recipe.fatGrams < 15
-        // Diet filters
+        // Diet filters — uses cached lowercased diets to avoid re-allocating per call
         case .vegan, .vegetarian, .glutenFree, .dairyFree:
-            let recipeDiets = recipe.diets.map { $0.lowercased() }
+            let recipeDiets = recipe.cachedLowercasedDiets
             return dietSearchTerms.contains { term in
                 recipeDiets.contains { diet in
                     diet.contains(term)
@@ -95,7 +95,7 @@ extension Recipe {
     /// Returns display-friendly diet labels for this recipe
     var displayDiets: [DietBadge] {
         var badges: [DietBadge] = []
-        let lowercasedDiets = diets.map { $0.lowercased() }
+        let lowercasedDiets = cachedLowercasedDiets
 
         // Check for each diet type
         if lowercasedDiets.contains(where: { $0.contains("vegan") }) {

@@ -12,7 +12,7 @@ struct RecipeAsyncImage: View {
     var body: some View {
         Group {
             if let imageData = recipe.localImageData,
-               let uiImage = UIImage.downsample(data: imageData, maxDimension: 400) ?? UIImage(data: imageData) {
+               let uiImage = UIImage.cachedDownsample(data: imageData, recipeId: recipe.id, maxDimension: 400) {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
@@ -25,7 +25,8 @@ struct RecipeAsyncImage: View {
                     cornerRadius: cornerRadius,
                     showIcon: recipe.imageURL == nil,
                     iconSize: height * 0.3,
-                    imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL
+                    imageName: matchedImageUrl ?? recipe.highResImageURL ?? recipe.imageURL,
+                    gradientSeed: recipe.name.hashValue
                 )
             }
         }
@@ -65,7 +66,7 @@ struct FoodImagePlaceholder: View {
             case .healthy:
                 return [Color(red: 0.07, green: 0.60, blue: 0.56), .mintVibrant, Color(red: 0.34, green: 0.67, blue: 0.18)]
             case .random:
-                return randomGradient()
+                return Self.seededRandomGradient(seed: 0)
             }
         }
 
@@ -82,7 +83,9 @@ struct FoodImagePlaceholder: View {
             }
         }
 
-        private func randomGradient() -> [Color] {
+        /// Deterministic gradient selection based on a seed value, preventing
+        /// flickering when the view re-renders.
+        static func seededRandomGradient(seed: Int) -> [Color] {
             let options: [[Color]] = [
                 [Color(red: 1, green: 0.42, blue: 0.42), Color(red: 0.31, green: 0.80, blue: 0.77)],
                 [.accentPurple, Color(red: 0.81, green: 0.55, blue: 0.95), .breakfastGradientStart],
@@ -91,7 +94,8 @@ struct FoodImagePlaceholder: View {
                 [Color(red: 0.99, green: 0.27, blue: 0.42), .accentPurple],
                 [.accentYellow, Color(red: 1, green: 0.31, blue: 0.31)],
             ]
-            return options.randomElement() ?? options[0]
+            let index = abs(seed) % options.count
+            return options[index]
         }
     }
 
@@ -101,6 +105,8 @@ struct FoodImagePlaceholder: View {
     var showIcon: Bool = true
     var iconSize: CGFloat = 40
     var imageName: String? = nil
+    /// Seed for deterministic gradient when style is `.random`. Pass recipe name hashValue.
+    var gradientSeed: Int = 0
 
     var body: some View {
         if let urlString = imageName, let url = URL(string: urlString) {
@@ -132,6 +138,14 @@ struct FoodImagePlaceholder: View {
         }
     }
 
+    /// Resolve gradient colors — uses seeded selection for `.random` to prevent flickering.
+    private var resolvedGradient: [Color] {
+        if case .random = style {
+            return FoodStyle.seededRandomGradient(seed: gradientSeed)
+        }
+        return style.gradient
+    }
+
     // Extracted gradient placeholder view (decorative)
     private var gradientPlaceholder: some View {
         ZStack {
@@ -139,7 +153,7 @@ struct FoodImagePlaceholder: View {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(
                     LinearGradient(
-                        colors: style.gradient,
+                        colors: resolvedGradient,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
