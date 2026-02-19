@@ -87,7 +87,7 @@ function getAnthropicClient(): Anthropic {
     if (!apiKey) {
       throw new Error('ANTHROPIC_API_KEY environment variable not set');
     }
-    anthropic = new Anthropic({ apiKey });
+    anthropic = new Anthropic({ apiKey, timeout: 60000 });
   }
   return anthropic;
 }
@@ -272,9 +272,9 @@ export async function handleSwapMeal(
   console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
 
   // Validate required fields
-  if (!deviceId) {
-    console.log('[DEBUG] ERROR: Device ID is required');
-    return { success: false, error: 'Device ID is required' };
+  if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
+    console.log('[DEBUG] ERROR: Invalid device ID');
+    return { success: false, error: 'Invalid device ID' };
   }
 
   if (!userProfile) {

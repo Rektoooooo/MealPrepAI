@@ -11,6 +11,7 @@ import CryptoKit
 import SwiftUI
 import UIKit
 import Security
+import FirebaseAppCheck
 
 /// Manages user authentication state using Sign in with Apple
 @MainActor @Observable
@@ -197,6 +198,11 @@ final class AuthenticationManager {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(["authorizationCode": storedCode])
+
+            // Add App Check token for security
+            if let tokenResult = try? await AppCheck.appCheck().token(forcingRefresh: false) {
+                request.setValue(tokenResult.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+            }
 
             let (_, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {

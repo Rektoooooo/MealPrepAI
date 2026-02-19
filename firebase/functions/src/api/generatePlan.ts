@@ -122,7 +122,7 @@ function getAnthropicClient(): Anthropic {
     if (!apiKey) {
       throw new Error('ANTHROPIC_API_KEY environment variable not set');
     }
-    anthropic = new Anthropic({ apiKey });
+    anthropic = new Anthropic({ apiKey, timeout: 60000 });
   }
   return anthropic;
 }
@@ -946,14 +946,34 @@ export async function handleGeneratePlan(
   console.log('[DEBUG] Structured Prefs - Busyness:', weeklyBusyness || 'None');
 
   // Validate required fields
-  if (!deviceId) {
-    console.log('[DEBUG] ERROR: Device ID is required');
-    return { success: false, error: 'Device ID is required' };
+  if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
+    console.log('[DEBUG] ERROR: Invalid device ID');
+    return { success: false, error: 'Invalid device ID' };
   }
 
   if (!userProfile) {
     console.log('[DEBUG] ERROR: User profile is required');
     return { success: false, error: 'User profile is required' };
+  }
+
+  // Validate numeric profile fields
+  if (typeof userProfile.dailyCalorieTarget !== 'number' || userProfile.dailyCalorieTarget < 800 || userProfile.dailyCalorieTarget > 10000) {
+    return { success: false, error: 'Invalid calorie target' };
+  }
+  if (typeof userProfile.age !== 'number' || userProfile.age < 13 || userProfile.age > 120) {
+    return { success: false, error: 'Invalid age' };
+  }
+  if (typeof userProfile.weightKg !== 'number' || userProfile.weightKg < 20 || userProfile.weightKg > 500) {
+    return { success: false, error: 'Invalid weight' };
+  }
+  if (typeof userProfile.heightCm !== 'number' || userProfile.heightCm < 50 || userProfile.heightCm > 300) {
+    return { success: false, error: 'Invalid height' };
+  }
+  if (typeof userProfile.proteinGrams !== 'number' || userProfile.proteinGrams < 0 || userProfile.proteinGrams > 1000) {
+    return { success: false, error: 'Invalid protein target' };
+  }
+  if (typeof userProfile.mealsPerDay !== 'number' || userProfile.mealsPerDay < 1 || userProfile.mealsPerDay > 10) {
+    return { success: false, error: 'Invalid meals per day' };
   }
 
   console.log('[DEBUG] User Profile:', JSON.stringify({

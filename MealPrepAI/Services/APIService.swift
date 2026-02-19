@@ -26,6 +26,7 @@ enum APIError: LocalizedError, Sendable {
     case subscriptionRequired
     case serverError(String)
     case noConnection
+    case appCheckUnavailable
 
     nonisolated var errorDescription: String? {
         switch self {
@@ -47,6 +48,8 @@ enum APIError: LocalizedError, Sendable {
             return message
         case .noConnection:
             return "No internet connection. Please check your network settings and try again."
+        case .appCheckUnavailable:
+            return "Security verification failed. Please restart the app and try again."
         }
     }
 }
@@ -219,6 +222,22 @@ actor APIService {
         self.encoder = JSONEncoder()
     }
 
+    // MARK: - App Check Helper
+
+    /// Requires a valid App Check token. Throws in production if unavailable.
+    /// In DEBUG builds, logs a warning but allows the request to proceed.
+    private func requireAppCheckToken(for request: inout URLRequest) async throws {
+        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
+            request.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
+        } else {
+            #if DEBUG
+            print("[API] WARNING: No App Check token available — proceeding in DEBUG mode")
+            #else
+            throw APIError.appCheckUnavailable
+            #endif
+        }
+    }
+
     // MARK: - Retry Logic
 
     /// Retries an operation with exponential backoff. Only retries on server/network errors,
@@ -289,7 +308,10 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(request)
 
-        return try await withRetry {
+        // Add App Check token for security
+        try await requireAppCheckToken(for: &urlRequest)
+
+        return try await withRetry { [urlRequest] in
             let (data, response) = try await self.session.data(for: urlRequest)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -404,17 +426,8 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
 
-        // Add App Check token for security
-        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
-            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
-            #if DEBUG
-            print("[DEBUG:API] App Check token added")
-            #endif
-        } else {
-            #if DEBUG
-            print("[DEBUG:API] WARNING: No App Check token available")
-            #endif
-        }
+        // Require App Check token (mandatory in production, warning in DEBUG)
+        try await requireAppCheckToken(for: &urlRequest)
 
         #if DEBUG
         print("[DEBUG:API] Sending request (5min timeout)...")
@@ -561,17 +574,8 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
 
-        // Add App Check token for security
-        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
-            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
-            #if DEBUG
-            print("[DEBUG:API] App Check token added")
-            #endif
-        } else {
-            #if DEBUG
-            print("[DEBUG:API] WARNING: No App Check token available")
-            #endif
-        }
+        // Require App Check token (mandatory in production, warning in DEBUG)
+        try await requireAppCheckToken(for: &urlRequest)
 
         #if DEBUG
         print("[DEBUG:API] Sending request...")
@@ -685,9 +689,8 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
 
-        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
-            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
-        }
+        // Require App Check token (mandatory in production, warning in DEBUG)
+        try await requireAppCheckToken(for: &urlRequest)
 
         return try await withRetry { [urlRequest] in
             let (data, response) = try await self.session.data(for: urlRequest)
@@ -735,9 +738,8 @@ actor APIService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try encoder.encode(requestBody)
 
-        if let appCheckToken = await AppCheckTokenProvider.shared.getToken() {
-            urlRequest.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck")
-        }
+        // Require App Check token (mandatory in production, warning in DEBUG)
+        try await requireAppCheckToken(for: &urlRequest)
 
         return try await withRetry { [urlRequest] in
             let (data, response) = try await self.session.data(for: urlRequest)

@@ -68,7 +68,7 @@ function getAnthropicClient(): Anthropic {
     if (!apiKey) {
       throw new Error('ANTHROPIC_API_KEY environment variable not set');
     }
-    anthropic = new Anthropic({ apiKey });
+    anthropic = new Anthropic({ apiKey, timeout: 60000 });
   }
   return anthropic;
 }
@@ -124,8 +124,8 @@ export async function handleSubstituteIngredient(
   console.log('[DEBUG] Recipe:', recipeContext?.recipeName);
 
   // Validate required fields
-  if (!deviceId) {
-    return { success: false, error: 'Device ID is required' };
+  if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
+    return { success: false, error: 'Invalid device ID' };
   }
   if (!ingredientName) {
     return { success: false, error: 'Ingredient name is required' };

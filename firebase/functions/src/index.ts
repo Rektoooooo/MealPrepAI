@@ -562,7 +562,7 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: false }));
-app.use(express.json());
+app.use(express.json({ limit: '50kb' }));
 
 /**
  * App Check verification middleware
