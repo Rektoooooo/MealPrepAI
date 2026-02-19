@@ -694,18 +694,20 @@ Use the assigned proteins, cuisines, and cooking styles. Use ingredients from th
 
   return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}).
 
-═══ DAILY TARGETS (vary naturally, don't force exact numbers) ═══
-- Calories: ~${profile.dailyCalorieTarget} kcal (vary between ${profile.dailyCalorieTarget - 150}-${profile.dailyCalorieTarget + 150})
-- Protein: ~${profile.proteinGrams}g (vary between ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g)
-- Carbs: ~${profile.carbsGrams}g, Fat: ~${profile.fatGrams}g
-- IMPORTANT: Create natural variation each day - don't hit exact same numbers daily!
+═══ DAILY TARGETS (STRICT — every day must be within these ranges) ═══
+- Calories: ${profile.dailyCalorieTarget - 100}-${profile.dailyCalorieTarget + 100} kcal (target ~${profile.dailyCalorieTarget})
+- Protein: ${profile.proteinGrams - 10}-${profile.proteinGrams + 10}g (target ~${profile.proteinGrams}g — do NOT consistently overshoot!)
+- Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g (target ~${profile.carbsGrams}g)
+- Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g (target ~${profile.fatGrams}g)
+- Vary naturally each day but ALWAYS stay within these ranges
 
-═══ PER-MEAL GUIDELINES (approximate, vary naturally) ═══
-- Breakfast: ${breakfastCal - 50}-${breakfastCal + 50} cal, ${breakfastProtein - 5}-${breakfastProtein + 5}g protein, ~${breakfastCarbs}g carbs, ~${breakfastFat}g fat
-- Morning Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
-- Lunch: ${lunchCal - 75}-${lunchCal + 75} cal, ${lunchProtein - 8}-${lunchProtein + 8}g protein, ~${lunchCarbs}g carbs, ~${lunchFat}g fat
-- Afternoon Snack: ${snackCal - 30}-${snackCal + 30} cal, ${snackProtein - 3}-${snackProtein + 3}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
-- Dinner: ${dinnerCal - 75}-${dinnerCal + 75} cal, ${dinnerProtein - 8}-${dinnerProtein + 8}g protein, ~${dinnerCarbs}g carbs, ~${dinnerFat}g fat
+═══ PER-MEAL TARGETS (aim for these — don't exceed upper bounds) ═══
+- Breakfast: ~${breakfastCal} cal, ~${breakfastProtein}g protein, ~${breakfastCarbs}g carbs, ~${breakfastFat}g fat
+- Morning Snack: ~${snackCal} cal, ~${snackProtein}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
+- Lunch: ~${lunchCal} cal, ~${lunchProtein}g protein, ~${lunchCarbs}g carbs, ~${lunchFat}g fat
+- Afternoon Snack: ~${snackCal} cal, ~${snackProtein}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
+- Dinner: ~${dinnerCal} cal, ~${dinnerProtein}g protein, ~${dinnerCarbs}g carbs, ~${dinnerFat}g fat
+- TIP: If breakfast/lunch/dinner run high on protein, REDUCE snack protein to keep daily total in range
 
 ${personalizationSection}
 ═══ RESTRICTIONS ═══
@@ -881,13 +883,12 @@ Valid categories: produce, meat, dairy, pantry
 
 dayOfWeek: ${startDay}-${endDay}
 
-FINAL CHECK: Each day's meals must sum to:
-- Calories: ~${profile.dailyCalorieTarget} ± 100 kcal
-- Protein: ~${profile.proteinGrams}g ± 5g (do NOT exceed ${profile.proteinGrams + 5}g)
-- Carbs: ~${profile.carbsGrams}g ± 15g
-- Fat: ~${profile.fatGrams}g ± 10g
-
-NOTE: Vary the macros naturally each day - some days can be ${profile.proteinGrams - 5}g protein, others ${profile.proteinGrams + 3}g. Don't make every day identical!`;
+FINAL CHECK — BEFORE RESPONDING, verify each day's meals sum to:
+- Calories: ${profile.dailyCalorieTarget - 100}-${profile.dailyCalorieTarget + 100} kcal
+- Protein: ${profile.proteinGrams - 10}-${profile.proteinGrams + 10}g (do NOT consistently exceed ${profile.proteinGrams}g — if lunch/dinner run high, reduce snack protein to compensate)
+- Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g
+- Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g
+If any day is outside these ranges, adjust recipe portions before responding.`;
 }
 
 /**
@@ -1145,28 +1146,27 @@ export async function handleGeneratePlan(
     const totalMeals = mealPlan.days.reduce((acc, day) => acc + day.meals.length, 0);
     console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
 
-    // Post-generation validation: check meal type distribution per day
-    for (const day of mealPlan.days) {
-      const mealTypeCounts: Record<string, number> = {};
-      for (const meal of day.meals) {
-        mealTypeCounts[meal.mealType] = (mealTypeCounts[meal.mealType] || 0) + 1;
-      }
-      const expectedBreakfast = 1;
-      const expectedSnack = userProfile.includeSnacks ? 2 : 0;
-      const expectedLunch = 1;
-      const expectedDinner = 1;
+    // Post-generation: auto-correct meal types based on position
+    // The expected order for 5 meals is: breakfast, snack, lunch, snack, dinner
+    // The AI sometimes mislabels snacks as breakfast or other types
+    const expectedMealOrder = userProfile.includeSnacks
+      ? ['breakfast', 'snack', 'lunch', 'snack', 'dinner']
+      : ['breakfast', 'lunch', 'dinner'];
 
-      if ((mealTypeCounts['breakfast'] || 0) !== expectedBreakfast) {
-        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedBreakfast} breakfast, got ${mealTypeCounts['breakfast'] || 0}`);
-      }
-      if ((mealTypeCounts['snack'] || 0) !== expectedSnack) {
-        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedSnack} snacks, got ${mealTypeCounts['snack'] || 0}`);
-      }
-      if ((mealTypeCounts['lunch'] || 0) !== expectedLunch) {
-        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedLunch} lunch, got ${mealTypeCounts['lunch'] || 0}`);
-      }
-      if ((mealTypeCounts['dinner'] || 0) !== expectedDinner) {
-        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedDinner} dinner, got ${mealTypeCounts['dinner'] || 0}`);
+    for (const day of mealPlan.days) {
+      if (day.meals.length === expectedMealOrder.length) {
+        // Check if meal types match expected order
+        const typesMatch = day.meals.every((meal, i) => meal.mealType === expectedMealOrder[i]);
+        if (!typesMatch) {
+          const originalTypes = day.meals.map(m => m.mealType).join(', ');
+          // Force-correct meal types based on position
+          for (let i = 0; i < day.meals.length; i++) {
+            day.meals[i].mealType = expectedMealOrder[i];
+          }
+          console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Auto-corrected meal types from [${originalTypes}] to [${expectedMealOrder.join(', ')}]`);
+        }
+      } else {
+        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedMealOrder.length} meals, got ${day.meals.length} — cannot auto-correct`);
       }
     }
 
@@ -1178,6 +1178,19 @@ export async function handleGeneratePlan(
           console.warn(`[VALIDATION] Duplicate recipe name: "${meal.recipe.name}"`);
         }
         recipeNames.add(meal.recipe.name);
+      }
+    }
+
+    // Post-generation: clean up ingredient names
+    // AI sometimes produces "50 g (50g) Eggplant" — strip parenthetical quantity duplications
+    for (const day of mealPlan.days) {
+      for (const meal of day.meals) {
+        for (const ing of meal.recipe.ingredients) {
+          // Remove parenthetical quantity patterns like "(50g)", "(200ml)", "(1 cup)"
+          ing.name = ing.name.replace(/\s*\(\d+\s*(?:g|ml|oz|lb|kg|cup|tbsp|tsp)\)\s*/gi, ' ').trim();
+          // Remove leading quantity+unit from name like "50 g Eggplant" → "Eggplant"
+          ing.name = ing.name.replace(/^\d+\s*(?:g|ml|oz|lb|kg)\s+/i, '').trim();
+        }
       }
     }
 

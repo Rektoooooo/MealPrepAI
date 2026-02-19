@@ -283,8 +283,11 @@ struct GroceryListView: View {
             Spacer()
         }
         .padding(.vertical, Design.Spacing.xs)
-        .padding(.horizontal, Design.Spacing.xxs)
-        .background(Color.backgroundMint.opacity(0.95))
+        .padding(.horizontal, Design.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: Design.Radius.md)
+                .fill(Color.backgroundMint.opacity(0.95))
+        )
         .accessibilityIdentifier("grocery_category_\(category.rawValue.lowercased().replacingOccurrences(of: " ", with: "_"))")
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(category.rawValue), \(count) items")
@@ -328,6 +331,78 @@ struct GroceryListView: View {
 
             try? modelContext.save()
         }
+    }
+
+    /// Normalizes ingredient names to their base grocery item.
+    /// e.g. "Hard Boiled Egg White" → "egg", "Diced Chicken Breast" → "chicken breast"
+    private func normalizeIngredientName(_ name: String) -> String {
+        var normalized = name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Remove cooking methods and preparation descriptors
+        let preparationWords = [
+            "hard boiled", "soft boiled", "poached", "fried", "scrambled",
+            "grilled", "roasted", "baked", "steamed", "sauteed", "sautéed",
+            "braised", "smoked", "cured", "marinated", "seasoned",
+            "raw", "cooked", "uncooked", "dried", "fresh", "frozen", "canned",
+            "diced", "sliced", "chopped", "minced", "shredded", "grated",
+            "crushed", "ground", "mashed", "pureed", "puréed", "julienned",
+            "cubed", "halved", "quartered", "whole", "peeled", "deveined",
+            "boneless", "skinless", "bone-in", "skin-on",
+            "low-fat", "low fat", "nonfat", "non-fat", "fat-free",
+            "unsalted", "salted", "sweetened", "unsweetened",
+            "organic", "free-range", "free range",
+        ]
+
+        for word in preparationWords {
+            normalized = normalized.replacingOccurrences(of: word, with: "")
+        }
+
+        // Remove part descriptors that map to the same grocery item
+        // Only strip part words for specific base ingredients
+        if normalized.contains("egg") {
+            // Handle both singular and plural forms: "whites", "white", "yolks", "yolk"
+            let eggParts = ["whites", "white", "yolks", "yolk"]
+            for part in eggParts {
+                normalized = normalized.replacingOccurrences(of: part, with: "")
+            }
+        }
+
+        // Clean up extra whitespace (run after every replacement phase)
+        func cleanWhitespace(_ s: String) -> String {
+            s.components(separatedBy: .whitespaces)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        normalized = cleanWhitespace(normalized)
+
+        // Simple depluralization: remove trailing 's' for common items (but not "hummus", "couscous", etc.)
+        let skipDepluralize = ["hummus", "couscous", "asparagus", "molasses", "lettuce", "rice", "quinoa", "cheese"]
+        if normalized.hasSuffix("s") && !skipDepluralize.contains(normalized) && normalized.count > 3 {
+            // Handle "ies" -> "y" (e.g. "berries" -> "berry")
+            if normalized.hasSuffix("ies") {
+                normalized = String(normalized.dropLast(3)) + "y"
+            }
+            // Handle "oes" -> "o" (e.g. "tomatoes" -> "tomato", "potatoes" -> "potato")
+            else if normalized.hasSuffix("oes") {
+                normalized = String(normalized.dropLast(2))
+            }
+            // Handle regular "s" (e.g. "eggs" -> "egg", "onions" -> "onion")
+            else if !normalized.hasSuffix("ss") && !normalized.hasSuffix("us") {
+                normalized = String(normalized.dropLast())
+            }
+        }
+
+        // Final cleanup
+        return cleanWhitespace(normalized)
+    }
+
+    /// Returns a clean display name for a normalized ingredient key.
+    /// Capitalizes first letter of each word.
+    private func displayName(for normalizedKey: String) -> String {
+        normalizedKey.split(separator: " ")
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " ")
     }
 
     private func generateGroceryList() {
@@ -394,7 +469,7 @@ struct GroceryListView: View {
                     }
                     totalRecipeIngredients += 1
 
-                    let key = ingredient.name.lowercased()
+                    let key = normalizeIngredientName(ingredient.name)
                     if let existing = ingredientQuantities[key] {
                         // Add to existing quantity (simple addition for same units)
                         ingredientQuantities[key] = (existing.0, existing.1 + recipeIngredient.quantity, existing.2)
@@ -415,8 +490,11 @@ struct GroceryListView: View {
         print("[DEBUG:Grocery] Unique ingredients: \(ingredientQuantities.count)")
         #endif
 
-        // Create grocery items
-        for (name, (ingredient, quantity, unit)) in ingredientQuantities {
+        // Create grocery items with normalized display names
+        for (normalizedKey, (ingredient, quantity, unit)) in ingredientQuantities {
+            // Update ingredient name to the clean normalized version
+            ingredient.name = displayName(for: normalizedKey)
+
             let groceryItem = GroceryItem(
                 quantity: quantity,
                 unit: unit,
@@ -428,7 +506,7 @@ struct GroceryListView: View {
             groceryItem.groceryList = list
             modelContext.insert(groceryItem)
             #if DEBUG
-            print("[DEBUG:Grocery] Added: \(name) - \(quantity) \(unit.rawValue)")
+            print("[DEBUG:Grocery] Added: \(normalizedKey) - \(quantity) \(unit.rawValue)")
             #endif
         }
 
@@ -484,7 +562,7 @@ struct GroceryItemRow: View {
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: 44, minHeight: 36)
 
                 // Item Details
                 VStack(alignment: .leading, spacing: 2) {
@@ -508,7 +586,8 @@ struct GroceryItemRow: View {
                         .foregroundStyle(Color.textSecondary.opacity(0.5))
                 }
             }
-            .padding(Design.Spacing.md)
+            .padding(.horizontal, Design.Spacing.md)
+            .padding(.vertical, Design.Spacing.sm)
             .background(
                 RoundedRectangle(cornerRadius: Design.Radius.md)
                     .fill(Color.cardBackground)
