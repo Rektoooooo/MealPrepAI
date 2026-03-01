@@ -4,6 +4,10 @@ import UIKit
 
 @Model
 final class UserProfile {
+    // MARK: - Static Codecs (avoid allocating per-access)
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
     // CloudKit requires default values for all non-optional properties
     var id: UUID = UUID()
     var name: String = ""
@@ -55,7 +59,7 @@ final class UserProfile {
     var cuisinePreferencesMapData: Data?  // [CuisineType: CuisinePreference]
     var pantryLevelRaw: String = "Average"
     var avatarEmoji: String = "🍳"
-    var profileImageData: Data?  // Profile photo (alternative to emoji avatar)
+    @Attribute(.externalStorage) var profileImageData: Data?  // Profile photo (alternative to emoji avatar)
     var goalPaceRaw: String = "Moderate"
     var barriersData: Data?
 
@@ -99,7 +103,7 @@ final class UserProfile {
     var dietaryRestrictions: [DietaryRestriction] {
         get {
             guard let data = dietaryRestrictionsData else { return [] }
-            return (try? JSONDecoder().decode([DietaryRestriction].self, from: data)) ?? []
+            return (try? Self.decoder.decode([DietaryRestriction].self, from: data)) ?? []
         }
         set {
             dietaryRestrictionsData = encodeOrNil(newValue)
@@ -109,7 +113,7 @@ final class UserProfile {
     var allergies: [Allergy] {
         get {
             guard let data = allergiesData else { return [] }
-            return (try? JSONDecoder().decode([Allergy].self, from: data)) ?? []
+            return (try? Self.decoder.decode([Allergy].self, from: data)) ?? []
         }
         set {
             allergiesData = encodeOrNil(newValue)
@@ -119,7 +123,7 @@ final class UserProfile {
     var preferredCuisines: [CuisineType] {
         get {
             guard let data = preferredCuisinesData else { return [] }
-            return (try? JSONDecoder().decode([CuisineType].self, from: data)) ?? []
+            return (try? Self.decoder.decode([CuisineType].self, from: data)) ?? []
         }
         set {
             preferredCuisinesData = encodeOrNil(newValue)
@@ -129,7 +133,7 @@ final class UserProfile {
     var primaryGoals: [PrimaryGoal] {
         get {
             guard let data = primaryGoalsData else { return [] }
-            return (try? JSONDecoder().decode([PrimaryGoal].self, from: data)) ?? []
+            return (try? Self.decoder.decode([PrimaryGoal].self, from: data)) ?? []
         }
         set {
             primaryGoalsData = encodeOrNil(newValue)
@@ -139,7 +143,7 @@ final class UserProfile {
     var foodDislikes: [FoodDislike] {
         get {
             guard let data = foodDislikesData else { return [] }
-            return (try? JSONDecoder().decode([FoodDislike].self, from: data)) ?? []
+            return (try? Self.decoder.decode([FoodDislike].self, from: data)) ?? []
         }
         set {
             foodDislikesData = encodeOrNil(newValue)
@@ -149,7 +153,7 @@ final class UserProfile {
     var cuisinePreferencesMap: [String: CuisinePreference] {
         get {
             guard let data = cuisinePreferencesMapData else { return [:] }
-            return (try? JSONDecoder().decode([String: CuisinePreference].self, from: data)) ?? [:]
+            return (try? Self.decoder.decode([String: CuisinePreference].self, from: data)) ?? [:]
         }
         set {
             cuisinePreferencesMapData = encodeOrNil(newValue)
@@ -169,7 +173,7 @@ final class UserProfile {
     var barriers: [Barrier] {
         get {
             guard let data = barriersData else { return [] }
-            return (try? JSONDecoder().decode([Barrier].self, from: data)) ?? []
+            return (try? Self.decoder.decode([Barrier].self, from: data)) ?? []
         }
         set {
             barriersData = encodeOrNil(newValue)
@@ -272,7 +276,7 @@ final class UserProfile {
 
     private func encodeOrNil<T: Encodable>(_ value: T) -> Data? {
         do {
-            return try JSONEncoder().encode(value)
+            return try Self.encoder.encode(value)
         } catch {
             #if DEBUG
             print("⚠️ JSON encode failed for \(T.self): \(error)")

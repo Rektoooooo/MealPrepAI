@@ -24,8 +24,23 @@ final class MealPlan {
     @Relationship(deleteRule: .cascade, inverse: \GroceryList.mealPlan)
     var groceryList: GroceryList?
 
+    // MARK: - Performance cache (not persisted)
+    @Transient private var _cachedSortedDays: [Day]?
+    @Transient private var _lastDaysCount: Int = -1
+
     var sortedDays: [Day] {
-        days.sorted { $0.date < $1.date }
+        if let cached = _cachedSortedDays, _lastDaysCount == days.count {
+            return cached
+        }
+        let sorted = days.sorted { $0.date < $1.date }
+        _cachedSortedDays = sorted
+        _lastDaysCount = days.count
+        return sorted
+    }
+
+    func invalidateSortCache() {
+        _cachedSortedDays = nil
+        _lastDaysCount = -1
     }
 
     init(

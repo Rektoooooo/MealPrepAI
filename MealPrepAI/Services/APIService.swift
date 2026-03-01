@@ -203,20 +203,15 @@ actor APIService {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
-
-    private let longTimeoutSession: URLSession
+    private static let isoFormatter = ISO8601DateFormatter()
 
     private init() {
+        // Single session with generous timeout for meal plan generation
+        // Shorter operations set timeoutInterval on individual URLRequests
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 120 // Claude can take time for long responses
-        config.timeoutIntervalForResource = 180
+        config.timeoutIntervalForRequest = 300 // 5 minutes
+        config.timeoutIntervalForResource = 360 // 6 minutes
         self.session = URLSession(configuration: config)
-
-        // Longer timeout session for meal plan generation (2 Claude batches + processing)
-        let longConfig = URLSessionConfiguration.default
-        longConfig.timeoutIntervalForRequest = 300 // 5 minutes
-        longConfig.timeoutIntervalForResource = 360 // 6 minutes
-        self.longTimeoutSession = URLSession(configuration: longConfig)
 
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
@@ -254,7 +249,7 @@ actor APIService {
                     throw error
                 }
                 if attempt < maxAttempts - 1 {
-                    let delay = Double(1 << attempt) // 1s, 2s, 4s
+                    let delay = Double(1 << attempt) + Double.random(in: 0...1)
                     try? await Task.sleep(for: .seconds(delay))
                 }
             }
@@ -306,6 +301,7 @@ actor APIService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.timeoutInterval = 120 // Shorter timeout for standard Claude calls
         urlRequest.httpBody = try encoder.encode(request)
 
         // Add App Check token for security
@@ -435,8 +431,8 @@ actor APIService {
         let startTime = Date()
 
         return try await withRetry { [urlRequest] in
-            // Use long timeout session for meal plan generation (2 batches + processing)
-            let (data, response) = try await self.longTimeoutSession.data(for: urlRequest)
+            // Meal plan generation uses the session's default long timeout
+            let (data, response) = try await self.session.data(for: urlRequest)
 
             #if DEBUG
             let duration = Date().timeIntervalSince(startTime)
@@ -572,6 +568,7 @@ actor APIService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.timeoutInterval = 120 // Shorter timeout for swap meal
         urlRequest.httpBody = try encoder.encode(requestBody)
 
         // Require App Check token (mandatory in production, warning in DEBUG)
@@ -687,6 +684,7 @@ actor APIService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.timeoutInterval = 60 // Shorter timeout for ingredient substitution
         urlRequest.httpBody = try encoder.encode(requestBody)
 
         // Require App Check token (mandatory in production, warning in DEBUG)
@@ -736,6 +734,7 @@ actor APIService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.timeoutInterval = 30 // Short timeout for subscription verification
         urlRequest.httpBody = try encoder.encode(requestBody)
 
         // Require App Check token (mandatory in production, warning in DEBUG)
@@ -770,7 +769,7 @@ actor APIService {
             "deviceId": deviceId,
             "counterDeltas": counterDeltas,
             "appVersion": appVersion,
-            "timestamp": ISO8601DateFormatter().string(from: Date()),
+            "timestamp": Self.isoFormatter.string(from: Date()),
         ]
 
         var request = URLRequest(url: requestURL)

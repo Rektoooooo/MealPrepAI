@@ -162,14 +162,25 @@ async function fetchAndSaveRecipes(params: {
     console.log(`Filtered out ${filtered} ${label} recipes with healthScore < ${MIN_HEALTH_SCORE}`);
   }
 
+  // Batch check for existing externalIds (Firestore 'in' supports up to 30)
+  const allExternalIds = healthyRecipes.map(r => r.id);
+  const existingExternalIds = new Set<number>();
+
+  // Query in batches of 30
+  for (let i = 0; i < allExternalIds.length; i += 30) {
+    const chunk = allExternalIds.slice(i, i + 30);
+    const batchQueries = await db.collection(RECIPES_COLLECTION)
+      .where('externalId', 'in', chunk)
+      .select('externalId')
+      .get();
+    for (const doc of batchQueries.docs) {
+      existingExternalIds.add(doc.data().externalId as number);
+    }
+  }
+
   for (const recipe of healthyRecipes) {
     try {
-      const existingQuery = await db.collection(RECIPES_COLLECTION)
-        .where('externalId', '==', recipe.id)
-        .limit(1)
-        .get();
-
-      if (!existingQuery.empty) {
+      if (existingExternalIds.has(recipe.id)) {
         skipped++;
         continue;
       }
@@ -229,7 +240,10 @@ async function fetchAndSaveRecipes(params: {
  * - 4 meal types × 12 recipes = 48 calls (breakfast, lunch, dinner, snack)
  * Total: ~128 calls/day
  */
-export const collectRecipes = functions.pubsub
+export const collectRecipes = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 300, memory: '256MB' })
+  .pubsub
   .schedule('0 14 * * *')  // 2pm UTC daily
   .timeZone('UTC')
   .onRun(async () => {
@@ -244,20 +258,30 @@ export const collectRecipes = functions.pubsub
     let totalSkipped = 0;
     let totalFiltered = 0;
 
-    // Part 1: Fetch random recipes by cuisine (6 per cuisine)
-    for (const cuisine of CUISINES) {
-      try {
-        const result = await fetchAndSaveRecipes({ cuisine, number: 10 });
-        totalAdded += result.added;
-        totalSkipped += result.skipped;
-        totalFiltered += result.filtered;
+    // Part 1: Fetch random recipes by cuisine in batches of 4 concurrently
+    const BATCH_SIZE = 4;
+    for (let i = 0; i < CUISINES.length; i += BATCH_SIZE) {
+      const batch = CUISINES.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map(cuisine => fetchAndSaveRecipes({ cuisine, number: 10 }))
+      );
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === 'fulfilled') {
+          totalAdded += r.value.added;
+          totalSkipped += r.value.skipped;
+          totalFiltered += r.value.filtered;
+        } else {
+          console.error(`Error fetching ${batch[j]}:`, r.reason);
+        }
+      }
+      // Delay between batches for rate limiting
+      if (i + BATCH_SIZE < CUISINES.length) {
         await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        console.error(`Error fetching ${cuisine}:`, error);
       }
     }
 
-    // Part 2: Fetch by meal type to fill gaps (breakfast, dinner, snack)
+    // Part 2: Fetch by meal type in batches of 4 concurrently
     const mealTypeQueries = [
       { type: 'breakfast', number: 12 },
       { type: 'lunch', number: 12 },
@@ -265,15 +289,17 @@ export const collectRecipes = functions.pubsub
       { type: 'snack', number: 12 },
     ];
 
-    for (const query of mealTypeQueries) {
-      try {
-        const result = await fetchAndSaveRecipes(query);
-        totalAdded += result.added;
-        totalSkipped += result.skipped;
-        totalFiltered += result.filtered;
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        console.error(`Error fetching ${query.type}:`, error);
+    const mealTypeResults = await Promise.allSettled(
+      mealTypeQueries.map(query => fetchAndSaveRecipes(query))
+    );
+    for (let j = 0; j < mealTypeResults.length; j++) {
+      const r = mealTypeResults[j];
+      if (r.status === 'fulfilled') {
+        totalAdded += r.value.added;
+        totalSkipped += r.value.skipped;
+        totalFiltered += r.value.filtered;
+      } else {
+        console.error(`Error fetching ${mealTypeQueries[j].type}:`, r.reason);
       }
     }
 
@@ -356,34 +382,43 @@ export const getRecipeStats = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    // Get total count
-    const totalSnapshot = await db.collection(RECIPES_COLLECTION).count().get();
+    // Run all count queries in parallel
+    const [totalSnapshot, cuisineSnapshots, mealTypeSnapshots, healthScoreSnapshot] = await Promise.all([
+      // Total count
+      db.collection(RECIPES_COLLECTION).count().get(),
+      // All cuisine counts in parallel
+      Promise.all(CUISINES.map(cuisine =>
+        db.collection(RECIPES_COLLECTION)
+          .where('cuisineType', '==', cuisine)
+          .count()
+          .get()
+          .then(snapshot => ({ cuisine, count: snapshot.data().count }))
+      )),
+      // All meal type counts in parallel
+      Promise.all(MEAL_TYPES.map(mealType =>
+        db.collection(RECIPES_COLLECTION)
+          .where('mealType', '==', mealType)
+          .count()
+          .get()
+          .then(snapshot => ({ mealType, count: snapshot.data().count }))
+      )),
+      // Health score distribution
+      db.collection(RECIPES_COLLECTION)
+        .select('healthScore')
+        .get(),
+    ]);
+
     const totalCount = totalSnapshot.data().count;
 
-    // Get counts by cuisine (simplified - would need aggregation in production)
     const cuisineCounts: Record<string, number> = {};
-    for (const cuisine of CUISINES) {
-      const snapshot = await db.collection(RECIPES_COLLECTION)
-        .where('cuisineType', '==', cuisine)
-        .count()
-        .get();
-      cuisineCounts[cuisine] = snapshot.data().count;
+    for (const { cuisine, count } of cuisineSnapshots) {
+      cuisineCounts[cuisine] = count;
     }
 
-    // Get counts by meal type
     const mealTypeCounts: Record<string, number> = {};
-    for (const mealType of MEAL_TYPES) {
-      const snapshot = await db.collection(RECIPES_COLLECTION)
-        .where('mealType', '==', mealType)
-        .count()
-        .get();
-      mealTypeCounts[mealType] = snapshot.data().count;
+    for (const { mealType, count } of mealTypeSnapshots) {
+      mealTypeCounts[mealType] = count;
     }
-
-    // Health score distribution
-    const healthScoreSnapshot = await db.collection(RECIPES_COLLECTION)
-      .select('healthScore')
-      .get();
 
     const scores = healthScoreSnapshot.docs.map(doc => (doc.data().healthScore as number) || 0);
     const distribution: Record<string, number> = {};
@@ -422,7 +457,8 @@ export const getRecipeStats = functions.https.onRequest(async (req, res) => {
  * Auth-protected. Use ?dryRun=true to preview, ?threshold=N to override default.
  */
 export const cleanupLowHealthScoreRecipes = functions
-  .runWith({ timeoutSeconds: 300 })
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 120, memory: '256MB' })
   .https.onRequest(async (req, res) => {
     // Verify request has proper authorization
     const authHeader = req.headers.authorization;
@@ -720,9 +756,11 @@ app.get('/v1/health', (_req: Request, res: Response) => {
 
 // Export the Express app as a Firebase Function
 export const api = functions
+  .region('us-central1')
   .runWith({
     timeoutSeconds: 300, // 5 minutes for long AI requests
     memory: '512MB',
+    minInstances: 1,
   })
   .https.onRequest(app);
 
@@ -730,7 +768,10 @@ export const api = functions
  * Scheduled cleanup of expired rate limit records
  * Runs daily at 4am UTC
  */
-export const cleanupRateLimits = functions.pubsub
+export const cleanupRateLimits = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .pubsub
   .schedule('0 4 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -745,7 +786,10 @@ export const cleanupRateLimits = functions.pubsub
  * Runs Monday at midnight UTC
  * Archives activeDatesThisWeek to lastWeekActiveDays and resets arrays
  */
-export const resetWeeklyAnalyticsScheduled = functions.pubsub
+export const resetWeeklyAnalyticsScheduled = functions
+  .region('us-central1')
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .pubsub
   .schedule('0 0 * * 1')  // Monday midnight UTC
   .timeZone('UTC')
   .onRun(async () => {

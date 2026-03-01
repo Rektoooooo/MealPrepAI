@@ -14,15 +14,22 @@ final class NetworkMonitor {
         monitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isConnected = path.status == .satisfied
+                let newConnected = path.status == .satisfied
+                if newConnected != self.isConnected {
+                    self.isConnected = newConnected
+                }
+                let newType: NWInterface.InterfaceType?
                 if path.usesInterfaceType(.wifi) {
-                    self.connectionType = .wifi
+                    newType = .wifi
                 } else if path.usesInterfaceType(.cellular) {
-                    self.connectionType = .cellular
+                    newType = .cellular
                 } else if path.usesInterfaceType(.wiredEthernet) {
-                    self.connectionType = .wiredEthernet
+                    newType = .wiredEthernet
                 } else {
-                    self.connectionType = nil
+                    newType = nil
+                }
+                if newType != self.connectionType {
+                    self.connectionType = newType
                 }
             }
         }

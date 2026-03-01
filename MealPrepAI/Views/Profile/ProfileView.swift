@@ -12,8 +12,6 @@ struct ProfileView: View {
     @Environment(SubscriptionManager.self) var subscriptionManager
     @Environment(\.userProfile) private var profile
     @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var favoriteRecipes: [Recipe]
-    // allRecipes is needed to compute total mealsLogged (sum of timesUsed across every recipe)
-    @Query private var allRecipes: [Recipe]
 
     @State private var showingEditProfile = false
     @State private var showingSignOutAlert = false
@@ -25,11 +23,7 @@ struct ProfileView: View {
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
-    // favoriteRecipes is now provided directly by the filtered @Query above
-
-    private var mealsLogged: Int {
-        allRecipes.reduce(0) { $0 + $1.timesUsed }
-    }
+    @State private var mealsLogged: Int = 0
 
     var body: some View {
         NavigationStack {
@@ -87,6 +81,11 @@ struct ProfileView: View {
                 }
                 // Check CloudKit availability for iCloud sync toggle
                 syncManager.checkCloudKitAvailability()
+            }
+            .task {
+                let descriptor = FetchDescriptor<Recipe>()
+                let recipes = (try? modelContext.fetch(descriptor)) ?? []
+                mealsLogged = recipes.reduce(0) { $0 + $1.timesUsed }
             }
         }
     }

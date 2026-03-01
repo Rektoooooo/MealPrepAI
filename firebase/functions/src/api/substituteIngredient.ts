@@ -13,6 +13,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { checkRateLimit } from '../utils/rateLimiter';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Types
 interface SubstituteIngredientRequest {
   ingredientName: string;
@@ -118,10 +120,12 @@ export async function handleSubstituteIngredient(
     deviceId,
   } = req;
 
-  console.log('[DEBUG] ========== SUBSTITUTE INGREDIENT START ==========');
-  console.log('[DEBUG] Device ID:', deviceId);
-  console.log('[DEBUG] Ingredient:', ingredientName, ingredientQuantity, ingredientUnit);
-  console.log('[DEBUG] Recipe:', recipeContext?.recipeName);
+  if (DEBUG) {
+    console.log('[DEBUG] ========== SUBSTITUTE INGREDIENT START ==========');
+    console.log('[DEBUG] Device ID:', deviceId);
+    console.log('[DEBUG] Ingredient:', ingredientName, ingredientQuantity, ingredientUnit);
+    console.log('[DEBUG] Recipe:', recipeContext?.recipeName);
+  }
 
   // Validate required fields
   if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
@@ -168,7 +172,7 @@ ALLERGIES (NEVER include these): ${allergyList}
 
 Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "quantity": number, "unit": "string", "quantityGrams": number, "category": "produce|meat|dairy|pantry|frozen|bakery|beverages|other", "caloriesPer100g": number, "proteinPer100g": number, "carbsPer100g": number, "fatPer100g": number, "totalCalories": number, "totalProtein": number, "totalCarbs": number, "totalFat": number } ] }`;
 
-    console.log('[DEBUG] Calling Claude API for ingredient substitution...');
+    if (DEBUG) console.log('[DEBUG] Calling Claude API for ingredient substitution...');
     const startTime = Date.now();
 
     const response = await client.messages.create({
@@ -179,7 +183,7 @@ Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "
     });
 
     const apiDuration = Date.now() - startTime;
-    console.log('[DEBUG] Claude API response received in', apiDuration, 'ms');
+    if (DEBUG) console.log('[DEBUG] Claude API response received in', apiDuration, 'ms');
 
     const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -187,7 +191,7 @@ Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "
     }
 
     const substitutes = parseSubstitutesResponse(textContent.text);
-    console.log('[DEBUG] Parsed', substitutes.length, 'substitutes');
+    if (DEBUG) console.log('[DEBUG] Parsed', substitutes.length, 'substitutes');
 
     return {
       success: true,

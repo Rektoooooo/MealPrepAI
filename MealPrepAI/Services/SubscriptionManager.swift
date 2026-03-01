@@ -27,12 +27,12 @@ final class SubscriptionManager {
     private var updateListenerTask: Task<Void, Never>?
     private var backendSyncFailCount = 0
     private static let maxSyncRetries = 3
+    private var hasLoadedProducts = false
 
     // MARK: - Init
     init() {
         updateListenerTask = listenForTransactions()
         Task {
-            await loadProducts()
             await checkEntitlements()
         }
     }
@@ -44,6 +44,13 @@ final class SubscriptionManager {
         updateListenerTask = nil
     }
 
+    // MARK: - Ensure Products Loaded
+    /// Lazily loads products on first access. Safe to call multiple times.
+    func ensureProductsLoaded() async {
+        guard !hasLoadedProducts else { return }
+        await loadProducts()
+    }
+
     // MARK: - Load Products
     func loadProducts() async {
         isLoading = true
@@ -52,6 +59,7 @@ final class SubscriptionManager {
         do {
             products = try await Product.products(for: Self.productIDs)
                 .sorted { $0.price < $1.price }
+            hasLoadedProducts = true
         } catch {
             #if DEBUG
             print("[SubscriptionManager] Failed to load products: \(error)")
@@ -61,6 +69,8 @@ final class SubscriptionManager {
 
     // MARK: - Purchase
     func purchase(plan: SubscriptionPlan) async -> Bool {
+        await ensureProductsLoaded()
+
         let product: Product?
         switch plan {
         case .monthly: product = monthlyProduct

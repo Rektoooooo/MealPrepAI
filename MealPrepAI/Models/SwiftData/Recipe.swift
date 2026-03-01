@@ -3,6 +3,10 @@ import SwiftData
 
 @Model
 final class Recipe {
+    // MARK: - Static Codecs (avoid allocating per-access)
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
     var id: UUID = UUID()
     var name: String = ""
     var recipeDescription: String = ""
@@ -60,10 +64,10 @@ final class Recipe {
     var instructions: [String] {
         get {
             guard let data = instructionsData else { return [] }
-            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+            return (try? Self.decoder.decode([String].self, from: data)) ?? []
         }
         set {
-            instructionsData = try? JSONEncoder().encode(newValue)
+            instructionsData = try? Self.encoder.encode(newValue)
         }
     }
 
@@ -467,7 +471,7 @@ final class Recipe {
         self.id = UUID()
         self.name = name
         self.recipeDescription = recipeDescription
-        self.instructionsData = try? JSONEncoder().encode(instructions)
+        self.instructionsData = try? Self.encoder.encode(instructions)
         self.prepTimeMinutes = prepTimeMinutes
         self.cookTimeMinutes = cookTimeMinutes
         self.servings = servings

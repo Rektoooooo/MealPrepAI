@@ -114,27 +114,37 @@ export const handleSyncAnalytics = async (
  */
 export const resetWeeklyAnalytics = async (): Promise<number> => {
   let processedCount = 0;
-  const batchSize = 500;
+  const pageSize = 500;
 
   try {
-    const snapshot = await db.collection(ANALYTICS_COLLECTION).get();
+    let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    let hasMore = true;
 
-    if (snapshot.empty) {
-      console.log('[Analytics] No documents to reset');
-      return 0;
-    }
+    while (hasMore) {
+      // Paginated query: only fetch the field we need, in pages of 500
+      let query = db.collection(ANALYTICS_COLLECTION)
+        .select('engagement.activeDatesThisWeek')
+        .limit(pageSize);
 
-    // Process in batches of 500 (Firestore limit)
-    const docs = snapshot.docs;
-    for (let i = 0; i < docs.length; i += batchSize) {
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+
+      const snapshot = await query.get();
+
+      if (snapshot.empty) {
+        if (processedCount === 0) {
+          console.log('[Analytics] No documents to reset');
+        }
+        break;
+      }
+
+      // Process this page as a batch
       const batch = db.batch();
-      const chunk = docs.slice(i, i + batchSize);
-
-      for (const doc of chunk) {
+      for (const doc of snapshot.docs) {
         const data = doc.data();
         const activeDates: string[] = data?.engagement?.activeDatesThisWeek || [];
 
-        // Use set with merge instead of update to handle deleted docs gracefully
         batch.set(doc.ref, {
           'engagement.lastWeekActiveDays': activeDates.length,
           'engagement.activeDatesThisWeek': [],
@@ -144,6 +154,10 @@ export const resetWeeklyAnalytics = async (): Promise<number> => {
       }
 
       await batch.commit();
+
+      // Set cursor for next page
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      hasMore = snapshot.docs.length === pageSize;
     }
 
     console.log(`[Analytics] Reset weekly analytics for ${processedCount} documents`);

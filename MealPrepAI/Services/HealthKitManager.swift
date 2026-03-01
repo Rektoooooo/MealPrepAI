@@ -79,10 +79,9 @@ final class HealthKitManager {
         guard isAuthorized, let recipe = meal.recipe else { return [] }
 
         let date = meal.eatenAt ?? Date()
-        var sampleIDs: [String] = []
 
         // Create samples for each nutrition type
-        let samples: [(HKQuantityType, Double, HKUnit)] = [
+        let sampleDefs: [(HKQuantityType, Double, HKUnit)] = [
             (HKQuantityType(.dietaryEnergyConsumed), Double(recipe.calories), .kilocalorie()),
             (HKQuantityType(.dietaryProtein), Double(recipe.proteinGrams), .gram()),
             (HKQuantityType(.dietaryCarbohydrates), Double(recipe.carbsGrams), .gram()),
@@ -90,7 +89,8 @@ final class HealthKitManager {
             (HKQuantityType(.dietaryFiber), Double(recipe.fiberGrams), .gram())
         ]
 
-        for (type, value, unit) in samples where value > 0 {
+        var hkSamples: [HKQuantitySample] = []
+        for (type, value, unit) in sampleDefs where value > 0 {
             let quantity = HKQuantity(unit: unit, doubleValue: value)
             let sample = HKQuantitySample(
                 type: type,
@@ -102,18 +102,23 @@ final class HealthKitManager {
                     "MealPrepAI_MealID": meal.id.uuidString
                 ]
             )
-
-            try await healthStore.save(sample)
-            sampleIDs.append(sample.uuid.uuidString)
+            hkSamples.append(sample)
         }
 
-        return sampleIDs
+        // Batch save all samples in a single HealthKit transaction
+        if !hkSamples.isEmpty {
+            try await healthStore.save(hkSamples)
+        }
+
+        return hkSamples.map { $0.uuid.uuidString }
     }
 
     /// Delete nutrition samples from HealthKit when a meal is unmarked
     /// - Parameter sampleIDs: Array of HealthKit sample UUID strings to delete
     func deleteMealNutrition(sampleIDs: [String]) async throws {
         guard isAuthorized else { return }
+
+        var samplesToDelete: [HKSample] = []
 
         for idString in sampleIDs {
             guard let uuid = UUID(uuidString: idString) else { continue }
@@ -137,10 +142,13 @@ final class HealthKitManager {
                     healthStore.execute(query)
                 }
 
-                for sample in samples {
-                    try await healthStore.delete(sample)
-                }
+                samplesToDelete.append(contentsOf: samples)
             }
+        }
+
+        // Batch delete all samples in a single HealthKit transaction
+        if !samplesToDelete.isEmpty {
+            try await healthStore.delete(samplesToDelete)
         }
     }
 

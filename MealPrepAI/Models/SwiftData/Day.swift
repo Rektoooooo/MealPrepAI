@@ -14,16 +14,38 @@ final class Day {
     @Relationship(deleteRule: .cascade, inverse: \Meal.day)
     var meals: [Meal] = []
 
+    // MARK: - Performance caches (not persisted)
+
+    @Transient private var _cachedSortedMeals: [Meal]?
+    @Transient private var _lastMealsCount: Int = -1
+
     var sortedMeals: [Meal] {
-        meals.sorted { meal1, meal2 in
+        if let cached = _cachedSortedMeals, _lastMealsCount == meals.count {
+            return cached
+        }
+        let sorted = meals.sorted { meal1, meal2 in
             let order: [MealType] = [.breakfast, .lunch, .dinner, .snack]
             let index1 = order.firstIndex(of: meal1.mealType) ?? 0
             let index2 = order.firstIndex(of: meal2.mealType) ?? 0
             return index1 < index2
         }
+        _cachedSortedMeals = sorted
+        _lastMealsCount = meals.count
+        return sorted
+    }
+
+    @Transient private var _cachedNutrition: (calories: Int, protein: Int, carbs: Int, fat: Int)?
+    @Transient private var _lastNutritionMealsHash: Int = -1
+
+    private var nutritionMealsHash: Int {
+        meals.count + meals.filter { $0.isEaten }.count * 1000
     }
 
     var nutritionTotals: (calories: Int, protein: Int, carbs: Int, fat: Int) {
+        let currentHash = nutritionMealsHash
+        if let cached = _cachedNutrition, _lastNutritionMealsHash == currentHash {
+            return cached
+        }
         var cal = 0, pro = 0, carb = 0, fat = 0
         for m in meals {
             cal += m.recipe?.calories ?? 0
@@ -31,7 +53,10 @@ final class Day {
             carb += m.recipe?.carbsGrams ?? 0
             fat += m.recipe?.fatGrams ?? 0
         }
-        return (cal, pro, carb, fat)
+        let result = (cal, pro, carb, fat)
+        _cachedNutrition = result
+        _lastNutritionMealsHash = currentHash
+        return result
     }
 
     var totalCalories: Int { nutritionTotals.calories }

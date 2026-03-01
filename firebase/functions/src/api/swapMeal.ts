@@ -16,6 +16,8 @@ import { checkRateLimit } from '../utils/rateLimiter';
 // import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipeIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Types
 interface UserProfile {
   dailyCalorieTarget: number;
@@ -265,53 +267,59 @@ export async function handleSwapMeal(
     deviceId,
   } = req;
 
-  console.log('[DEBUG] ========== SWAP MEAL START ==========');
-  console.log('[DEBUG] Device ID:', deviceId);
-  console.log('[DEBUG] Meal Type:', mealType);
-  console.log('[DEBUG] Weekly Preferences:', weeklyPreferences || 'None');
-  console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
+  if (DEBUG) {
+    console.log('[DEBUG] ========== SWAP MEAL START ==========');
+    console.log('[DEBUG] Device ID:', deviceId);
+    console.log('[DEBUG] Meal Type:', mealType);
+    console.log('[DEBUG] Weekly Preferences:', weeklyPreferences || 'None');
+    console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
+  }
 
   // Validate required fields
   if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
-    console.log('[DEBUG] ERROR: Invalid device ID');
+    if (DEBUG) console.log('[DEBUG] ERROR: Invalid device ID');
     return { success: false, error: 'Invalid device ID' };
   }
 
   if (!userProfile) {
-    console.log('[DEBUG] ERROR: User profile is required');
+    if (DEBUG) console.log('[DEBUG] ERROR: User profile is required');
     return { success: false, error: 'User profile is required' };
   }
 
   if (!mealType) {
-    console.log('[DEBUG] ERROR: Meal type is required');
+    if (DEBUG) console.log('[DEBUG] ERROR: Meal type is required');
     return { success: false, error: 'Meal type is required' };
   }
 
   const validMealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
   if (!validMealTypes.includes(mealType.toLowerCase())) {
-    console.log('[DEBUG] ERROR: Invalid meal type:', mealType);
+    if (DEBUG) console.log('[DEBUG] ERROR: Invalid meal type:', mealType);
     return { success: false, error: 'Invalid meal type' };
   }
 
-  console.log('[DEBUG] User Profile:', JSON.stringify({
-    dailyCalorieTarget: userProfile.dailyCalorieTarget,
-    proteinGrams: userProfile.proteinGrams,
-    dietaryRestrictions: userProfile.dietaryRestrictions,
-    allergies: userProfile.allergies,
-    cookingSkill: userProfile.cookingSkill,
-  }));
+  if (DEBUG) {
+    console.log('[DEBUG] User Profile:', JSON.stringify({
+      dailyCalorieTarget: userProfile.dailyCalorieTarget,
+      proteinGrams: userProfile.proteinGrams,
+      dietaryRestrictions: userProfile.dietaryRestrictions,
+      allergies: userProfile.allergies,
+      cookingSkill: userProfile.cookingSkill,
+    }));
+  }
 
   // Check rate limit
-  console.log('[DEBUG] Checking rate limit for device:', deviceId);
+  if (DEBUG) console.log('[DEBUG] Checking rate limit for device:', deviceId);
   const rateLimit = await checkRateLimit(deviceId, 'swap-meal');
-  console.log('[DEBUG] Rate limit result:', JSON.stringify({
-    allowed: rateLimit.allowed,
-    remaining: rateLimit.remaining,
-    limit: rateLimit.limit,
-  }));
+  if (DEBUG) {
+    console.log('[DEBUG] Rate limit result:', JSON.stringify({
+      allowed: rateLimit.allowed,
+      remaining: rateLimit.remaining,
+      limit: rateLimit.limit,
+    }));
+  }
 
   if (!rateLimit.allowed) {
-    console.log('[DEBUG] ERROR: Rate limit exceeded');
+    if (DEBUG) console.log('[DEBUG] ERROR: Rate limit exceeded');
     return {
       success: false,
       error: 'Rate limit exceeded. Please try again later.',
@@ -325,12 +333,12 @@ export async function handleSwapMeal(
 
   try {
     // Get Claude client
-    console.log('[DEBUG] Initializing Claude client...');
+    if (DEBUG) console.log('[DEBUG] Initializing Claude client...');
     const client = getAnthropicClient();
-    console.log('[DEBUG] Claude client initialized successfully');
+    if (DEBUG) console.log('[DEBUG] Claude client initialized successfully');
 
     // Build prompts
-    console.log('[DEBUG] Building prompts...');
+    if (DEBUG) console.log('[DEBUG] Building prompts...');
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(
       userProfile,
@@ -338,9 +346,9 @@ export async function handleSwapMeal(
       excludeRecipeNames,
       weeklyPreferences
     );
-    console.log('[DEBUG] User prompt length:', userPrompt.length, 'characters');
+    if (DEBUG) console.log('[DEBUG] User prompt length:', userPrompt.length, 'characters');
 
-    console.log('[DEBUG] Calling Claude API for', mealType, 'swap (model: claude-3-5-haiku-latest)...');
+    if (DEBUG) console.log('[DEBUG] Calling Claude API for', mealType, 'swap (model: claude-3-5-haiku-latest)...');
     const startTime = Date.now();
 
     // Call Claude API - Using Claude Haiku for cost efficiency
@@ -352,36 +360,42 @@ export async function handleSwapMeal(
     });
 
     const apiDuration = Date.now() - startTime;
-    console.log('[DEBUG] Claude API response received in', apiDuration, 'ms');
-    console.log('[DEBUG] Claude usage:', JSON.stringify(response.usage));
-    console.log('[DEBUG] Claude stop reason:', response.stop_reason);
+    if (DEBUG) {
+      console.log('[DEBUG] Claude API response received in', apiDuration, 'ms');
+      console.log('[DEBUG] Claude usage:', JSON.stringify(response.usage));
+      console.log('[DEBUG] Claude stop reason:', response.stop_reason);
+    }
 
     // Extract text content
     const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
-      console.log('[DEBUG] ERROR: No text content in Claude response');
+      if (DEBUG) console.log('[DEBUG] ERROR: No text content in Claude response');
       throw new Error('No text content in Claude response');
     }
 
-    console.log('[DEBUG] Response text length:', textContent.text.length, 'characters');
-    console.log('[DEBUG] Parsing Claude response...');
+    if (DEBUG) {
+      console.log('[DEBUG] Response text length:', textContent.text.length, 'characters');
+      console.log('[DEBUG] Parsing Claude response...');
+    }
 
     // Parse response
     const recipe = parseClaudeResponse(textContent.text);
-    console.log('[DEBUG] Parsed recipe:', recipe.name);
-    console.log('[DEBUG] Recipe details:', JSON.stringify({
-      calories: recipe.calories,
-      proteinGrams: recipe.proteinGrams,
-      cuisineType: recipe.cuisineType,
-      complexity: recipe.complexity,
-      ingredientCount: recipe.ingredients.length,
-    }));
+    if (DEBUG) {
+      console.log('[DEBUG] Parsed recipe:', recipe.name);
+      console.log('[DEBUG] Recipe details:', JSON.stringify({
+        calories: recipe.calories,
+        proteinGrams: recipe.proteinGrams,
+        cuisineType: recipe.cuisineType,
+        complexity: recipe.complexity,
+        ingredientCount: recipe.ingredients.length,
+      }));
+    }
 
     // AI-generated recipes don't get images — iOS shows gradient placeholders
     recipe.matchedImageUrl = null;
 
     // Save recipe to database
-    console.log('[DEBUG] Saving recipe to database...');
+    if (DEBUG) console.log('[DEBUG] Saving recipe to database...');
     const recipeDTO: GeneratedRecipeDTO = {
       name: recipe.name,
       description: recipe.description,
@@ -402,10 +416,11 @@ export async function handleSwapMeal(
     };
 
     const saveResult = await saveRecipeIfUnique(recipeDTO);
-    console.log('[DEBUG] Save result:', saveResult.saved ? 'New recipe saved' : 'Duplicate found',
-      saveResult.saved ? saveResult.newId : saveResult.existingId);
-
-    console.log('[DEBUG] ========== SWAP MEAL SUCCESS ==========');
+    if (DEBUG) {
+      console.log('[DEBUG] Save result:', saveResult.saved ? 'New recipe saved' : 'Duplicate found',
+        saveResult.saved ? saveResult.newId : saveResult.existingId);
+      console.log('[DEBUG] ========== SWAP MEAL SUCCESS ==========');
+    }
 
     return {
       success: true,
@@ -417,10 +432,9 @@ export async function handleSwapMeal(
       },
     };
   } catch (error) {
-    console.log('[DEBUG] ========== SWAP MEAL ERROR ==========');
-    console.error('[DEBUG] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('[DEBUG] Error message:', error instanceof Error ? error.message : String(error));
-    console.error('[DEBUG] Full error:', error);
+    if (DEBUG) console.log('[DEBUG] ========== SWAP MEAL ERROR ==========');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
 
     return {
       success: false,

@@ -8,12 +8,16 @@ extension ModelContext {
     /// (handled by Recipe's cascade delete rule) and cleans up orphaned Ingredients.
     @MainActor
     func deleteOrphanedRecipes() {
-        let descriptor = FetchDescriptor<Recipe>()
-        guard let allRecipes = try? fetch(descriptor) else { return }
+        // Only fetch non-favorite recipes — favorites are never orphaned,
+        // so excluding them up front cuts the working set significantly.
+        var descriptor = FetchDescriptor<Recipe>(
+            predicate: #Predicate<Recipe> { !$0.isFavorite }
+        )
+        descriptor.includePendingChanges = true
+        guard let candidates = try? fetch(descriptor) else { return }
 
-        for recipe in allRecipes {
-            let hasMeals = !recipe.meals.isEmpty
-            if !hasMeals && !recipe.isFavorite {
+        for recipe in candidates {
+            if recipe.meals.isEmpty {
                 // Recipe.ingredients has cascade delete rule, so RecipeIngredients
                 // are automatically deleted when the Recipe is deleted.
                 delete(recipe)

@@ -70,6 +70,11 @@ final class CloudKitSyncManager {
 
     // MARK: - Private Properties
 
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
     private let lastSyncKey = "com.mealprepai.lastSyncDate"
     private let containerIdentifier = "iCloud.com.mealprepai.MealPrepAI"
     private var eventObserver: NSObjectProtocol?
@@ -197,10 +202,7 @@ final class CloudKitSyncManager {
     /// Formatted last sync date
     var lastSyncDescription: String? {
         guard let date = lastSyncDate else { return nil }
-
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return "Last synced \(formatter.localizedString(for: date, relativeTo: Date()))"
+        return "Last synced \(Self.relativeDateFormatter.localizedString(for: date, relativeTo: Date()))"
     }
 
     // MARK: - Delete CloudKit Zone

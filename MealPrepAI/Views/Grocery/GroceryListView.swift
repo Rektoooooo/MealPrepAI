@@ -123,7 +123,7 @@ struct GroceryListView: View {
                         }
                         if currentMealPlan != nil {
                             Divider()
-                            Button(action: generateGroceryList) {
+                            Button(action: { Task { @MainActor in generateGroceryList() } }) {
                                 Label("Regenerate from Meal Plan", systemImage: "arrow.clockwise")
                             }
                         }
@@ -185,7 +185,7 @@ struct GroceryListView: View {
                 buttonTitle: "Generate from Meal Plan",
                 buttonIcon: "arrow.clockwise",
                 buttonStyle: .purple,
-                onButtonTap: { generateGroceryList() }
+                onButtonTap: { Task { @MainActor in generateGroceryList() } }
             )
         } else {
             NewEmptyStateView(

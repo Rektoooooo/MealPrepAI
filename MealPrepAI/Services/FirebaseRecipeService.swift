@@ -46,14 +46,17 @@ final class FirebaseRecipeService {
     /// Total recipes available in Firebase (cached)
     var totalRecipesCount: Int = 0
 
+    /// Coordinated auth task to avoid duplicate sign-in attempts
+    private var authTask: Task<Void, Error>?
+
     // MARK: - Initialization
     init() {
         #if DEBUG
         print("🔥 [FirebaseRecipeService] Initializing...")
         #endif
-        // Sign in anonymously on init
-        Task {
-            await ensureAuthenticated()
+        // Sign in anonymously on init (stored for coordination)
+        authTask = Task {
+            try await ensureAuthenticated()
         }
     }
 
@@ -62,28 +65,41 @@ final class FirebaseRecipeService {
 
     // MARK: - Authentication
 
-    /// Ensure user is signed in anonymously to Firebase
-    private func ensureAuthenticated() async {
-        if let user = Auth.auth().currentUser {
+    /// Ensure user is signed in anonymously to Firebase.
+    /// If an auth task is already in-flight, awaits it instead of starting a new sign-in.
+    private func ensureAuthenticated() async throws {
+        if Auth.auth().currentUser != nil {
             #if DEBUG
-            print("🔐 [Firebase Auth] Already signed in as: \(user.uid)")
+            print("🔐 [Firebase Auth] Already signed in")
             #endif
+            return
+        }
+
+        // If an auth task is already running, await it
+        if let existingTask = authTask {
+            try await existingTask.value
             return
         }
 
         #if DEBUG
         print("🔐 [Firebase Auth] No user found, signing in anonymously...")
         #endif
-        do {
+        let task = Task {
             let result = try await Auth.auth().signInAnonymously()
             #if DEBUG
             print("✅ [Firebase Auth] Signed in anonymously as: \(result.user.uid)")
             #endif
+        }
+        authTask = task
+        do {
+            try await task.value
         } catch {
             #if DEBUG
             print("❌ [Firebase Auth] Sign-in failed: \(error.localizedDescription)")
             #endif
             errorMessage = "Authentication failed: \(error.localizedDescription)"
+            authTask = nil
+            throw error
         }
     }
 
@@ -99,7 +115,7 @@ final class FirebaseRecipeService {
         defer { isLoading = false }
 
         // Ensure authenticated before fetching
-        await ensureAuthenticated()
+        try await ensureAuthenticated()
 
         let recipes = try await fetchRecipesFromCollection(recipesCollection, limit: limit)
         #if DEBUG
@@ -154,7 +170,7 @@ final class FirebaseRecipeService {
         errorMessage = nil
         defer { isLoading = false }
 
-        await ensureAuthenticated()
+        try await ensureAuthenticated()
 
         let snapshot = try await db.collection(recipesCollection)
             .whereField("cuisineType", isEqualTo: cuisine.lowercased())
@@ -300,7 +316,7 @@ final class FirebaseRecipeService {
         errorMessage = nil
         defer { isLoading = false }
 
-        await ensureAuthenticated()
+        try await ensureAuthenticated()
 
         let lowercasedQuery = query.lowercased()
         let capitalizedQuery = query.capitalized
@@ -332,7 +348,7 @@ final class FirebaseRecipeService {
         if allResults.count < 20 {
             let broadSnapshot = try await db.collection(recipesCollection)
                 .order(by: "createdAt", descending: true)
-                .limit(to: 200) // Limit to prevent fetching entire database
+                .limit(to: 50) // Limit to prevent fetching entire database
                 .getDocuments()
 
             for document in broadSnapshot.documents {
@@ -388,7 +404,7 @@ final class FirebaseRecipeService {
         errorMessage = nil
         defer { isLoading = false }
 
-        await ensureAuthenticated()
+        try await ensureAuthenticated()
 
         // Get total count
         let countResult = try await db.collection(recipesCollection).count.getAggregation(source: .server)
@@ -445,7 +461,7 @@ final class FirebaseRecipeService {
         errorMessage = nil
         defer { isLoading = false }
 
-        await ensureAuthenticated()
+        try await ensureAuthenticated()
 
         let snapshot = try await db.collection(recipesCollection)
             .order(by: "createdAt", descending: true)

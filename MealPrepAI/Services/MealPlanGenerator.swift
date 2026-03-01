@@ -83,9 +83,10 @@ class MealPlanGenerator {
 
             // Gather recipe names from recent meal plans to avoid stale repeats
             let recentRecipeNames: [String] = {
-                let planFetch = FetchDescriptor<MealPlan>(
+                var planFetch = FetchDescriptor<MealPlan>(
                     sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
                 )
+                planFetch.fetchLimit = 2
                 guard let recentPlans = try? modelContext.fetch(planFetch) else { return [] }
                 var names: [String] = []
                 for plan in recentPlans.prefix(2) {

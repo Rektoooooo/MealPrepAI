@@ -245,11 +245,16 @@ struct RootView: View {
     @State private var showSignInSheet = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
 
+    private static var appearanceConfigured = false
+
     private var hasCompletedOnboarding: Bool {
         userProfiles.first?.hasCompletedOnboarding ?? false
     }
 
     init() {
+        guard !Self.appearanceConfigured else { return }
+        Self.appearanceConfigured = true
+
         // Configure Tab Bar appearance
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithDefaultBackground()

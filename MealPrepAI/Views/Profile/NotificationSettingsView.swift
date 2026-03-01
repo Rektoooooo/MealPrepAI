@@ -6,6 +6,7 @@ struct NotificationSettingsView: View {
     @State private var notificationsEnabled = false
     @State private var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @State private var isCheckingPermission = true
+    @State private var rescheduleTask: Task<Void, Never>?
 
     @Environment(NotificationManager.self) private var notificationManager
     @Environment(SubscriptionManager.self) private var subscriptionManager
@@ -48,14 +49,7 @@ struct NotificationSettingsView: View {
         .onAppear {
             checkNotificationPermission()
         }
-        .onChange(of: mealReminders) { _, _ in triggerReschedule() }
-        .onChange(of: groceryReminders) { _, _ in triggerReschedule() }
-        .onChange(of: prepReminders) { _, _ in triggerReschedule() }
-        .onChange(of: planExpiryReminder) { _, _ in triggerReschedule() }
-        .onChange(of: trialExpiryReminder) { _, _ in triggerReschedule() }
-        .onChange(of: breakfastReminderTime) { _, _ in triggerReschedule() }
-        .onChange(of: lunchReminderTime) { _, _ in triggerReschedule() }
-        .onChange(of: dinnerReminderTime) { _, _ in triggerReschedule() }
+        .onChange(of: settingsHash) { _, _ in debouncedReschedule() }
     }
 
     // MARK: - Permission Section
@@ -547,6 +541,29 @@ struct NotificationSettingsView: View {
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
+        }
+    }
+
+    /// Combined hash of all notification settings to enable a single onChange handler.
+    private var settingsHash: Int {
+        var hasher = Hasher()
+        hasher.combine(mealReminders)
+        hasher.combine(groceryReminders)
+        hasher.combine(prepReminders)
+        hasher.combine(planExpiryReminder)
+        hasher.combine(trialExpiryReminder)
+        hasher.combine(breakfastReminderTime.timeIntervalSince1970)
+        hasher.combine(lunchReminderTime.timeIntervalSince1970)
+        hasher.combine(dinnerReminderTime.timeIntervalSince1970)
+        return hasher.finalize()
+    }
+
+    private func debouncedReschedule() {
+        rescheduleTask?.cancel()
+        rescheduleTask = Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 500ms debounce
+            guard !Task.isCancelled else { return }
+            triggerReschedule()
         }
     }
 

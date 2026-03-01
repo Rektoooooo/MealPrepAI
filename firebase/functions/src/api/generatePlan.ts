@@ -17,6 +17,8 @@ import { checkRateLimit } from '../utils/rateLimiter';
 // import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipesIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Types
 interface UserProfile {
   age: number;
@@ -503,7 +505,7 @@ async function generateSkeleton(
     const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames, temporaryExclusions);
     const maxTokens = duration <= 7 ? 1200 : 2000;
 
-    console.log('[DEBUG] Generating skeleton with Haiku...');
+    if (DEBUG) console.log('[DEBUG] Generating skeleton with Haiku...');
     const startTime = Date.now();
 
     const response = await client.messages.create({
@@ -514,7 +516,7 @@ async function generateSkeleton(
     });
 
     const elapsed = Date.now() - startTime;
-    console.log(`[DEBUG] Skeleton received in ${elapsed}ms, stop: ${response.stop_reason}`);
+    if (DEBUG) console.log(`[DEBUG] Skeleton received in ${elapsed}ms, stop: ${response.stop_reason}`);
 
     const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
@@ -540,7 +542,7 @@ async function generateSkeleton(
       return null;
     }
 
-    console.log(`[DEBUG] Skeleton: ${skeleton.weeklyGroceryList.length} grocery items, ${skeleton.days.length} days planned`);
+    if (DEBUG) console.log(`[DEBUG] Skeleton: ${skeleton.weeklyGroceryList.length} grocery items, ${skeleton.days.length} days planned`);
     return skeleton;
   } catch (error) {
     console.warn('[DEBUG] Skeleton generation failed, falling back to parallel-only:', error instanceof Error ? error.message : error);
@@ -938,22 +940,24 @@ export async function handleGeneratePlan(
   const excludeRecipeNames = (req.excludeRecipeNames || []).slice(0, 200);
   const duration = Math.min(14, Math.max(1, req.duration ?? 7));
 
-  console.log('[DEBUG] ========== GENERATE PLAN START ==========');
-  console.log('[DEBUG] Device ID:', deviceId);
-  console.log('[DEBUG] Weekly Preferences:', weeklyPreferences || 'None');
-  console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
-  console.log('[DEBUG] Structured Prefs - Focus:', weeklyFocus?.join(', ') || 'None');
-  console.log('[DEBUG] Structured Prefs - Exclusions:', temporaryExclusions?.join(', ') || 'None');
-  console.log('[DEBUG] Structured Prefs - Busyness:', weeklyBusyness || 'None');
+  if (DEBUG) {
+    console.log('[DEBUG] ========== GENERATE PLAN START ==========');
+    console.log('[DEBUG] Device ID:', deviceId);
+    console.log('[DEBUG] Weekly Preferences:', weeklyPreferences || 'None');
+    console.log('[DEBUG] Exclude Recipes:', excludeRecipeNames?.join(', ') || 'None');
+    console.log('[DEBUG] Structured Prefs - Focus:', weeklyFocus?.join(', ') || 'None');
+    console.log('[DEBUG] Structured Prefs - Exclusions:', temporaryExclusions?.join(', ') || 'None');
+    console.log('[DEBUG] Structured Prefs - Busyness:', weeklyBusyness || 'None');
+  }
 
   // Validate required fields
   if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
-    console.log('[DEBUG] ERROR: Invalid device ID');
+    if (DEBUG) console.log('[DEBUG] ERROR: Invalid device ID');
     return { success: false, error: 'Invalid device ID' };
   }
 
   if (!userProfile) {
-    console.log('[DEBUG] ERROR: User profile is required');
+    if (DEBUG) console.log('[DEBUG] ERROR: User profile is required');
     return { success: false, error: 'User profile is required' };
   }
 
@@ -977,32 +981,36 @@ export async function handleGeneratePlan(
     return { success: false, error: 'Invalid meals per day' };
   }
 
-  console.log('[DEBUG] User Profile:', JSON.stringify({
-    age: userProfile.age,
-    gender: userProfile.gender,
-    dailyCalorieTarget: userProfile.dailyCalorieTarget,
-    dietaryRestrictions: userProfile.dietaryRestrictions,
-    allergies: userProfile.allergies,
-    foodDislikes: userProfile.foodDislikes,
-    preferredCuisines: userProfile.preferredCuisines,
-    cookingSkill: userProfile.cookingSkill,
-    mealsPerDay: userProfile.mealsPerDay,
-    includeSnacks: userProfile.includeSnacks,
-    pantryLevel: userProfile.pantryLevel,
-    barriers: userProfile.barriers,
-  }));
+  if (DEBUG) {
+    console.log('[DEBUG] User Profile:', JSON.stringify({
+      age: userProfile.age,
+      gender: userProfile.gender,
+      dailyCalorieTarget: userProfile.dailyCalorieTarget,
+      dietaryRestrictions: userProfile.dietaryRestrictions,
+      allergies: userProfile.allergies,
+      foodDislikes: userProfile.foodDislikes,
+      preferredCuisines: userProfile.preferredCuisines,
+      cookingSkill: userProfile.cookingSkill,
+      mealsPerDay: userProfile.mealsPerDay,
+      includeSnacks: userProfile.includeSnacks,
+      pantryLevel: userProfile.pantryLevel,
+      barriers: userProfile.barriers,
+    }));
+  }
 
   // Check rate limit
-  console.log('[DEBUG] Checking rate limit for device:', deviceId);
+  if (DEBUG) console.log('[DEBUG] Checking rate limit for device:', deviceId);
   const rateLimit = await checkRateLimit(deviceId, 'generate-plan');
-  console.log('[DEBUG] Rate limit result:', JSON.stringify({
-    allowed: rateLimit.allowed,
-    remaining: rateLimit.remaining,
-    limit: rateLimit.limit,
-  }));
+  if (DEBUG) {
+    console.log('[DEBUG] Rate limit result:', JSON.stringify({
+      allowed: rateLimit.allowed,
+      remaining: rateLimit.remaining,
+      limit: rateLimit.limit,
+    }));
+  }
 
   if (!rateLimit.allowed) {
-    console.log('[DEBUG] ERROR: Rate limit exceeded');
+    if (DEBUG) console.log('[DEBUG] ERROR: Rate limit exceeded');
     return {
       success: false,
       error: 'Rate limit exceeded. Please try again later.',
@@ -1016,18 +1024,20 @@ export async function handleGeneratePlan(
 
   try {
     // Log personalization data being used
-    console.log('[DEBUG] ========== PERSONALIZATION ==========');
-    console.log('[DEBUG] Primary Goals:', userProfile.primaryGoals?.join(', ') || 'None');
-    console.log('[DEBUG] Goal Pace:', userProfile.goalPace || 'Not set');
-    console.log('[DEBUG] Barriers:', userProfile.barriers?.join(', ') || 'None');
-    console.log('[DEBUG] Preferred Cuisines:', userProfile.preferredCuisines?.join(', ') || 'None');
-    console.log('[DEBUG] Disliked Cuisines:', userProfile.dislikedCuisines?.join(', ') || 'None');
-    console.log('[DEBUG] Food Dislikes:', userProfile.foodDislikes?.join(', ') || 'None');
+    if (DEBUG) {
+      console.log('[DEBUG] ========== PERSONALIZATION ==========');
+      console.log('[DEBUG] Primary Goals:', userProfile.primaryGoals?.join(', ') || 'None');
+      console.log('[DEBUG] Goal Pace:', userProfile.goalPace || 'Not set');
+      console.log('[DEBUG] Barriers:', userProfile.barriers?.join(', ') || 'None');
+      console.log('[DEBUG] Preferred Cuisines:', userProfile.preferredCuisines?.join(', ') || 'None');
+      console.log('[DEBUG] Disliked Cuisines:', userProfile.dislikedCuisines?.join(', ') || 'None');
+      console.log('[DEBUG] Food Dislikes:', userProfile.foodDislikes?.join(', ') || 'None');
+    }
 
     // Get Claude client
-    console.log('[DEBUG] Initializing Claude client...');
+    if (DEBUG) console.log('[DEBUG] Initializing Claude client...');
     const client = getAnthropicClient();
-    console.log('[DEBUG] Claude client initialized successfully');
+    if (DEBUG) console.log('[DEBUG] Claude client initialized successfully');
 
     // Resolve temporary exclusions: prefer structured field, fallback to parsing weeklyPreferences string
     const resolvedExclusions: string[] = temporaryExclusions && temporaryExclusions.length > 0
@@ -1038,26 +1048,30 @@ export async function handleGeneratePlan(
           if (!match) return [];
           return match[1].split('\n').map(line => line.replace(/^-\s*/, '').trim()).filter(Boolean);
         })();
-    if (resolvedExclusions.length > 0) {
+    if (DEBUG && resolvedExclusions.length > 0) {
       console.log('[DEBUG] Resolved temporary exclusions:', resolvedExclusions.join(', '));
     }
 
     // Log the dynamic ingredient list being used
     const ingredientList = buildIngredientList(userProfile, resolvedExclusions);
-    console.log('[DEBUG] Dynamic ingredient list based on preferences:');
-    console.log('[DEBUG]   Proteins:', ingredientList.proteins.join(', '));
-    console.log('[DEBUG]   Carbs:', ingredientList.carbs.join(', '));
-    console.log('[DEBUG]   Vegetables:', ingredientList.vegetables.join(', '));
-    console.log('[DEBUG]   Fruits:', ingredientList.fruits.join(', '));
-    console.log('[DEBUG]   Dairy/Fats:', ingredientList.dairy.join(', '));
-    console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
+    if (DEBUG) {
+      console.log('[DEBUG] Dynamic ingredient list based on preferences:');
+      console.log('[DEBUG]   Proteins:', ingredientList.proteins.join(', '));
+      console.log('[DEBUG]   Carbs:', ingredientList.carbs.join(', '));
+      console.log('[DEBUG]   Vegetables:', ingredientList.vegetables.join(', '));
+      console.log('[DEBUG]   Fruits:', ingredientList.fruits.join(', '));
+      console.log('[DEBUG]   Dairy/Fats:', ingredientList.dairy.join(', '));
+      console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
+    }
 
     // Step 1: Generate skeleton for the week
     const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames, resolvedExclusions);
-    if (skeleton) {
-      console.log(`[DEBUG] Skeleton: ${JSON.stringify(skeleton)}`);
-    } else {
-      console.log('[DEBUG] Skeleton generation failed or skipped, proceeding without skeleton');
+    if (DEBUG) {
+      if (skeleton) {
+        console.log(`[DEBUG] Skeleton: ${JSON.stringify(skeleton)}`);
+      } else {
+        console.log('[DEBUG] Skeleton generation failed or skipped, proceeding without skeleton');
+      }
     }
 
     const systemPrompt = buildSystemPrompt();
@@ -1088,12 +1102,12 @@ export async function handleGeneratePlan(
     }
 
     // Run all batches IN PARALLEL for speed
-    console.log(`[DEBUG] Starting ${batches.length} batches in PARALLEL for ${duration}-day plan...`);
+    if (DEBUG) console.log(`[DEBUG] Starting ${batches.length} batches in PARALLEL for ${duration}-day plan...`);
     const parallelStartTime = Date.now();
 
     const batchPromises = batches.map(async ([startDay, endDay], i) => {
       const batchNum = i + 1;
-      console.log(`[DEBUG] Batch ${batchNum}: Days ${startDay}-${endDay} - STARTING`);
+      if (DEBUG) console.log(`[DEBUG] Batch ${batchNum}: Days ${startDay}-${endDay} - STARTING`);
 
       // For cross-batch awareness, exclude concepts from THIS batch so other batch concepts are listed
       const otherBatchConcepts = skeleton ? allSkeletonConcepts.filter((_, idx) => {
@@ -1114,7 +1128,7 @@ export async function handleGeneratePlan(
       });
 
       const batchTime = Date.now() - startTime;
-      console.log(`[DEBUG] Batch ${batchNum} received in ${batchTime}ms, stop: ${response.stop_reason}`);
+      if (DEBUG) console.log(`[DEBUG] Batch ${batchNum} received in ${batchTime}ms, stop: ${response.stop_reason}`);
 
       const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
       if (!textContent || textContent.type !== 'text') {
@@ -1122,7 +1136,7 @@ export async function handleGeneratePlan(
       }
 
       const batchResult = parseClaudeResponse(textContent.text, `Batch ${batchNum} (days ${startDay}-${endDay})`);
-      console.log(`[DEBUG] Batch ${batchNum} parsed: ${batchResult.days.length} days`);
+      if (DEBUG) console.log(`[DEBUG] Batch ${batchNum} parsed: ${batchResult.days.length} days`);
 
       return { batchNum, days: batchResult.days };
     });
@@ -1137,14 +1151,14 @@ export async function handleGeneratePlan(
     }
 
     const totalParallelTime = Date.now() - parallelStartTime;
-    console.log('[DEBUG] All batches completed in:', totalParallelTime, 'ms (PARALLEL)');
+    if (DEBUG) console.log('[DEBUG] All batches completed in:', totalParallelTime, 'ms (PARALLEL)');
 
     // Combine batches
     const mealPlan: MealPlanResponse = { days: allDays };
-    console.log('[DEBUG] Combined meal plan:', mealPlan.days.length, 'total days');
+    if (DEBUG) console.log('[DEBUG] Combined meal plan:', mealPlan.days.length, 'total days');
 
     const totalMeals = mealPlan.days.reduce((acc, day) => acc + day.meals.length, 0);
-    console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
+    if (DEBUG) console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
 
     // Post-generation: auto-correct meal types based on position
     // The expected order for 5 meals is: breakfast, snack, lunch, snack, dinner
@@ -1223,15 +1237,15 @@ export async function handleGeneratePlan(
     }
 
     // Save recipes to database
-    console.log('[DEBUG] Saving', allRecipes.length, 'recipes to database...');
+    if (DEBUG) console.log('[DEBUG] Saving', allRecipes.length, 'recipes to database...');
     const storageResult = await saveRecipesIfUnique(allRecipes);
-    console.log('[DEBUG] Storage result:', storageResult.saved, 'new,', storageResult.duplicates, 'duplicates');
+    if (DEBUG) console.log('[DEBUG] Storage result:', storageResult.saved, 'new,', storageResult.duplicates, 'duplicates');
 
     // Generate plan ID
     const planId = `mp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    console.log('[DEBUG] Generated plan ID:', planId);
+    if (DEBUG) console.log('[DEBUG] Generated plan ID:', planId);
 
-    console.log('[DEBUG] ========== GENERATE PLAN SUCCESS ==========');
+    if (DEBUG) console.log('[DEBUG] ========== GENERATE PLAN SUCCESS ==========');
 
     return {
       success: true,
@@ -1248,10 +1262,9 @@ export async function handleGeneratePlan(
       },
     };
   } catch (error) {
-    console.log('[DEBUG] ========== GENERATE PLAN ERROR ==========');
-    console.error('[DEBUG] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('[DEBUG] Error message:', error instanceof Error ? error.message : String(error));
-    console.error('[DEBUG] Full error:', error);
+    if (DEBUG) console.log('[DEBUG] ========== GENERATE PLAN ERROR ==========');
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
 
     return {
       success: false,

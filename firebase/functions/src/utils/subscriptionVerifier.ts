@@ -85,9 +85,8 @@ export async function verifyAndStoreTransaction(
   }
 
   const docRef = getDb().collection(SUBSCRIPTIONS_COLLECTION).doc(deviceId);
-  const existingDoc = await docRef.get();
 
-  const updateData: Partial<SubscriptionDoc> & { updatedAt: admin.firestore.Timestamp; lastVerifiedAt: admin.firestore.Timestamp } = {
+  const updateData = {
     originalTransactionId: transaction.originalTransactionId ?? null,
     productId: transaction.productId ?? null,
     status,
@@ -97,16 +96,11 @@ export async function verifyAndStoreTransaction(
     environment: transaction.environment ?? 'Production',
     lastVerifiedAt: admin.firestore.Timestamp.now(),
     updatedAt: admin.firestore.Timestamp.now(),
+    // FieldValue.increment(0) ensures plansGenerated exists with 0 if new, unchanged if existing
+    plansGenerated: admin.firestore.FieldValue.increment(0),
   };
 
-  if (existingDoc.exists) {
-    await docRef.update(updateData);
-  } else {
-    await docRef.set({
-      ...updateData,
-      plansGenerated: 0,
-    });
-  }
+  await docRef.set(updateData, { merge: true });
 
   return { success: true, status, expiresDate };
 }

@@ -46,10 +46,7 @@ struct TodayView: View {
         return (cal, pro, carb, fat)
     }
 
-    private var eatenCalories: Int { eatenNutrition.calories }
-    private var eatenProtein: Int { eatenNutrition.protein }
-    private var eatenCarbs: Int { eatenNutrition.carbs }
-    private var eatenFat: Int { eatenNutrition.fat }
+    // eatenNutrition is computed once per section that needs it — see heroCalorieSection, macroPillsSection, motivationalCopy
 
     var body: some View {
         NavigationStack {
@@ -285,12 +282,13 @@ struct TodayView: View {
 
     // MARK: - Hero Calorie Section
     private var heroCalorieSection: some View {
-        HStack {
+        let nutrition = eatenNutrition
+        return HStack {
             // Left: Hero number — only counts eaten meals
             VStack(alignment: .leading, spacing: 2) {
                 if let profile = userProfile {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(eatenCalories.formatted())
+                        Text(nutrition.calories.formatted())
                             .font(Design.Typography.heroNumberMedium)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
@@ -320,7 +318,7 @@ struct TodayView: View {
 
             // Right: Thick progress ring — based on eaten vs target
             if let profile = userProfile {
-                let progress = profile.dailyCalorieTarget > 0 ? Double(eatenCalories) / Double(profile.dailyCalorieTarget) : 0
+                let progress = profile.dailyCalorieTarget > 0 ? Double(nutrition.calories) / Double(profile.dailyCalorieTarget) : 0
                 ZStack {
                     ProgressRing(
                         progress: progress,
@@ -338,7 +336,7 @@ struct TodayView: View {
                         .font(Design.Typography.callout).fontWeight(.bold)
                         .foregroundStyle(.primary)
                 }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: eatenCalories)
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: nutrition.calories)
             }
         }
         .padding(Design.Spacing.lg)
@@ -352,17 +350,18 @@ struct TodayView: View {
                 )
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Calories eaten: \(eatenCalories) of \(userProfile?.dailyCalorieTarget ?? 0)")
+        .accessibilityLabel("Calories eaten: \(nutrition.calories) of \(userProfile?.dailyCalorieTarget ?? 0)")
     }
 
     // MARK: - Macro Pill Cards
     private var macroPillsSection: some View {
-        HStack(spacing: Design.Spacing.sm) {
+        let nutrition = eatenNutrition
+        return HStack(spacing: Design.Spacing.sm) {
             if let profile = userProfile {
                 MacroPillCard(
                     label: "Protein",
                     emoji: "🥩",
-                    current: eatenProtein,
+                    current: nutrition.protein,
                     target: profile.proteinGrams,
                     color: .proteinColor
                 )
@@ -370,7 +369,7 @@ struct TodayView: View {
                 MacroPillCard(
                     label: "Carbs",
                     emoji: "🍞",
-                    current: eatenCarbs,
+                    current: nutrition.carbs,
                     target: profile.carbsGrams,
                     color: .carbColor
                 )
@@ -378,7 +377,7 @@ struct TodayView: View {
                 MacroPillCard(
                     label: "Fat",
                     emoji: "🥑",
-                    current: eatenFat,
+                    current: nutrition.fat,
                     target: profile.fatGrams,
                     color: .fatColor
                 )
@@ -390,7 +389,7 @@ struct TodayView: View {
     private var motivationalCopy: some View {
         Group {
             if let profile = userProfile {
-                let calorieProgress = profile.dailyCalorieTarget > 0 ? Double(eatenCalories) / Double(profile.dailyCalorieTarget) : 0
+                let calorieProgress = profile.dailyCalorieTarget > 0 ? Double(eatenNutrition.calories) / Double(profile.dailyCalorieTarget) : 0
                 let message = motivationalMessage(for: calorieProgress)
 
                 Text(message)

@@ -3,6 +3,10 @@ import SwiftData
 
 @Model
 final class Meal {
+    // MARK: - Static Codecs (avoid allocating per-access)
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
     var id: UUID = UUID()
     var mealTypeRaw: String = "Breakfast"
     var isEaten: Bool = false
@@ -26,10 +30,10 @@ final class Meal {
     var healthKitSampleIDs: [String]? {
         get {
             guard let data = healthKitSampleIDsData else { return nil }
-            return try? JSONDecoder().decode([String].self, from: data)
+            return try? Self.decoder.decode([String].self, from: data)
         }
         set {
-            healthKitSampleIDsData = newValue.flatMap { try? JSONEncoder().encode($0) }
+            healthKitSampleIDsData = newValue.flatMap { try? Self.encoder.encode($0) }
         }
     }
 

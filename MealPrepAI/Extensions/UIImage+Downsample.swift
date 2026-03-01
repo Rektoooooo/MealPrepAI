@@ -6,7 +6,7 @@ import ImageIO
 let downsampledImageCache: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
     cache.countLimit = 150
-    cache.totalCostLimit = 50 * 1024 * 1024 // ~50 MB
+    cache.totalCostLimit = 20 * 1024 * 1024 // ~20 MB
     return cache
 }()
 

@@ -282,8 +282,6 @@ struct RecipesView: View {
                                         onTap: { selectedRecipe = recipe },
                                         onAdd: { addToMealPlan(recipe) }
                                     )
-                                    .opacity(animateContent ? 1 : 0)
-                                    .offset(y: animateContent ? 0 : 20)
                                 }
                             }
                             .padding(.horizontal, Design.Spacing.lg)

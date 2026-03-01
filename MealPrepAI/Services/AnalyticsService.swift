@@ -44,6 +44,7 @@ final class AnalyticsService {
                 await self?.syncToServer()
             }
         }
+        syncTimer?.tolerance = 30
 
         #if DEBUG
         print("[Analytics] Configured with device ID: \(deviceId.prefix(8))...")
@@ -97,9 +98,11 @@ final class AnalyticsService {
         sessionStartTime = nil
         screensViewed = 0
 
-        // Sync to server on session end
-        Task {
-            await syncToServer()
+        // Sync to server on session end (only if there are pending deltas)
+        if !counterDeltas.isEmpty {
+            Task {
+                await syncToServer()
+            }
         }
     }
 

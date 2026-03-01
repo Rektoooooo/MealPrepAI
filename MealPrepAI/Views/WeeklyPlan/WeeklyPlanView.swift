@@ -14,8 +14,12 @@ struct WeeklyPlanView: View {
     @State private var animateContent = false
     @State private var generator = MealPlanGenerator()
     @State private var weekOffset: Int = 0
+    @State private var cachedWeekStart: Date = Date()
+    @State private var cachedWeekDays: [(dayName: String, date: Int, fullDate: Date)] = []
 
-    private var viewingWeekStart: Date {
+    private var viewingWeekStart: Date { cachedWeekStart }
+
+    private static func computeWeekStart(weekOffset: Int) -> Date {
         var calendar = Calendar.current
         calendar.firstWeekday = 1  // 1 = Sunday, ensures consistent week start
         let today = calendar.startOfDay(for: Date())
@@ -30,6 +34,23 @@ struct WeeklyPlanView: View {
 
         // Apply week offset
         return calendar.date(byAdding: .day, value: weekOffset * 7, to: sundayOfCurrentWeek) ?? sundayOfCurrentWeek
+    }
+
+    private static func computeWeekDays(from weekStart: Date) -> [(dayName: String, date: Int, fullDate: Date)] {
+        let calendar = Calendar.current
+        return (0..<7).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: weekStart) else {
+                return nil
+            }
+            let dayName = weekDayFormatter.string(from: date)
+            let dayOfMonth = calendar.component(.day, from: date)
+            return (dayName: dayName, date: dayOfMonth, fullDate: date)
+        }
+    }
+
+    private func recomputeWeekCache() {
+        cachedWeekStart = Self.computeWeekStart(weekOffset: weekOffset)
+        cachedWeekDays = Self.computeWeekDays(from: cachedWeekStart)
     }
 
     private var currentMealPlan: MealPlan? {
@@ -74,18 +95,7 @@ struct WeeklyPlanView: View {
         return f
     }()
 
-    private var weekDaysFromViewingWeek: [(dayName: String, date: Int, fullDate: Date)] {
-        let calendar = Calendar.current
-
-        return (0..<7).compactMap { dayOffset in
-            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: viewingWeekStart) else {
-                return nil
-            }
-            let dayName = Self.weekDayFormatter.string(from: date)
-            let dayOfMonth = calendar.component(.day, from: date)
-            return (dayName: dayName, date: dayOfMonth, fullDate: date)
-        }
-    }
+    private var weekDaysFromViewingWeek: [(dayName: String, date: Int, fullDate: Date)] { cachedWeekDays }
 
     private var todayIndex: Int {
         let calendar = Calendar.current
@@ -240,12 +250,16 @@ struct WeeklyPlanView: View {
                 RecipeDetailSheet(recipe: recipe)
             }
             .onAppear {
+                recomputeWeekCache()
                 selectedDayIndex = todayIndex
                 if !animateContent {
                     withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
                         animateContent = true
                     }
                 }
+            }
+            .onChange(of: weekOffset) { _, _ in
+                recomputeWeekCache()
             }
         }
     }
