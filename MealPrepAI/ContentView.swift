@@ -32,6 +32,14 @@ struct ContentView: View {
         }
         .ignoresSafeArea(.keyboard)
         .environment(\.userProfile, userProfiles.first)
+        .onAppear {
+            AnalyticsService.shared.trackScreenView(screenName: "Today")
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            let screenNames = ["Today", "Plan", "Grocery", "Recipes", "Profile"]
+            let name = newTab < screenNames.count ? screenNames[newTab] : "Unknown"
+            AnalyticsService.shared.trackScreenView(screenName: name)
+        }
     }
 }
 

@@ -755,6 +755,40 @@ actor APIService {
             return try self.decoder.decode(VerifySubscriptionResponse.self, from: data)
         }
     }
+
+    // MARK: - Sync Analytics
+
+    /// Fire-and-forget sync of accumulated analytics counters to backend.
+    /// Non-blocking, keeps deltas if sync fails.
+    func syncAnalytics(deviceId: String, counterDeltas: [String: Int], appVersion: String) async throws {
+        let url = "\(APIConfiguration.baseURL)/v1/sync-analytics"
+        guard let requestURL = URL(string: url) else {
+            throw APIError.invalidURL
+        }
+
+        let body: [String: Any] = [
+            "deviceId": deviceId,
+            "counterDeltas": counterDeltas,
+            "appVersion": appVersion,
+            "timestamp": ISO8601DateFormatter().string(from: Date()),
+        ]
+
+        var request = URLRequest(url: requestURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10 // Short timeout for analytics
+
+        // Attach App Check token
+        try await requireAppCheckToken(for: &request)
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.invalidResponse
+        }
+    }
 }
 
 // MARK: - API Request/Response Types

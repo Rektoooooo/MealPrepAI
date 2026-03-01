@@ -577,8 +577,10 @@ struct WeeklyPlanView: View {
                                     meal.isEaten.toggle()
                                     if meal.isEaten {
                                         meal.eatenAt = Date()
+                                        AnalyticsService.shared.trackMealEaten(mealType: meal.mealType)
                                     } else {
                                         meal.eatenAt = nil
+                                        AnalyticsService.shared.trackMealUneaten(mealType: meal.mealType)
                                     }
                                 }
                             }

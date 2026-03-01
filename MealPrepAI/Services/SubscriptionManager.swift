@@ -19,8 +19,8 @@ final class SubscriptionManager {
     }
 
     // MARK: - Constants
-    private static let monthlyID = "com.mealprepai.monthly"
-    private static let annualID = "com.mealprepai.annual"
+    private static let monthlyID = "mealprepai.premium.monthly"
+    private static let annualID = "mealprepai.premium.annual"
     private static let productIDs: Set<String> = [monthlyID, annualID]
 
     // MARK: - Private
@@ -85,6 +85,12 @@ final class SubscriptionManager {
                 await transaction.finish()
                 await checkEntitlements()
                 await syncJWSToBackend(verification.jwsRepresentation)
+                let planType: String
+                switch plan {
+                case .monthly: planType = "monthly"
+                case .annual: planType = "annual"
+                }
+                AnalyticsService.shared.trackPurchaseCompleted(planType: planType)
                 return true
 
             case .userCancelled:

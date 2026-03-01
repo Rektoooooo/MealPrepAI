@@ -53,6 +53,7 @@ class MealPlanGenerator {
         isGenerating = true
         progress = "Building your personalized meal plan..."
         error = nil
+        AnalyticsService.shared.trackPlanGenerationStarted()
 
         defer {
             isGenerating = false
@@ -248,6 +249,14 @@ class MealPlanGenerator {
             // Print weekly summary for analysis
             printWeeklySummary(mealPlan: result.mealPlan, profile: profile)
 
+            // Track successful generation
+            let generationTime = Date().timeIntervalSince(generationStartTime)
+            AnalyticsService.shared.trackPlanGenerationCompleted(
+                durationDays: duration,
+                generationTimeSeconds: generationTime,
+                recipeCount: result.recipes.count
+            )
+
             return result.mealPlan
 
         } catch {
@@ -258,6 +267,7 @@ class MealPlanGenerator {
             #endif
             #endif
             self.error = error
+            AnalyticsService.shared.trackPlanGenerationFailed(error: error.localizedDescription)
             throw error
         }
     }

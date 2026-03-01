@@ -235,9 +235,18 @@ struct EditProfileView: View {
     }
 
     private func saveChanges() {
+        var fieldsChanged: [String] = []
+        if editedName != profile.name { fieldsChanged.append("name") }
+        if editedEmoji != profile.avatarEmoji { fieldsChanged.append("avatar") }
+        if editedImageData != profile.profileImageData { fieldsChanged.append("photo") }
+
         profile.name = editedName
         profile.avatarEmoji = editedEmoji
         profile.profileImageData = editedImageData
+
+        if !fieldsChanged.isEmpty {
+            AnalyticsService.shared.trackProfileEdited(fieldsChanged: fieldsChanged)
+        }
     }
 }
 

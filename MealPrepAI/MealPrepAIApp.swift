@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import FirebaseCore
 import FirebaseAppCheck
+import FirebaseAnalytics
 import SuperwallKit
 
 // MARK: - App Configuration
@@ -130,6 +131,9 @@ struct MealPrepAIApp: App {
         // Configure Superwall for analytics tracking
         Superwall.configure(apiKey: AppConfig.Superwall.apiKey)
 
+        // Configure analytics (Firebase Analytics SDK already linked)
+        AnalyticsService.shared.configure()
+
         // Now safe to create Firebase services
         _firebaseRecipeService = State(initialValue: FirebaseRecipeService())
     }
@@ -153,6 +157,8 @@ struct MealPrepAIApp: App {
         )
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -173,9 +179,27 @@ struct MealPrepAIApp: App {
                         .task {
                             await rescheduleNotificationsOnLaunch()
                         }
+                        .task {
+                            // Set user properties from profile for analytics segmentation
+                            let context = sharedModelContainer.mainContext
+                            let descriptor = FetchDescriptor<UserProfile>()
+                            if let profile = try? context.fetch(descriptor).first {
+                                AnalyticsService.shared.setUserProperties(from: profile)
+                            }
+                        }
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.authState)
+            .onChange(of: scenePhase) { _, newPhase in
+                switch newPhase {
+                case .active:
+                    AnalyticsService.shared.trackSessionStart()
+                case .background:
+                    AnalyticsService.shared.trackSessionEnd()
+                default:
+                    break
+                }
+            }
         }
         .modelContainer(sharedModelContainer)
     }

@@ -333,6 +333,9 @@ struct RecipesView: View {
             .sheet(item: $selectedRecipe) { recipe in
                 RecipeDetailSheet(recipe: recipe)
             }
+            .onChange(of: selectedRecipe) { _, newRecipe in
+                trackRecipeViewedIfNeeded(newRecipe)
+            }
             .sheet(item: $recipeToAddToPlan) { recipe in
                 AddRecipeToPlanSheet(recipe: recipe, mealPlan: currentMealPlan)
             }
@@ -405,8 +408,9 @@ struct RecipesView: View {
                     }
                 }
             }
-            .onChange(of: debouncedSearchText) { _, _ in
+            .onChange(of: debouncedSearchText) { _, newValue in
                 updateFilteredRecipes()
+                trackSearchIfNeeded(newValue)
             }
             .onChange(of: filterHash) { _, _ in
                 updateFilteredRecipes()
@@ -776,10 +780,34 @@ struct RecipesView: View {
         }
     }
 
+    // MARK: - Analytics Helpers
+    private func trackSearchIfNeeded(_ query: String) {
+        guard !query.isEmpty else { return }
+        AnalyticsService.shared.trackRecipeSearched(
+            queryLength: query.count,
+            resultCount: cachedFilteredRecipes.count,
+            hasFilters: !selectedFilters.isEmpty || selectedCategory != .all
+        )
+    }
+
+    private func trackRecipeViewedIfNeeded(_ recipe: Recipe?) {
+        guard let recipe else { return }
+        AnalyticsService.shared.trackRecipeViewed(
+            source: "recipes_tab",
+            cuisineType: recipe.cuisineType?.rawValue ?? "unknown",
+            calories: recipe.calories
+        )
+    }
+
     // MARK: - Actions
     private func toggleFavorite(_ recipe: Recipe) {
         withAnimation(Design.Animation.bouncy) {
             recipe.isFavorite.toggle()
+            if recipe.isFavorite {
+                AnalyticsService.shared.trackRecipeFavorited(recipeName: recipe.name)
+            } else {
+                AnalyticsService.shared.trackRecipeUnfavorited(recipeName: recipe.name)
+            }
         }
     }
 

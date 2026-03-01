@@ -76,3 +76,33 @@ Full audit performed Feb 6, 2026 by 4 specialized agents across 80+ files.
 | High | 14 | 12 | 2 |
 | Medium | 14 | 14 | 0 |
 | Low | 9 | 9 | 0 |
+
+---
+
+## Analytics Implementation (March 1, 2026)
+
+Full 4-phase analytics system implemented.
+
+### Phase 1: Firebase Analytics + Core Events
+- [x] Enabled Firebase Analytics (`IS_ANALYTICS_ENABLED` → `true`)
+- [x] Created `AnalyticsService.swift` singleton (25+ event methods, counter accumulation, 5-min sync timer)
+- [x] Initialized at app launch in `MealPrepAIApp.swift` with scenePhase tracking
+- [x] Instrumented 12 core events: app_open, screen_view, session_end, onboarding (started/step/completed/abandoned), plan generation (started/completed/failed), meal_eaten, purchase_completed
+
+### Phase 2: Full Feature Event Coverage
+- [x] Recipe events (viewed, favorited, unfavorited, searched) in `RecipesView.swift`, `RecipeDetailSheet.swift`
+- [x] Grocery events (item_checked, item_added, list_shared) in `GroceryListView.swift`
+- [x] Meal events (eaten/uneaten) in `WeeklyPlanView.swift`
+- [x] Profile edited tracking in `EditProfileView.swift`
+- [x] Onboarding abandonment via scenePhase in `NewOnboardingView.swift`
+
+### Phase 3: Server-Side Analytics
+- [x] Created `syncAnalytics.ts` Cloud Function (POST /v1/sync-analytics with App Check, FieldValue.increment)
+- [x] Added `resetWeeklyAnalyticsScheduled` function (Monday midnight UTC)
+- [x] Added `syncAnalytics()` method to `APIService.swift`
+- [x] Batched sync every 5 minutes + on session_end
+
+### Phase 4: Privacy Compliance
+- [x] Added `NSPrivacyCollectedDataTypeProductInteraction` to `PrivacyInfo.xcprivacy`
+- [x] iOS build verified (xcodebuild success)
+- [x] TypeScript compilation verified (tsc --noEmit clean)

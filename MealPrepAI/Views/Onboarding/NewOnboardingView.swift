@@ -113,9 +113,13 @@ struct NewOnboardingView: View {
     @Environment(AuthenticationManager.self) private var authManager
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @State private var viewModel = NewOnboardingViewModel()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var currentStep: OnboardingStep = .socialProof  // Skip launch - shown by RootView
     @State private var showSaveErrorAlert = false
     @State private var isNavigatingBack = false
+    @State private var onboardingStartTime = Date()
+    @State private var hasTrackedOnboardingStart = false
+    @State private var hasCompletedOnboarding = false
 
     var onComplete: (() -> Void)?
     var onLogin: (() -> Void)?
@@ -178,6 +182,24 @@ struct NewOnboardingView: View {
                         insertion: .opacity.combined(with: .offset(x: isNavigatingBack ? -50 : 50)),
                         removal: .opacity.combined(with: .offset(x: isNavigatingBack ? 50 : -50))
                     ))
+            }
+        }
+        .onAppear {
+            guard !hasTrackedOnboardingStart else { return }
+            hasTrackedOnboardingStart = true
+            onboardingStartTime = Date()
+            AnalyticsService.shared.trackOnboardingStarted()
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            // Only track abandonment when transitioning from active to background
+            // (not on brief interruptions like notification center pull-down)
+            if oldPhase == .active && newPhase == .background
+                && currentStep != .paywall && !hasCompletedOnboarding {
+                let timeSpent = Int(Date().timeIntervalSince(onboardingStartTime))
+                AnalyticsService.shared.trackOnboardingAbandoned(
+                    lastStep: currentStep,
+                    timeSpent: timeSpent
+                )
             }
         }
         .alert("Unable to Save", isPresented: $showSaveErrorAlert) {
@@ -384,6 +406,8 @@ struct NewOnboardingView: View {
                         if success {
                             let saved = viewModel.saveProfile(modelContext: modelContext)
                             if saved {
+                                hasCompletedOnboarding = true
+                                AnalyticsService.shared.trackOnboardingCompleted()
                                 onComplete?()
                             } else {
                                 showSaveErrorAlert = true
@@ -397,6 +421,8 @@ struct NewOnboardingView: View {
                         if subscriptionManager.isSubscribed {
                             let saved = viewModel.saveProfile(modelContext: modelContext)
                             if saved {
+                                hasCompletedOnboarding = true
+                                AnalyticsService.shared.trackOnboardingCompleted()
                                 onComplete?()
                             } else {
                                 showSaveErrorAlert = true
@@ -410,6 +436,9 @@ struct NewOnboardingView: View {
 
     // MARK: - Navigation
     private func goToNext() {
+        // Track step completion
+        AnalyticsService.shared.trackOnboardingStepCompleted(step: currentStep)
+
         let allSteps = OnboardingStep.allCases
         if let currentIndex = allSteps.firstIndex(of: currentStep),
            currentIndex < allSteps.count - 1 {

@@ -577,6 +577,7 @@ struct TodayView: View {
 
             if meal.isEaten {
                 meal.eatenAt = Date()
+                AnalyticsService.shared.trackMealEaten(mealType: meal.mealType)
 
                 // Sync to HealthKit if enabled
                 if userProfile?.healthKitEnabled == true && userProfile?.syncNutritionToHealth == true {
@@ -594,6 +595,7 @@ struct TodayView: View {
                 }
             } else {
                 meal.eatenAt = nil
+                AnalyticsService.shared.trackMealUneaten(mealType: meal.mealType)
 
                 // Remove from HealthKit if enabled
                 if userProfile?.healthKitEnabled == true,

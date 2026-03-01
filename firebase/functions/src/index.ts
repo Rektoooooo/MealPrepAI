@@ -20,6 +20,7 @@ import { handleSubstituteIngredient } from './api/substituteIngredient';
 import { handleVerifySubscription } from './api/verifySubscription';
 import { handleAppStoreWebhook } from './api/appStoreWebhook';
 import { handleRevokeAppleToken } from './api/revokeAppleToken';
+import { handleSyncAnalytics, resetWeeklyAnalytics } from './api/syncAnalytics';
 import { cleanupExpiredRateLimits } from './utils/rateLimiter';
 import { requireSubscription } from './utils/subscriptionMiddleware';
 import { incrementPlansGenerated } from './utils/subscriptionVerifier';
@@ -635,8 +636,8 @@ app.post('/v1/generate-plan', verifyAppCheck, requireSubscription, async (req: R
 });
 
 /**
- * POST /api/v1/swap-meal
- * Generate a single replacement meal
+ * POST /api/v1/verify-subscription
+ * Verify user subscription status
  * Protected by App Check verification
  */
 app.post('/v1/verify-subscription', verifyAppCheck, async (req: Request, res: Response) => {
@@ -645,6 +646,15 @@ app.post('/v1/verify-subscription', verifyAppCheck, async (req: Request, res: Re
 
 app.post('/v1/apple-notifications', async (req: Request, res: Response) => {
   await handleAppStoreWebhook(req, res);
+});
+
+/**
+ * POST /api/v1/sync-analytics
+ * Sync batched analytics counter deltas from iOS app
+ * Protected by App Check (NOT subscription-gated)
+ */
+app.post('/v1/sync-analytics', verifyAppCheck, async (req: Request, res: Response) => {
+  await handleSyncAnalytics(req, res);
 });
 
 app.post('/v1/swap-meal', verifyAppCheck, requireSubscription, async (req: Request, res: Response) => {
@@ -727,5 +737,20 @@ export const cleanupRateLimits = functions.pubsub
     console.log('Starting rate limit cleanup...');
     const deleted = await cleanupExpiredRateLimits();
     console.log(`Cleaned up ${deleted} expired rate limit records`);
+    return null;
+  });
+
+/**
+ * Scheduled weekly analytics reset
+ * Runs Monday at midnight UTC
+ * Archives activeDatesThisWeek to lastWeekActiveDays and resets arrays
+ */
+export const resetWeeklyAnalyticsScheduled = functions.pubsub
+  .schedule('0 0 * * 1')  // Monday midnight UTC
+  .timeZone('UTC')
+  .onRun(async () => {
+    console.log('Starting weekly analytics reset...');
+    const processed = await resetWeeklyAnalytics();
+    console.log(`Reset weekly analytics for ${processed} users`);
     return null;
   });

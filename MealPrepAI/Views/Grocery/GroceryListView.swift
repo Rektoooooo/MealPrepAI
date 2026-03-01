@@ -542,6 +542,11 @@ struct GroceryItemRow: View {
         Button {
             withAnimation(Design.Animation.bouncy) {
                 item.isChecked.toggle()
+                if item.isChecked {
+                    AnalyticsService.shared.trackGroceryItemChecked(
+                        category: item.ingredient?.category.rawValue ?? "unknown"
+                    )
+                }
             }
         } label: {
             HStack(spacing: Design.Spacing.md) {
@@ -758,6 +763,7 @@ struct AddGroceryItemSheet: View {
 
         groceryList.lastModified = Date()
         try? modelContext.save()
+        AnalyticsService.shared.trackGroceryItemAdded()
         dismiss()
     }
 }
@@ -975,6 +981,7 @@ struct ShareGroceryListSheet: View {
 
     private func copyToClipboard() {
         UIPasteboard.general.string = shareText
+        AnalyticsService.shared.trackGroceryListShared(itemCount: items.count)
         showCopiedFeedback()
     }
 

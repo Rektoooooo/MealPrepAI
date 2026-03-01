@@ -393,6 +393,11 @@ struct RecipeDetailSheet: View {
     private func toggleFavorite() {
         withAnimation(Design.Animation.bouncy) {
             recipe.isFavorite.toggle()
+            if recipe.isFavorite {
+                AnalyticsService.shared.trackRecipeFavorited(recipeName: recipe.name)
+            } else {
+                AnalyticsService.shared.trackRecipeUnfavorited(recipeName: recipe.name)
+            }
         }
     }
 

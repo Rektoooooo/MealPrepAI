@@ -83,7 +83,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.mealprepai.monthly",
+          "productID" : "mealprepai.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Monthly",
           "subscriptionGroupID" : "mealprepai_premium",
@@ -111,7 +111,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "com.mealprepai.annual",
+          "productID" : "mealprepai.premium.annual",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Annual",
           "subscriptionGroupID" : "mealprepai_premium",
