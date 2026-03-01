@@ -7,6 +7,8 @@ struct LoginStepView: View {
     let onContinueAsGuest: () -> Void
 
     @State private var appeared = false
+    @State private var showSignInError = false
+    @State private var signInErrorMessage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -85,9 +87,13 @@ struct LoginStepView: View {
                                 authManager.signInWithApple(credential: credential)
                             }
                             onSignInWithApple()
-                        case .failure:
-                            // Handle error - user cancelled or error occurred
-                            break
+                        case .failure(let error):
+                            if let authError = error as? ASAuthorizationError,
+                               authError.code == .canceled {
+                                return
+                            }
+                            signInErrorMessage = "Sign in failed. Please try again."
+                            showSignInError = true
                         }
                     }
                 )
@@ -112,6 +118,11 @@ struct LoginStepView: View {
         .padding(.horizontal, OnboardingDesign.Spacing.xl)
         .padding(.bottom, OnboardingDesign.Spacing.xl)
         .onboardingBackground()
+        .alert("Sign In Failed", isPresented: $showSignInError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(signInErrorMessage)
+        }
         .onAppear {
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {
                 appeared = true

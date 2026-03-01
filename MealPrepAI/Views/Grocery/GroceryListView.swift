@@ -14,6 +14,7 @@ struct GroceryListView: View {
     @State private var showingHistory = false
     @State private var showingCompleteConfirmation = false
     @State private var animateContent = false
+    @State private var showGroceryError = false
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -148,6 +149,11 @@ struct GroceryListView: View {
             }
             .sheet(isPresented: $showingHistory) {
                 GroceryHistoryView()
+            }
+            .alert("Grocery List Error", isPresented: $showGroceryError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Failed to generate your grocery list. Please try again.")
             }
             .alert("Complete Shopping?", isPresented: $showingCompleteConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -520,6 +526,7 @@ struct GroceryListView: View {
             #if DEBUG
             print("[DEBUG:Grocery] ERROR: Failed to save - \(error.localizedDescription)")
             #endif
+            showGroceryError = true
         }
         #if DEBUG
         print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST END ==========")

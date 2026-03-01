@@ -15,6 +15,7 @@ struct MealPrepSetupView: View {
     @Bindable var generator: MealPlanGenerator
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @State private var showingPaywall = false
+    @State private var showPurchaseError = false
 
     /// If true, skips the welcome screen and goes straight to customization
     let skipWelcome: Bool
@@ -54,9 +55,22 @@ struct MealPrepSetupView: View {
             get: { viewModel.generationError != nil },
             set: { if !$0 { viewModel.generationError = nil } }
         )) {
-            Button("OK", role: .cancel) { }
+            Button("Try Again") {
+                viewModel.generationError = nil
+            }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(viewModel.generationError?.localizedDescription ?? "Please try again.")
+        }
+        .alert("Purchase Failed", isPresented: $showPurchaseError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(subscriptionManager.purchaseError ?? "Something went wrong. Please try again.")
+        }
+        .onChange(of: subscriptionManager.purchaseError) { _, newError in
+            if newError != nil {
+                showPurchaseError = true
+            }
         }
         .onAppear {
             if !subscriptionManager.isSubscribed && (userProfile?.hasUsedFreeTrial == true) {

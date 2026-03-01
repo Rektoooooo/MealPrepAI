@@ -9,6 +9,7 @@ struct PaywallStepView: View {
     @State private var appeared = false
     @State private var selectedPlan: SubscriptionPlan = .annual
     @State private var timelineAnimated = false
+    @State private var showPurchaseError = false
 
     // Fallback pricing (shown while products load)
     private var annualPrice: String {
@@ -184,6 +185,16 @@ struct PaywallStepView: View {
             .opacity(appeared ? 1 : 0)
         }
         .background(Color.white.ignoresSafeArea())
+        .alert("Purchase Failed", isPresented: $showPurchaseError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(subscriptionManager.purchaseError ?? "Something went wrong. Please try again.")
+        }
+        .onChange(of: subscriptionManager.purchaseError) { _, newError in
+            if newError != nil {
+                showPurchaseError = true
+            }
+        }
         .onAppear {
             SuperwallTracker.trackPaywallShown()
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {

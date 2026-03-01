@@ -24,6 +24,7 @@ struct ProfileView: View {
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
     @State private var mealsLogged: Int = 0
+    @State private var showSignInError = false
 
     var body: some View {
         NavigationStack {
@@ -74,6 +75,11 @@ struct ProfileView: View {
                 OnboardingPreviewWrapper {
                     showingOnboardingPreview = false
                 }
+            }
+            .alert("Sign In Failed", isPresented: $showSignInError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("We couldn't sign you in. Please try again.")
             }
             .onAppear {
                 withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
@@ -1280,6 +1286,7 @@ struct ProfileView: View {
             #if DEBUG
             print("Sign in failed: \(error.localizedDescription)")
             #endif
+            showSignInError = true
         }
     }
 

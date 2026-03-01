@@ -18,6 +18,7 @@ struct TodayView: View {
     @State private var showingNotifications = false
     @State private var selectedRecipe: Recipe?
     @State private var generator = MealPlanGenerator()
+    @State private var showHealthKitError = false
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -160,6 +161,11 @@ struct TodayView: View {
             }
             .sheet(item: $selectedRecipe) { recipe in
                 RecipeDetailSheet(recipe: recipe)
+            }
+            .alert("Health Sync Issue", isPresented: $showHealthKitError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Meal was marked as eaten but couldn't sync to Apple Health. Check Health permissions in Settings.")
             }
         }
     }
@@ -589,6 +595,7 @@ struct TodayView: View {
                             #if DEBUG
                             print("Failed to sync meal to HealthKit: \(error)")
                             #endif
+                            showHealthKitError = true
                         }
                     }
                 }
@@ -607,6 +614,7 @@ struct TodayView: View {
                             #if DEBUG
                             print("Failed to remove meal from HealthKit: \(error)")
                             #endif
+                            showHealthKitError = true
                         }
                     }
                 }
@@ -953,7 +961,8 @@ struct GenerateMealPlanSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .alert("Something Went Wrong", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
+            Button("Try Again") { generatePlan() }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
@@ -1432,7 +1441,8 @@ struct SwapMealSheet: View {
             animationTimers.removeAll()
         }
         .alert("Something Went Wrong", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
+            Button("Try Again") { swapSelectedMeal() }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
@@ -1681,7 +1691,8 @@ struct AddMealToTodaySheet: View {
         }
         .presentationDetents([.medium])
         .alert("Something Went Wrong", isPresented: $showErrorAlert) {
-            Button("OK", role: .cancel) { }
+            Button("Try Again") { addMeal() }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }
