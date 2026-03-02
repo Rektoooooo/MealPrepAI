@@ -97,6 +97,7 @@ struct MealPrepAIApp: App {
     @State private var notificationManager = NotificationManager()
     @State private var subscriptionManager = SubscriptionManager()
     @State private var networkMonitor = NetworkMonitor()
+    @State private var streakManager = StreakManager()
 
     // Firebase Recipe Services - initialized after Firebase is configured
     @State private var firebaseRecipeService: FirebaseRecipeService
@@ -157,6 +158,17 @@ struct MealPrepAIApp: App {
         )
     }
 
+    @MainActor
+    private func refreshStreakOnLaunch() {
+        let context = sharedModelContainer.mainContext
+        let planDescriptor = FetchDescriptor<MealPlan>(
+            predicate: #Predicate { $0.isActive },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        guard let plan = try? context.fetch(planDescriptor).first else { return }
+        streakManager.refreshStreak(days: plan.sortedDays)
+    }
+
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -176,8 +188,12 @@ struct MealPrepAIApp: App {
                         .environment(firebaseRecipeService)
                         .environment(subscriptionManager)
                         .environment(networkMonitor)
+                        .environment(streakManager)
                         .task {
                             await rescheduleNotificationsOnLaunch()
+                        }
+                        .task {
+                            refreshStreakOnLaunch()
                         }
                         .task {
                             // Set user properties from profile for analytics segmentation

@@ -20,8 +20,7 @@ final class NotificationManager {
 
     // MARK: - Private Properties
 
-    private let storageKey = "com.mealprepai.notifications"
-    private let readStatusKey = "com.mealprepai.notificationReadStatus"
+    private static let notificationsKey = "com.mealprepai.notifications.v2"
     private let center = UNUserNotificationCenter.current()
 
     // MARK: - Initialization
@@ -45,6 +44,11 @@ final class NotificationManager {
             "dinnerReminderTime": dinnerDefault
         ]
         UserDefaults.standard.register(defaults: defaults)
+
+        // Clean up legacy keys from v1
+        UserDefaults.standard.removeObject(forKey: "com.mealprepai.notifications")
+        UserDefaults.standard.removeObject(forKey: "com.mealprepai.notificationReadStatus")
+
         loadNotifications()
     }
 
@@ -54,7 +58,7 @@ final class NotificationManager {
     func markAsRead(_ notification: AppNotification) {
         if let index = notifications.firstIndex(where: { $0.id == notification.id }) {
             notifications[index].isRead = true
-            saveReadStatus()
+            saveNotifications()
         }
     }
 
@@ -63,19 +67,90 @@ final class NotificationManager {
         for index in notifications.indices {
             notifications[index].isRead = true
         }
-        saveReadStatus()
+        saveNotifications()
     }
 
     /// Clear all notifications
     func clearAll() {
         notifications.removeAll()
-        saveReadStatus()
+        saveNotifications()
     }
 
-    /// Add a new notification
+    /// Add a new notification (capped at 50)
     func addNotification(_ notification: AppNotification) {
         notifications.insert(notification, at: 0)
-        saveReadStatus()
+        if notifications.count > 50 {
+            notifications = Array(notifications.prefix(50))
+        }
+        saveNotifications()
+    }
+
+    // MARK: - Convenience Event Methods
+
+    /// Call when a meal plan is successfully generated
+    func notifyPlanGenerated(planDuration: Int) {
+        let notification = AppNotification(
+            type: .planGenerated,
+            title: "Meal Plan Ready",
+            message: "Your \(planDuration)-day meal plan has been generated. Tap to see your meals!",
+            timestamp: Date()
+        )
+        addNotification(notification)
+    }
+
+    /// Call when a grocery list is generated/regenerated
+    func notifyGroceryListGenerated(itemCount: Int) {
+        let notification = AppNotification(
+            type: .groceryReminder,
+            title: "Grocery List Updated",
+            message: "Your grocery list has been updated with \(itemCount) items.",
+            timestamp: Date()
+        )
+        addNotification(notification)
+    }
+
+    /// Call when daily calorie goal is reached
+    func notifyCalorieGoalReached(calories: Int, target: Int) {
+        let notification = AppNotification(
+            type: .goalAchieved,
+            title: "Daily Calorie Goal Reached",
+            message: "You've hit \(calories) of your \(target) cal target today. Great job!",
+            timestamp: Date()
+        )
+        addNotification(notification)
+    }
+
+    /// Call when a streak milestone is reached
+    func notifyStreakMilestone(days: Int) {
+        let message: String
+        switch days {
+        case 3:  message = "Nice start! You've hit a 3-day streak."
+        case 5:  message = "5 days strong! Keep it going."
+        case 7:  message = "One whole week! You're building a real habit."
+        case 14: message = "Two weeks of consistency. Impressive!"
+        case 21: message = "21 days — you've formed a habit!"
+        case 30: message = "Legendary! 30-day streak achieved."
+        default: message = "You've reached a \(days)-day streak!"
+        }
+
+        let notification = AppNotification(
+            type: .streakMilestone,
+            title: "\(days)-Day Streak!",
+            message: message,
+            timestamp: Date()
+        )
+        addNotification(notification)
+    }
+
+    /// Call when the active meal plan ends today
+    func notifyPlanExpiring() {
+        let notification = AppNotification(
+            type: .mealReminder,
+            title: "Meal Plan Ending Today",
+            message: "Your current meal plan ends today. Generate a new one to stay on track!",
+            timestamp: Date()
+        )
+        addNotification(notification)
     }
 
     // MARK: - Local Notification Scheduling
@@ -291,28 +366,17 @@ final class NotificationManager {
     // MARK: - Private Methods (In-App Notifications)
 
     private func loadNotifications() {
-        // Load sample notifications
-        notifications = AppNotification.sampleNotifications
-
-        // Restore read status from UserDefaults
-        if let readStatusData = UserDefaults.standard.data(forKey: readStatusKey),
-           let readStatus = try? JSONDecoder().decode([String: Bool].self, from: readStatusData) {
-            for index in notifications.indices {
-                if let isRead = readStatus[notifications[index].id.uuidString] {
-                    notifications[index].isRead = isRead
-                }
-            }
+        guard let data = UserDefaults.standard.data(forKey: Self.notificationsKey),
+              let decoded = try? JSONDecoder().decode([AppNotification].self, from: data) else {
+            notifications = []
+            return
         }
+        notifications = decoded
     }
 
-    private func saveReadStatus() {
-        var readStatus: [String: Bool] = [:]
-        for notification in notifications {
-            readStatus[notification.id.uuidString] = notification.isRead
-        }
-
-        if let data = try? JSONEncoder().encode(readStatus) {
-            UserDefaults.standard.set(data, forKey: readStatusKey)
+    private func saveNotifications() {
+        if let data = try? JSONEncoder().encode(notifications) {
+            UserDefaults.standard.set(data, forKey: Self.notificationsKey)
         }
     }
 }

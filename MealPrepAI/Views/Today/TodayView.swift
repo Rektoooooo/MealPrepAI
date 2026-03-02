@@ -5,6 +5,7 @@ struct TodayView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(HealthKitManager.self) var healthKitManager
     @Environment(NotificationManager.self) var notificationManager
+    @Environment(StreakManager.self) var streakManager
     @Query(filter: #Predicate<MealPlan> { $0.isActive }, sort: \MealPlan.createdAt, order: .reverse)
     private var mealPlans: [MealPlan]
     @Environment(\.userProfile) private var userProfile
@@ -110,6 +111,9 @@ struct TodayView: View {
             .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    StreakBadge(streak: streakManager.currentStreak)
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingNotifications = true }) {
                         ZStack(alignment: .topTrailing) {
@@ -141,6 +145,7 @@ struct TodayView: View {
                         animateCards = true
                     }
                 }
+                checkPlanExpiring()
             }
             .fullScreenCover(isPresented: $showingGenerateSheet) {
                 MealPrepSetupView(generator: generator)
@@ -599,6 +604,15 @@ struct TodayView: View {
                         }
                     }
                 }
+
+                // Check if calorie goal reached
+                checkCalorieGoalReached()
+
+                // Refresh streak and notify on milestone
+                if let plan = currentMealPlan,
+                   let milestone = streakManager.refreshStreak(days: plan.sortedDays) {
+                    notificationManager.notifyStreakMilestone(days: milestone)
+                }
             } else {
                 meal.eatenAt = nil
                 AnalyticsService.shared.trackMealUneaten(mealType: meal.mealType)
@@ -618,8 +632,44 @@ struct TodayView: View {
                         }
                     }
                 }
+
+                // Refresh streak (discard milestone on un-eat)
+                if let plan = currentMealPlan {
+                    streakManager.refreshStreak(days: plan.sortedDays)
+                }
             }
         }
+    }
+
+    /// Check if the user has reached their daily calorie goal, deduped per day
+    private func checkCalorieGoalReached() {
+        guard let profile = userProfile else { return }
+        let target = profile.dailyCalorieTarget
+        guard target > 0 else { return }
+
+        let eaten = eatenNutrition
+        guard eaten.calories >= target else { return }
+
+        // Dedupe: only notify once per calendar day
+        let dateKey = "calorieGoalReached_\(Calendar.current.startOfDay(for: selectedDate).timeIntervalSince1970)"
+        guard !UserDefaults.standard.bool(forKey: dateKey) else { return }
+        UserDefaults.standard.set(true, forKey: dateKey)
+
+        notificationManager.notifyCalorieGoalReached(calories: eaten.calories, target: target)
+    }
+
+    /// Check if the active meal plan ends today, deduped per plan
+    private func checkPlanExpiring() {
+        guard let plan = currentMealPlan else { return }
+        let calendar = Calendar.current
+        guard calendar.isDateInToday(plan.endDate) else { return }
+
+        // Dedupe: only notify once per plan
+        let planKey = "planExpiryNotified_\(plan.id)"
+        guard !UserDefaults.standard.bool(forKey: planKey) else { return }
+        UserDefaults.standard.set(true, forKey: planKey)
+
+        notificationManager.notifyPlanExpiring()
     }
 }
 
@@ -988,7 +1038,10 @@ struct GenerateMealPlanSheet: View {
                     modelContext: modelContext
                 )
 
-                // Reschedule notifications for the new plan
+                // In-app notification for the new plan
+                notificationManager.notifyPlanGenerated(planDuration: 7)
+
+                // Reschedule local notifications for the new plan
                 let descriptor = FetchDescriptor<MealPlan>(
                     predicate: #Predicate { $0.isActive },
                     sortBy: [SortDescriptor(\.createdAt, order: .reverse)]

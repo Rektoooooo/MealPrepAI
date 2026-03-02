@@ -21,10 +21,11 @@ struct StreakCard: View {
     let days: [Day]
     let calorieTarget: Int
 
+    @Environment(StreakManager.self) var streakManager
     @State private var flameGlow = false
 
     private var currentStreak: Int {
-        InsightsHelper.currentStreak(for: days)
+        streakManager.currentStreak
     }
 
     private var daysOnTarget: Int {

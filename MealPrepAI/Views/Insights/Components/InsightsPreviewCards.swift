@@ -12,6 +12,8 @@ struct InsightsPreviewCards: View {
     let days: [Day]
     let calorieTarget: Int
 
+    @Environment(StreakManager.self) var streakManager
+
     private var avgCalories: Int {
         let daysWithFood = days.filter { $0.totalCalories > 0 }
         guard !daysWithFood.isEmpty else { return 0 }
@@ -19,7 +21,7 @@ struct InsightsPreviewCards: View {
     }
 
     private var currentStreak: Int {
-        InsightsHelper.currentStreak(for: days)
+        streakManager.currentStreak
     }
 
     var body: some View {

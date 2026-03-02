@@ -1,21 +1,29 @@
 import SwiftUI
 
 // MARK: - App Notification Model
-struct AppNotification: Identifiable {
-    let id = UUID()
+struct AppNotification: Identifiable, Codable {
+    let id: UUID
     let type: NotificationType
     let title: String
     let message: String
     let timestamp: Date
-    var isRead: Bool = false
+    var isRead: Bool
 
-    enum NotificationType {
+    init(type: NotificationType, title: String, message: String, timestamp: Date, isRead: Bool = false) {
+        self.id = UUID()
+        self.type = type
+        self.title = title
+        self.message = message
+        self.timestamp = timestamp
+        self.isRead = isRead
+    }
+
+    enum NotificationType: String, Codable {
         case mealReminder
         case groceryReminder
         case planGenerated
         case goalAchieved
-        case weeklyDigest
-        case tip
+        case streakMilestone
 
         var icon: String {
             switch self {
@@ -23,8 +31,7 @@ struct AppNotification: Identifiable {
             case .groceryReminder: return "cart.fill"
             case .planGenerated: return "sparkles"
             case .goalAchieved: return "star.fill"
-            case .weeklyDigest: return "chart.bar.fill"
-            case .tip: return "lightbulb.fill"
+            case .streakMilestone: return "flame.fill"
             }
         }
 
@@ -34,8 +41,7 @@ struct AppNotification: Identifiable {
             case .groceryReminder: return Color.mintVibrant
             case .planGenerated: return Color.accentPurple
             case .goalAchieved: return Color.accentYellow
-            case .weeklyDigest: return Color.accentBlue
-            case .tip: return Color.accentOrange
+            case .streakMilestone: return Color.accentOrange
             }
         }
     }
@@ -247,85 +253,6 @@ struct NotificationRow: View {
     }
 }
 
-// MARK: - Notification Settings Sheet
-struct NotificationSettingsSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @AppStorage("mealReminders") private var mealReminders = true
-    @AppStorage("groceryReminders") private var groceryReminders = true
-    @AppStorage("weeklyDigest") private var weeklyDigest = false
-    @AppStorage("reminderTime") private var reminderTime = Date()
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Toggle(isOn: $mealReminders) {
-                        Label("Meal Reminders", systemImage: "fork.knife")
-                    }
-                    .tint(Color.accentPurple)
-
-                    Toggle(isOn: $groceryReminders) {
-                        Label("Grocery Reminders", systemImage: "cart")
-                    }
-                    .tint(Color.accentPurple)
-
-                    Toggle(isOn: $weeklyDigest) {
-                        Label("Weekly Digest", systemImage: "chart.bar")
-                    }
-                    .tint(Color.accentPurple)
-                } header: {
-                    Text("Push Notifications")
-                }
-
-                Section {
-                    DatePicker("Default Reminder Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                } header: {
-                    Text("Timing")
-                } footer: {
-                    Text("Reminders will be sent at this time each day for meals and shopping.")
-                }
-
-                Section {
-                    HStack {
-                        Image(systemName: "bell.badge")
-                            .font(Design.Typography.iconSmall)
-                            .foregroundStyle(Color.accentPurple)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Enable Notifications")
-                                .font(.headline)
-
-                            Text("Open Settings to allow notifications for MealPrepAI")
-                                .font(.caption)
-                                .foregroundStyle(Color.textSecondary)
-                        }
-
-                        Spacer()
-
-                        Button("Open Settings") {
-                            if let url = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(url)
-                            }
-                        }
-                        .font(.caption)
-                        .buttonStyle(.bordered)
-                    }
-                    .padding(.vertical, 8)
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(Color.accentPurple)
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Date Extension for Time Ago
 extension Date {
     func timeAgoDisplay() -> String {
@@ -350,59 +277,6 @@ extension Date {
         } else {
             return "Just now"
         }
-    }
-}
-
-// MARK: - Sample Notifications
-extension AppNotification {
-    static var sampleNotifications: [AppNotification] {
-        let calendar = Calendar.current
-        let now = Date()
-
-        return [
-            AppNotification(
-                type: .mealReminder,
-                title: "Time for Lunch",
-                message: "Your Greek Salad with Grilled Chicken is ready to prepare. Tap to view the recipe.",
-                timestamp: calendar.date(byAdding: .minute, value: -15, to: now)!,
-                isRead: false
-            ),
-            AppNotification(
-                type: .goalAchieved,
-                title: "Protein Goal Reached",
-                message: "Great job! You've hit your daily protein target of 150g.",
-                timestamp: calendar.date(byAdding: .hour, value: -2, to: now)!,
-                isRead: false
-            ),
-            AppNotification(
-                type: .groceryReminder,
-                title: "Grocery Shopping",
-                message: "You have 12 items on your grocery list for this week's meal prep.",
-                timestamp: calendar.date(byAdding: .hour, value: -5, to: now)!,
-                isRead: false
-            ),
-            AppNotification(
-                type: .planGenerated,
-                title: "New Meal Plan Ready",
-                message: "Your personalized meal plan for this week has been generated. Check it out!",
-                timestamp: calendar.date(byAdding: .day, value: -1, to: now)!,
-                isRead: true
-            ),
-            AppNotification(
-                type: .tip,
-                title: "Meal Prep Tip",
-                message: "Prep your vegetables on Sunday to save time during the week.",
-                timestamp: calendar.date(byAdding: .day, value: -2, to: now)!,
-                isRead: true
-            ),
-            AppNotification(
-                type: .weeklyDigest,
-                title: "Your Weekly Summary",
-                message: "You logged 18 meals and hit your calorie goal 5 out of 7 days. Keep it up!",
-                timestamp: calendar.date(byAdding: .day, value: -3, to: now)!,
-                isRead: true
-            )
-        ]
     }
 }
 
