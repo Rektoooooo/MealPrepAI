@@ -12,12 +12,41 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { checkRateLimit } from '../utils/rateLimiter';
+import { checkRateLimit, incrementRateLimit } from '../utils/rateLimiter';
 // Image matching disabled — AI-generated recipes use gradient placeholders on iOS
 // import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipesIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
 
-const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true' ||
+  process.env.DEBUG_GENERATE === 'true';
+
+/**
+ * Retry a Claude API call with exponential backoff on rate limit (429) errors.
+ */
+async function callClaudeWithRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxRetries = 3,
+  baseDelayMs = 15000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const isRateLimit =
+        (err instanceof Error && err.message.includes('429')) ||
+        (err instanceof Error && err.constructor.name === 'RateLimitError');
+      if (isRateLimit && attempt < maxRetries) {
+        const delay = baseDelayMs * attempt;
+        if (DEBUG) console.warn(`[RETRY] ${label} hit rate limit (attempt ${attempt}/${maxRetries}), waiting ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error(`${label} failed after ${maxRetries} retries`);
+}
 
 // Types
 interface UserProfile {
@@ -41,6 +70,10 @@ interface UserProfile {
   simpleModeEnabled: boolean;
   mealsPerDay: number;
   includeSnacks: boolean;
+  breakfastCount: number;  // 0-2
+  lunchCount: number;      // 0-2
+  dinnerCount: number;     // 0-2
+  snackCount: number;      // 0-4
   pantryLevel: string;  // Well-stocked, Average, Minimal
   barriers: string[];   // Time constraints, budget, etc.
   primaryGoals: string[];  // planMeals, eatHealthy, saveMoney, etc.
@@ -141,19 +174,17 @@ IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code bl
 STRICT CALORIE & MACRO REQUIREMENTS
 ═══════════════════════════════════════════════════════════════
 
-CRITICAL: Each day's totals MUST hit targets closely:
-- Daily calories: within 100 kcal of target (NOT 300 - must be close!)
-- Daily protein: within 5g of target (do NOT exceed target + 5g — if individual meals run high, reduce protein in snacks to compensate)
+Each day's totals should be CLOSE to targets, but natural variation is expected:
+- Daily calories: within 200 kcal of target
+- Daily protein: within 15g of target
 - Carbs and fat: within 15g of target
 
-CALORIE DISTRIBUTION per day (percentages - apply to user's specific targets):
-- Breakfast: 22% of daily calories, 20% of protein
-- Lunch: 32% of calories, 28% of protein (largest meal)
-- Dinner: 28% of calories, 26% of protein
-- Snacks: 18% total (2 snacks at 9% each), 26% of protein (13% each)
+Do NOT hit the exact same calorie total every day — real meal plans vary naturally.
+Some days should be lighter (target - 150 cal), some heavier (target + 150 cal).
+A 2200-cal day followed by a 2500-cal day is BETTER than hitting 2400 every day.
 
-The user prompt contains the EXACT calculated targets for each meal based on their profile.
-Follow those specific numbers, not generic examples.
+The user prompt contains calculated per-meal target RANGES based on their profile.
+Follow those ranges, not exact numbers.
 
 ═══════════════════════════════════════════════════════════════
 INGREDIENT GUIDELINES
@@ -172,10 +203,13 @@ VARIETY REQUIREMENTS (CRITICAL)
 ═══════════════════════════════════════════════════════════════
 - NEVER repeat same protein 2 days in a row for lunch/dinner
 - Follow the rotation pattern provided in the user's prompt
-- Each breakfast should be DIFFERENT - rotate daily!
-- Snacks can repeat but vary the accompaniments
+- Breakfasts MUST use at least 4 different base categories across 7 days: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl
+- Max 2 yogurt-based snacks per week, max 2 cottage-cheese-based snacks per week
+- At least 5 DISTINCT snack concepts across the week
 - NEVER generate two recipes with the same primary protein AND cooking method in the same plan
 - Each recipe name must be distinct — no duplicates across the entire plan
+- Each day's meals should feel distinct from adjacent days — different cuisine feel, different cooking methods
+- Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, etc.)
 
 ═══════════════════════════════════════════════════════════════
 MEAL GUIDELINES
@@ -373,6 +407,96 @@ function buildIngredientList(profile: UserProfile, temporaryExclusions?: string[
   return { proteins, carbs, vegetables, fruits, dairy, snackIngredients, proteinRotation };
 }
 
+/**
+ * Resolve per-type meal counts from the profile.
+ * Falls back to legacy mealsPerDay/includeSnacks when the new fields are absent.
+ */
+function resolveMealCounts(profile: UserProfile): {
+  breakfastCount: number;
+  lunchCount: number;
+  dinnerCount: number;
+  snackCount: number;
+} {
+  // New fields present
+  if (typeof profile.breakfastCount === 'number' &&
+      typeof profile.lunchCount === 'number' &&
+      typeof profile.dinnerCount === 'number' &&
+      typeof profile.snackCount === 'number') {
+    return {
+      breakfastCount: Math.max(0, Math.min(profile.breakfastCount, 2)),
+      lunchCount: Math.max(0, Math.min(profile.lunchCount, 2)),
+      dinnerCount: Math.max(0, Math.min(profile.dinnerCount, 2)),
+      snackCount: Math.max(0, Math.min(profile.snackCount, 4)),
+    };
+  }
+  // Legacy fallback
+  return {
+    breakfastCount: 1,
+    lunchCount: 1,
+    dinnerCount: 1,
+    snackCount: profile.includeSnacks ? 2 : 0,
+  };
+}
+
+/**
+ * Build the ordered meal list for a single day based on counts.
+ * Order: breakfast(s), snack, lunch(es), snack, dinner(s), remaining snacks
+ */
+function buildMealOrder(counts: ReturnType<typeof resolveMealCounts>): string[] {
+  const order: string[] = [];
+  for (let i = 0; i < counts.breakfastCount; i++) order.push('breakfast');
+  if (counts.snackCount >= 1) order.push('snack'); // morning snack
+  for (let i = 0; i < counts.lunchCount; i++) order.push('lunch');
+  if (counts.snackCount >= 2) order.push('snack'); // afternoon snack
+  for (let i = 0; i < counts.dinnerCount; i++) order.push('dinner');
+  // Extra snacks beyond 2
+  for (let i = 2; i < counts.snackCount; i++) order.push('snack');
+  return order;
+}
+
+/**
+ * Compute per-meal calorie/macro percentages dynamically.
+ * Returns a map of mealType -> { calPct, protPct, carbPct, fatPct }
+ */
+function computeMealPercentages(counts: ReturnType<typeof resolveMealCounts>): Record<string, { calPct: number; protPct: number; carbPct: number; fatPct: number }> {
+  const total = counts.breakfastCount + counts.lunchCount + counts.dinnerCount + counts.snackCount;
+  if (total === 0) return {};
+
+  // Base weights (relative importance)
+  const bfWeight = 2.2;   // breakfast gets ~22% of a standard day
+  const lnWeight = 3.2;   // lunch gets ~32%
+  const dnWeight = 2.8;   // dinner gets ~28%
+  const skWeight = 0.9;   // each snack gets ~9%
+
+  const totalWeight =
+    counts.breakfastCount * bfWeight +
+    counts.lunchCount * lnWeight +
+    counts.dinnerCount * dnWeight +
+    counts.snackCount * skWeight;
+
+  const pct = (w: number) => w / totalWeight;
+
+  // Protein distribution differs slightly: snacks get proportionally less
+  const bfProtWeight = 2.0;
+  const lnProtWeight = 2.8;
+  const dnProtWeight = 2.6;
+  const skProtWeight = 1.3;
+  const totalProtWeight =
+    counts.breakfastCount * bfProtWeight +
+    counts.lunchCount * lnProtWeight +
+    counts.dinnerCount * dnProtWeight +
+    counts.snackCount * skProtWeight;
+
+  const protPct = (w: number) => w / totalProtWeight;
+
+  return {
+    breakfast: { calPct: pct(bfWeight), protPct: protPct(bfProtWeight), carbPct: pct(bfWeight), fatPct: pct(bfWeight) },
+    lunch:     { calPct: pct(lnWeight), protPct: protPct(lnProtWeight), carbPct: pct(lnWeight), fatPct: pct(lnWeight) },
+    dinner:    { calPct: pct(dnWeight), protPct: protPct(dnProtWeight), carbPct: pct(dnWeight), fatPct: pct(dnWeight) },
+    snack:     { calPct: pct(skWeight), protPct: protPct(skProtWeight), carbPct: pct(skWeight), fatPct: pct(skWeight) },
+  };
+}
+
 // Skeleton types for 2-step generation
 interface SkeletonMealConcept {
   concept: string;
@@ -383,10 +507,15 @@ interface SkeletonMealConcept {
 interface SkeletonDay {
   day: number;
   breakfast: SkeletonMealConcept;
+  breakfast2?: SkeletonMealConcept;
   lunch: SkeletonMealConcept;
+  lunch2?: SkeletonMealConcept;
   dinner: SkeletonMealConcept;
+  dinner2?: SkeletonMealConcept;
   snack1?: SkeletonMealConcept;
   snack2?: SkeletonMealConcept;
+  snack3?: SkeletonMealConcept;
+  snack4?: SkeletonMealConcept;
 }
 
 interface WeekSkeleton {
@@ -404,6 +533,7 @@ function buildSkeletonPrompt(
   excludeRecipeNames?: string[],
   temporaryExclusions?: string[]
 ): string {
+  const counts = resolveMealCounts(profile);
   const ingredients = buildIngredientList(profile, temporaryExclusions);
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
@@ -445,7 +575,7 @@ USER PROFILE:
 - Avoid Cuisines: ${dislikedCuisines}
 - Cooking Skill: ${profile.cookingSkill}
 - Max Cooking Time: ${profile.maxCookingTimeMinutes} min
-- Include Snacks: ${profile.includeSnacks ? 'Yes (2 per day)' : 'No'}
+- Meal Structure: ${counts.breakfastCount} breakfast, ${counts.lunchCount} lunch, ${counts.dinnerCount} dinner, ${counts.snackCount} snack(s)
 ${simpleModeNote}
 ${skillNote}
 
@@ -463,25 +593,32 @@ ${excludeList ? `AVOID THESE RECIPES: ${excludeList}` : ''}
 RULES:
 1. From the available ingredients above, pick a shared grocery list of 20-25 items for the week
 2. No repeated proteins on consecutive days for lunch/dinner
-3. Each breakfast must be a different concept AND must be quick (≤15 min total)
-4. At least 5 different snack concepts across the week (NOT just yogurt/berries every day)
+3. Each breakfast MUST use a different base category. Categories: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl. Use at least 4 different categories across the week.
+4. At least 5 DISTINCT snack concepts across the week. Max 2 yogurt-based, max 2 cottage-cheese-based, max 2 nut-only snacks.
 5. Same protein can appear multiple times but cooked differently (grilled vs stir-fry vs baked)
 6. Rotate through the user's preferred cuisines across the week — spread them evenly
 7. Each meal concept must be UNIQUE — no repeated concepts across the plan
 8. Include the SPECIFIC cooking method in each concept (e.g. "pan-seared", "baked", "grilled", not just "chicken with rice")
 9. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
+10. Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, roast, etc.)
+11. No two consecutive days should share the same cuisine theme
 
 Return JSON:
 {
   "weeklyGroceryList": ["item1", "item2", ...],
   "days": [
     {
-      "day": 0,
-      "breakfast": { "concept": "veggie egg scramble with toast", "cuisine": "american" },
-      "lunch": { "concept": "grilled chicken quinoa bowl", "protein": "chicken breast", "cuisine": "mediterranean" },
-      "dinner": { "concept": "teriyaki salmon stir-fry", "protein": "salmon", "cuisine": "japanese" }${profile.includeSnacks ? `,
-      "snack1": { "concept": "apple slices with peanut butter" },
-      "snack2": { "concept": "trail mix with dark chocolate" }` : ''}
+      "day": 0${counts.breakfastCount >= 1 ? `,
+      "breakfast": { "concept": "veggie egg scramble with toast", "cuisine": "american" }` : ''}${counts.breakfastCount >= 2 ? `,
+      "breakfast2": { "concept": "overnight oats with berries", "cuisine": "american" }` : ''}${counts.lunchCount >= 1 ? `,
+      "lunch": { "concept": "grilled chicken quinoa bowl", "protein": "chicken breast", "cuisine": "mediterranean" }` : ''}${counts.lunchCount >= 2 ? `,
+      "lunch2": { "concept": "turkey wrap with avocado", "protein": "turkey breast", "cuisine": "american" }` : ''}${counts.dinnerCount >= 1 ? `,
+      "dinner": { "concept": "teriyaki salmon stir-fry", "protein": "salmon", "cuisine": "japanese" }` : ''}${counts.dinnerCount >= 2 ? `,
+      "dinner2": { "concept": "herb baked chicken thighs", "protein": "chicken thighs", "cuisine": "mediterranean" }` : ''}${counts.snackCount >= 1 ? `,
+      "snack1": { "concept": "apple slices with peanut butter" }` : ''}${counts.snackCount >= 2 ? `,
+      "snack2": { "concept": "trail mix with dark chocolate" }` : ''}${counts.snackCount >= 3 ? `,
+      "snack3": { "concept": "hummus with veggies" }` : ''}${counts.snackCount >= 4 ? `,
+      "snack4": { "concept": "protein smoothie" }` : ''}
     }
   ]
 }
@@ -508,19 +645,22 @@ async function generateSkeleton(
     if (DEBUG) console.log('[DEBUG] Generating skeleton with Haiku...');
     const startTime = Date.now();
 
-    const response = await client.messages.create({
-      model: 'claude-3-5-haiku-latest',
-      max_tokens: maxTokens,
-      system: 'You are a meal planning assistant. Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.',
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callClaudeWithRetry(
+      () => client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: maxTokens,
+        system: 'You are a meal planning assistant. Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.',
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      'Skeleton generation'
+    );
 
     const elapsed = Date.now() - startTime;
     if (DEBUG) console.log(`[DEBUG] Skeleton received in ${elapsed}ms, stop: ${response.stop_reason}`);
 
     const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
     if (!textContent || textContent.type !== 'text') {
-      console.warn('[DEBUG] Skeleton: No text content in response');
+      if (DEBUG) console.warn('[DEBUG] Skeleton: No text content in response');
       return null;
     }
 
@@ -529,7 +669,7 @@ async function generateSkeleton(
     const startIdx = cleanJSON.indexOf('{');
     const endIdx = cleanJSON.lastIndexOf('}');
     if (startIdx === -1 || endIdx === -1) {
-      console.warn('[DEBUG] Skeleton: No JSON boundaries found');
+      if (DEBUG) console.warn('[DEBUG] Skeleton: No JSON boundaries found');
       return null;
     }
     cleanJSON = cleanJSON.substring(startIdx, endIdx + 1);
@@ -538,14 +678,14 @@ async function generateSkeleton(
 
     // Basic validation
     if (!skeleton.weeklyGroceryList || !skeleton.days || skeleton.days.length === 0) {
-      console.warn('[DEBUG] Skeleton: Invalid structure (missing groceryList or days)');
+      if (DEBUG) console.warn('[DEBUG] Skeleton: Invalid structure (missing groceryList or days)');
       return null;
     }
 
     if (DEBUG) console.log(`[DEBUG] Skeleton: ${skeleton.weeklyGroceryList.length} grocery items, ${skeleton.days.length} days planned`);
     return skeleton;
   } catch (error) {
-    console.warn('[DEBUG] Skeleton generation failed, falling back to parallel-only:', error instanceof Error ? error.message : error);
+    if (DEBUG) console.warn('[DEBUG] Skeleton generation failed, falling back to parallel-only:', error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -565,6 +705,10 @@ function buildUserPrompt(
   temporaryExclusions?: string[],
   allSkeletonConcepts?: string[]
 ): string {
+  const counts = resolveMealCounts(profile);
+  const mealPcts = computeMealPercentages(counts);
+  const expectedMealOrder = buildMealOrder(counts);
+
   const restrictions = profile.dietaryRestrictions.join(', ') || 'None';
   const allergies = profile.allergies.join(', ') || 'None';
   const foodDislikes = profile.foodDislikes?.join(', ') || 'None';
@@ -640,29 +784,36 @@ function buildUserPrompt(
     pantryNote = '- Pantry: Average - use common pantry staples';
   }
 
-  // Calculate per-meal targets for the prompt
-  // IMPORTANT: Percentages MUST add up to 100% for both calories and protein
-  // Calories: 22 + 32 + 28 + 9 + 9 = 100%
-  // Protein: 20 + 28 + 26 + 13 + 13 = 100%
-  const breakfastCal = Math.round(profile.dailyCalorieTarget * 0.22);
-  const breakfastProtein = Math.round(profile.proteinGrams * 0.20);
-  const lunchCal = Math.round(profile.dailyCalorieTarget * 0.32);
-  const lunchProtein = Math.round(profile.proteinGrams * 0.28);
-  const dinnerCal = Math.round(profile.dailyCalorieTarget * 0.28);
-  const snackProtein = Math.round(profile.proteinGrams * 0.13); // ~27g for 209g target
-
-  const dinnerProtein = Math.round(profile.proteinGrams * 0.26);
-  const snackCal = Math.round(profile.dailyCalorieTarget * 0.09);
-
-  // Calculate carbs and fat per meal
-  const breakfastCarbs = Math.round(profile.carbsGrams * 0.22);
-  const breakfastFat = Math.round(profile.fatGrams * 0.22);
-  const lunchCarbs = Math.round(profile.carbsGrams * 0.32);
-  const lunchFat = Math.round(profile.fatGrams * 0.32);
-  const dinnerCarbs = Math.round(profile.carbsGrams * 0.28);
-  const dinnerFat = Math.round(profile.fatGrams * 0.28);
-  const snackCarbs = Math.round(profile.carbsGrams * 0.09);
-  const snackFat = Math.round(profile.fatGrams * 0.09);
+  // Calculate per-meal targets dynamically based on meal counts
+  const mealTargets: Record<string, { cal: number; protein: number; carbs: number; fat: number }> = {};
+  for (const type of ['breakfast', 'lunch', 'dinner', 'snack'] as const) {
+    const p = mealPcts[type];
+    if (p) {
+      mealTargets[type] = {
+        cal: Math.round(profile.dailyCalorieTarget * p.calPct),
+        protein: Math.round(profile.proteinGrams * p.protPct),
+        carbs: Math.round(profile.carbsGrams * p.carbPct),
+        fat: Math.round(profile.fatGrams * p.fatPct),
+      };
+    }
+  }
+  // Convenience aliases for the JSON example
+  const breakfastCal = mealTargets.breakfast?.cal ?? 0;
+  const breakfastProtein = mealTargets.breakfast?.protein ?? 0;
+  const breakfastCarbs = mealTargets.breakfast?.carbs ?? 0;
+  const breakfastFat = mealTargets.breakfast?.fat ?? 0;
+  const lunchCal = mealTargets.lunch?.cal ?? 0;
+  const lunchProtein = mealTargets.lunch?.protein ?? 0;
+  const lunchCarbs = mealTargets.lunch?.carbs ?? 0;
+  const lunchFat = mealTargets.lunch?.fat ?? 0;
+  const dinnerCal = mealTargets.dinner?.cal ?? 0;
+  const dinnerProtein = mealTargets.dinner?.protein ?? 0;
+  const dinnerCarbs = mealTargets.dinner?.carbs ?? 0;
+  const dinnerFat = mealTargets.dinner?.fat ?? 0;
+  const snackCal = mealTargets.snack?.cal ?? 0;
+  const snackProtein = mealTargets.snack?.protein ?? 0;
+  const snackCarbs = mealTargets.snack?.carbs ?? 0;
+  const snackFat = mealTargets.snack?.fat ?? 0;
 
   // Build skeleton section if available
   let skeletonSection = '';
@@ -670,11 +821,17 @@ function buildUserPrompt(
     const relevantDays = skeleton.days.filter(d => d.day >= startDay && d.day <= endDay);
     if (relevantDays.length > 0) {
       const skeletonLines = relevantDays.map(d => {
-        let line = `Day ${d.day}: Breakfast="${d.breakfast.concept}"`;
-        line += `, Lunch="${d.lunch.concept}" (${d.lunch.protein || ''}, ${d.lunch.cuisine || ''})`;
-        line += `, Dinner="${d.dinner.concept}" (${d.dinner.protein || ''}, ${d.dinner.cuisine || ''})`;
+        let line = `Day ${d.day}:`;
+        if (d.breakfast) line += ` Breakfast="${d.breakfast.concept}"`;
+        if (d.breakfast2) line += `, Breakfast2="${d.breakfast2.concept}"`;
+        if (d.lunch) line += `, Lunch="${d.lunch.concept}" (${d.lunch.protein || ''}, ${d.lunch.cuisine || ''})`;
+        if (d.lunch2) line += `, Lunch2="${d.lunch2.concept}" (${d.lunch2.protein || ''}, ${d.lunch2.cuisine || ''})`;
+        if (d.dinner) line += `, Dinner="${d.dinner.concept}" (${d.dinner.protein || ''}, ${d.dinner.cuisine || ''})`;
+        if (d.dinner2) line += `, Dinner2="${d.dinner2.concept}" (${d.dinner2.protein || ''}, ${d.dinner2.cuisine || ''})`;
         if (d.snack1) line += `, Snack1="${d.snack1.concept}"`;
         if (d.snack2) line += `, Snack2="${d.snack2.concept}"`;
+        if (d.snack3) line += `, Snack3="${d.snack3.concept}"`;
+        if (d.snack4) line += `, Snack4="${d.snack4.concept}"`;
         return line;
       }).join('\n');
 
@@ -696,20 +853,19 @@ Use the assigned proteins, cuisines, and cooking styles. Use ingredients from th
 
   return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}).
 
-═══ DAILY TARGETS (STRICT — every day must be within these ranges) ═══
-- Calories: ${profile.dailyCalorieTarget - 100}-${profile.dailyCalorieTarget + 100} kcal (target ~${profile.dailyCalorieTarget})
-- Protein: ${profile.proteinGrams - 10}-${profile.proteinGrams + 10}g (target ~${profile.proteinGrams}g — do NOT consistently overshoot!)
+═══ DAILY TARGETS (aim for these ranges — natural day-to-day variation is expected) ═══
+- Calories: ${profile.dailyCalorieTarget - 200}-${profile.dailyCalorieTarget + 200} kcal (target ~${profile.dailyCalorieTarget})
+- Protein: ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g (target ~${profile.proteinGrams}g)
 - Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g (target ~${profile.carbsGrams}g)
 - Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g (target ~${profile.fatGrams}g)
-- Vary naturally each day but ALWAYS stay within these ranges
+- IMPORTANT: Each day should feel different. A ${profile.dailyCalorieTarget - 200}-cal day followed by a ${profile.dailyCalorieTarget + 100}-cal day is BETTER than hitting ${profile.dailyCalorieTarget} every day.
 
-═══ PER-MEAL TARGETS (aim for these — don't exceed upper bounds) ═══
-- Breakfast: ~${breakfastCal} cal, ~${breakfastProtein}g protein, ~${breakfastCarbs}g carbs, ~${breakfastFat}g fat
-- Morning Snack: ~${snackCal} cal, ~${snackProtein}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
-- Lunch: ~${lunchCal} cal, ~${lunchProtein}g protein, ~${lunchCarbs}g carbs, ~${lunchFat}g fat
-- Afternoon Snack: ~${snackCal} cal, ~${snackProtein}g protein, ~${snackCarbs}g carbs, ~${snackFat}g fat
-- Dinner: ~${dinnerCal} cal, ~${dinnerProtein}g protein, ~${dinnerCarbs}g carbs, ~${dinnerFat}g fat
-- TIP: If breakfast/lunch/dinner run high on protein, REDUCE snack protein to keep daily total in range
+═══ PER-MEAL TARGETS (ranges — vary naturally within these bounds) ═══
+${counts.breakfastCount > 0 ? `- Breakfast (×${counts.breakfastCount}): ${Math.round(breakfastCal * 0.85)}-${Math.round(breakfastCal * 1.15)} cal, ${Math.round(breakfastProtein * 0.85)}-${Math.round(breakfastProtein * 1.15)}g protein, ${Math.round(breakfastCarbs * 0.85)}-${Math.round(breakfastCarbs * 1.15)}g carbs, ${Math.round(breakfastFat * 0.85)}-${Math.round(breakfastFat * 1.15)}g fat each` : ''}
+${counts.snackCount > 0 ? `- Snack (×${counts.snackCount}): ${Math.round(snackCal * 0.85)}-${Math.round(snackCal * 1.15)} cal, ${Math.round(snackProtein * 0.85)}-${Math.round(snackProtein * 1.15)}g protein, ${Math.round(snackCarbs * 0.85)}-${Math.round(snackCarbs * 1.15)}g carbs, ${Math.round(snackFat * 0.85)}-${Math.round(snackFat * 1.15)}g fat each` : ''}
+${counts.lunchCount > 0 ? `- Lunch (×${counts.lunchCount}): ${Math.round(lunchCal * 0.85)}-${Math.round(lunchCal * 1.15)} cal, ${Math.round(lunchProtein * 0.85)}-${Math.round(lunchProtein * 1.15)}g protein, ${Math.round(lunchCarbs * 0.85)}-${Math.round(lunchCarbs * 1.15)}g carbs, ${Math.round(lunchFat * 0.85)}-${Math.round(lunchFat * 1.15)}g fat each` : ''}
+${counts.dinnerCount > 0 ? `- Dinner (×${counts.dinnerCount}): ${Math.round(dinnerCal * 0.85)}-${Math.round(dinnerCal * 1.15)} cal, ${Math.round(dinnerProtein * 0.85)}-${Math.round(dinnerProtein * 1.15)}g protein, ${Math.round(dinnerCarbs * 0.85)}-${Math.round(dinnerCarbs * 1.15)}g carbs, ${Math.round(dinnerFat * 0.85)}-${Math.round(dinnerFat * 1.15)}g fat each` : ''}
+- These are ranges, not exact targets. Vary naturally within them.
 
 ${personalizationSection}
 ═══ RESTRICTIONS ═══
@@ -725,12 +881,8 @@ ${pantryNote}
 ${weeklyPreferences ? `═══ THIS WEEK (STRICT — temporary exclusions are like allergies!) ═══\n${weeklyPreferences}` : ''}
 ${excludeList ? `═══ AVOID THESE RECIPES ═══\n${excludeList}` : ''}
 
-CRITICAL MEAL ORDER: Each day MUST contain exactly these meals in this order:
-1. breakfast (1 meal)
-2. snack (morning snack)
-3. lunch (1 meal)
-4. snack (afternoon snack)
-5. dinner (1 meal)
+CRITICAL MEAL ORDER: Each day MUST contain exactly ${expectedMealOrder.length} meals in this order:
+${expectedMealOrder.map((type, i) => `${i + 1}. ${type}`).join('\n')}
 The "mealType" field MUST be exactly one of: "breakfast", "snack", "lunch", "dinner"
 Never label a snack as "breakfast" or vice versa.
 
@@ -757,123 +909,51 @@ ${isMetric
 - Pantry staples (don't list): salt, pepper, garlic powder, spices, honey
 
 ${skeletonSection}
-═══ VARIETY RULES ═══
-- Each breakfast should be different (rotate eggs, oatmeal+yogurt, smoothie, toast, etc.)
-- Snacks: target ~${snackProtein}g protein each — VARY across days (not all yogurt+berries!)
+═══ VARIETY RULES (CRITICAL) ═══
+${counts.breakfastCount > 0 ? '- Breakfasts MUST use at least 4 different base categories: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl. No two consecutive days with the same category.' : ''}
+${counts.snackCount > 0 ? `- At least 5 DISTINCT snack concepts. Max 2 yogurt-based, max 2 cottage-cheese-based, max 2 nut-only. Vary across days!` : ''}
 - No repeated protein for lunch/dinner on consecutive days
+- Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, roast)
+- No two consecutive days should share the same cuisine theme
+- Each day should have a different overall character — different flavors, textures, and feel
 - CARBS: Include a proper carb source in lunch and dinner (rice, potato, quinoa, pasta, bread)
 
-Respond with JSON (each day MUST have exactly 5 meals in this order):
+Respond with JSON (each day MUST have exactly ${expectedMealOrder.length} meals in order: ${expectedMealOrder.join(', ')}):
 {
   "days": [
     {
       "dayOfWeek": ${startDay},
       "meals": [
-        {
-          "mealType": "breakfast",
+${expectedMealOrder.map(type => {
+  const t = mealTargets[type];
+  // Offset example values so Claude doesn't copy them verbatim
+  const exCal = (t?.cal ?? 0) - 25;
+  const exProt = (t?.protein ?? 0) - 3;
+  const exCarbs = (t?.carbs ?? 0) + 5;
+  const exFat = (t?.fat ?? 0) - 2;
+  return `        {
+          "mealType": "${type}",
           "recipe": {
-            "name": "Veggie Egg Scramble",
-            "description": "Quick scrambled eggs with vegetables",
+            "name": "Example ${type} recipe",
+            "description": "A ${type} recipe",
             "instructions": ["Step 1", "Step 2"],
-            "prepTimeMinutes": 5,
-            "cookTimeMinutes": 8,
+            "prepTimeMinutes": ${type === 'breakfast' ? 5 : type === 'snack' ? 3 : 10},
+            "cookTimeMinutes": ${type === 'breakfast' ? 8 : type === 'snack' ? 0 : 20},
             "servings": 1,
             "complexity": "easy",
             "cuisineType": "american",
-            "calories": ${breakfastCal},
-            "proteinGrams": ${breakfastProtein},
-            "carbsGrams": ${breakfastCarbs},
-            "fatGrams": ${breakfastFat},
+            "calories": ${exCal},
+            "proteinGrams": ${exProt},
+            "carbsGrams": ${exCarbs},
+            "fatGrams": ${exFat},
             "fiberGrams": 3,
             "ingredients": [
-              {"name": "eggs", "quantity": 3, "unit": "piece", "category": "dairy"}
+              {"name": "ingredient", "quantity": 100, "unit": "gram", "category": "produce"}
             ]
           }
-        },
-        {
-          "mealType": "snack",
-          "recipe": {
-            "name": "Apple Peanut Butter Bites",
-            "description": "Morning snack",
-            "instructions": ["Step 1"],
-            "prepTimeMinutes": 3,
-            "cookTimeMinutes": 0,
-            "servings": 1,
-            "complexity": "easy",
-            "cuisineType": "american",
-            "calories": ${snackCal},
-            "proteinGrams": ${snackProtein},
-            "carbsGrams": ${snackCarbs},
-            "fatGrams": ${snackFat},
-            "fiberGrams": 2,
-            "ingredients": [
-              {"name": "apple", "quantity": 1, "unit": "piece", "category": "produce"}
-            ]
-          }
-        },
-        {
-          "mealType": "lunch",
-          "recipe": {
-            "name": "Grilled Chicken Rice Bowl",
-            "description": "Protein-packed lunch bowl",
-            "instructions": ["Step 1", "Step 2"],
-            "prepTimeMinutes": 10,
-            "cookTimeMinutes": 20,
-            "servings": 1,
-            "complexity": "easy",
-            "cuisineType": "asian",
-            "calories": ${lunchCal},
-            "proteinGrams": ${lunchProtein},
-            "carbsGrams": ${lunchCarbs},
-            "fatGrams": ${lunchFat},
-            "fiberGrams": 4,
-            "ingredients": [
-              {"name": "chicken breast", "quantity": 200, "unit": "gram", "category": "meat"}
-            ]
-          }
-        },
-        {
-          "mealType": "snack",
-          "recipe": {
-            "name": "Trail Mix Energy Bites",
-            "description": "Afternoon snack",
-            "instructions": ["Step 1"],
-            "prepTimeMinutes": 2,
-            "cookTimeMinutes": 0,
-            "servings": 1,
-            "complexity": "easy",
-            "cuisineType": "american",
-            "calories": ${snackCal},
-            "proteinGrams": ${snackProtein},
-            "carbsGrams": ${snackCarbs},
-            "fatGrams": ${snackFat},
-            "fiberGrams": 2,
-            "ingredients": [
-              {"name": "trail mix", "quantity": 40, "unit": "gram", "category": "pantry"}
-            ]
-          }
-        },
-        {
-          "mealType": "dinner",
-          "recipe": {
-            "name": "Baked Salmon with Asparagus",
-            "description": "Herb-seasoned salmon dinner",
-            "instructions": ["Step 1", "Step 2"],
-            "prepTimeMinutes": 10,
-            "cookTimeMinutes": 20,
-            "servings": 1,
-            "complexity": "easy",
-            "cuisineType": "mediterranean",
-            "calories": ${dinnerCal},
-            "proteinGrams": ${dinnerProtein},
-            "carbsGrams": ${dinnerCarbs},
-            "fatGrams": ${dinnerFat},
-            "fiberGrams": 4,
-            "ingredients": [
-              {"name": "salmon", "quantity": 180, "unit": "gram", "category": "meat"}
-            ]
-          }
-        }
+        }`;
+}).join(',\n')}
+NOTE: The values above are EXAMPLES only. Vary your actual values naturally within the per-meal ranges.
       ]
     }
   ]
@@ -885,19 +965,19 @@ Valid categories: produce, meat, dairy, pantry
 
 dayOfWeek: ${startDay}-${endDay}
 
-FINAL CHECK — BEFORE RESPONDING, verify each day's meals sum to:
-- Calories: ${profile.dailyCalorieTarget - 100}-${profile.dailyCalorieTarget + 100} kcal
-- Protein: ${profile.proteinGrams - 10}-${profile.proteinGrams + 10}g (do NOT consistently exceed ${profile.proteinGrams}g — if lunch/dinner run high, reduce snack protein to compensate)
+FINAL CHECK — BEFORE RESPONDING, verify each day's meals sum to approximately:
+- Calories: ${profile.dailyCalorieTarget - 200}-${profile.dailyCalorieTarget + 200} kcal
+- Protein: ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g
 - Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g
 - Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g
-If any day is outside these ranges, adjust recipe portions before responding.`;
+Natural day-to-day variation is expected and desired. Do NOT adjust portions to hit identical totals each day.`;
 }
 
 /**
  * Parse and clean Claude's JSON response
  */
 function parseClaudeResponse(content: string, batchLabel: string = 'unknown'): MealPlanResponse {
-  console.log(`[DEBUG] Parsing response for ${batchLabel}, length: ${content.length} chars`);
+  if (DEBUG) console.log(`[DEBUG] Parsing response for ${batchLabel}, length: ${content.length} chars`);
 
   // Clean up potential markdown code blocks
   let cleanJSON = content
@@ -910,22 +990,22 @@ function parseClaudeResponse(content: string, batchLabel: string = 'unknown'): M
   const endIndex = cleanJSON.lastIndexOf('}');
 
   if (startIndex === -1 || endIndex === -1) {
-    console.error(`[DEBUG] ${batchLabel} - No JSON boundaries found in response`);
-    console.error(`[DEBUG] ${batchLabel} - Raw response (first 500 chars):`, content.substring(0, 500));
+    if (DEBUG) console.error(`[DEBUG] ${batchLabel} - No JSON boundaries found in response`);
+    if (DEBUG) console.error(`[DEBUG] ${batchLabel} - Raw response (first 500 chars):`, content.substring(0, 500));
     throw new Error(`No valid JSON object found in response for ${batchLabel}`);
   }
 
   cleanJSON = cleanJSON.substring(startIndex, endIndex + 1);
-  console.log(`[DEBUG] ${batchLabel} - Extracted JSON length: ${cleanJSON.length} chars`);
+  if (DEBUG) console.log(`[DEBUG] ${batchLabel} - Extracted JSON length: ${cleanJSON.length} chars`);
 
   try {
     const parsed = JSON.parse(cleanJSON) as MealPlanResponse;
-    console.log(`[DEBUG] ${batchLabel} - Parse successful, ${parsed.days?.length || 0} days`);
+    if (DEBUG) console.log(`[DEBUG] ${batchLabel} - Parse successful, ${parsed.days?.length || 0} days`);
     return parsed;
   } catch (parseError) {
-    console.error(`[DEBUG] ${batchLabel} - JSON parse failed:`, parseError instanceof Error ? parseError.message : parseError);
-    console.error(`[DEBUG] ${batchLabel} - Clean JSON (first 1000 chars):`, cleanJSON.substring(0, 1000));
-    console.error(`[DEBUG] ${batchLabel} - Clean JSON (last 500 chars):`, cleanJSON.substring(Math.max(0, cleanJSON.length - 500)));
+    if (DEBUG) console.error(`[DEBUG] ${batchLabel} - JSON parse failed:`, parseError instanceof Error ? parseError.message : parseError);
+    if (DEBUG) console.error(`[DEBUG] ${batchLabel} - Clean JSON (first 1000 chars):`, cleanJSON.substring(0, 1000));
+    if (DEBUG) console.error(`[DEBUG] ${batchLabel} - Clean JSON (last 500 chars):`, cleanJSON.substring(Math.max(0, cleanJSON.length - 500)));
     throw new Error(`Failed to parse JSON response from Claude for ${batchLabel}`);
   }
 }
@@ -980,6 +1060,12 @@ export async function handleGeneratePlan(
   if (typeof userProfile.mealsPerDay !== 'number' || userProfile.mealsPerDay < 1 || userProfile.mealsPerDay > 10) {
     return { success: false, error: 'Invalid meals per day' };
   }
+  // Validate per-type counts when present
+  const resolvedCounts = resolveMealCounts(userProfile);
+  const totalMeals = resolvedCounts.breakfastCount + resolvedCounts.lunchCount + resolvedCounts.dinnerCount + resolvedCounts.snackCount;
+  if (totalMeals < 1) {
+    return { success: false, error: 'At least 1 meal per day is required' };
+  }
 
   if (DEBUG) {
     console.log('[DEBUG] User Profile:', JSON.stringify({
@@ -993,6 +1079,10 @@ export async function handleGeneratePlan(
       cookingSkill: userProfile.cookingSkill,
       mealsPerDay: userProfile.mealsPerDay,
       includeSnacks: userProfile.includeSnacks,
+      breakfastCount: userProfile.breakfastCount,
+      lunchCount: userProfile.lunchCount,
+      dinnerCount: userProfile.dinnerCount,
+      snackCount: userProfile.snackCount,
       pantryLevel: userProfile.pantryLevel,
       barriers: userProfile.barriers,
     }));
@@ -1078,9 +1168,10 @@ export async function handleGeneratePlan(
     const allDays: DayDTO[] = [];
 
     // Step 2: Using Claude Haiku for cost efficiency (~12x cheaper than Sonnet)
-    // Split into batches of 2 days each to fit within Haiku's 4096 token output limit
-    const MODEL = 'claude-3-5-haiku-latest';
-    const MAX_TOKENS = 4000;
+    // Haiku supports up to 8192 output tokens — use 8000 to leave margin
+    // 2 days × 5 meals × detailed recipes typically needs 5000-7000 tokens
+    const MODEL = 'claude-haiku-4-5-20251001';
+    const MAX_TOKENS = 8000;
 
     // Dynamic batching: pairs of 2 days each, remainder in last batch
     const batches: [number, number][] = [];
@@ -1093,42 +1184,68 @@ export async function handleGeneratePlan(
     let allSkeletonConcepts: string[] = [];
     if (skeleton) {
       for (const day of skeleton.days) {
-        allSkeletonConcepts.push(day.breakfast.concept);
-        allSkeletonConcepts.push(day.lunch.concept);
-        allSkeletonConcepts.push(day.dinner.concept);
+        if (day.breakfast) allSkeletonConcepts.push(day.breakfast.concept);
+        if (day.breakfast2) allSkeletonConcepts.push(day.breakfast2.concept);
+        if (day.lunch) allSkeletonConcepts.push(day.lunch.concept);
+        if (day.lunch2) allSkeletonConcepts.push(day.lunch2.concept);
+        if (day.dinner) allSkeletonConcepts.push(day.dinner.concept);
+        if (day.dinner2) allSkeletonConcepts.push(day.dinner2.concept);
         if (day.snack1) allSkeletonConcepts.push(day.snack1.concept);
         if (day.snack2) allSkeletonConcepts.push(day.snack2.concept);
+        if (day.snack3) allSkeletonConcepts.push(day.snack3.concept);
+        if (day.snack4) allSkeletonConcepts.push(day.snack4.concept);
       }
     }
 
-    // Run all batches IN PARALLEL for speed
-    if (DEBUG) console.log(`[DEBUG] Starting ${batches.length} batches in PARALLEL for ${duration}-day plan...`);
-    const parallelStartTime = Date.now();
+    // Run batches SEQUENTIALLY to stay within Anthropic rate limits
+    // (10k output tokens/min — each batch uses ~5000-7000 tokens)
+    if (DEBUG) console.log(`[DEBUG] Starting ${batches.length} batches SEQUENTIALLY for ${duration}-day plan...`);
+    const sequentialStartTime = Date.now();
 
-    const batchPromises = batches.map(async ([startDay, endDay], i) => {
+    for (let i = 0; i < batches.length; i++) {
+      const [startDay, endDay] = batches[i];
       const batchNum = i + 1;
       if (DEBUG) console.log(`[DEBUG] Batch ${batchNum}: Days ${startDay}-${endDay} - STARTING`);
 
-      // For cross-batch awareness, exclude concepts from THIS batch so other batch concepts are listed
-      const otherBatchConcepts = skeleton ? allSkeletonConcepts.filter((_, idx) => {
-        const conceptsPerDay = skeleton.days[0]?.snack1 ? 5 : 3;
-        const dayIdx = Math.floor(idx / conceptsPerDay);
-        const day = skeleton.days[dayIdx];
-        return day && (day.day < startDay || day.day > endDay);
-      }) : [];
+      // For cross-batch awareness, collect concepts from days NOT in this batch
+      const otherBatchConcepts: string[] = [];
+      if (skeleton) {
+        for (const day of skeleton.days) {
+          if (day.day < startDay || day.day > endDay) {
+            if (day.breakfast) otherBatchConcepts.push(day.breakfast.concept);
+            if (day.breakfast2) otherBatchConcepts.push(day.breakfast2.concept);
+            if (day.lunch) otherBatchConcepts.push(day.lunch.concept);
+            if (day.lunch2) otherBatchConcepts.push(day.lunch2.concept);
+            if (day.dinner) otherBatchConcepts.push(day.dinner.concept);
+            if (day.dinner2) otherBatchConcepts.push(day.dinner2.concept);
+            if (day.snack1) otherBatchConcepts.push(day.snack1.concept);
+            if (day.snack2) otherBatchConcepts.push(day.snack2.concept);
+            if (day.snack3) otherBatchConcepts.push(day.snack3.concept);
+            if (day.snack4) otherBatchConcepts.push(day.snack4.concept);
+          }
+        }
+      }
 
       const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames, skeleton, resolvedExclusions, otherBatchConcepts);
       const startTime = Date.now();
 
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      });
+      const response = await callClaudeWithRetry(
+        () => client.messages.create({
+          model: MODEL,
+          max_tokens: MAX_TOKENS,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+        `Batch ${batchNum} (days ${startDay}-${endDay})`
+      );
 
       const batchTime = Date.now() - startTime;
       if (DEBUG) console.log(`[DEBUG] Batch ${batchNum} received in ${batchTime}ms, stop: ${response.stop_reason}`);
+
+      // Check if response was truncated due to token limit
+      if (response.stop_reason === 'max_tokens') {
+        if (DEBUG) console.error(`[ERROR] Batch ${batchNum} (days ${startDay}-${endDay}) was TRUNCATED (stop_reason=max_tokens). Response may contain invalid JSON.`);
+      }
 
       const textContent = response.content.find((c: Anthropic.ContentBlock) => c.type === 'text');
       if (!textContent || textContent.type !== 'text') {
@@ -1138,20 +1255,11 @@ export async function handleGeneratePlan(
       const batchResult = parseClaudeResponse(textContent.text, `Batch ${batchNum} (days ${startDay}-${endDay})`);
       if (DEBUG) console.log(`[DEBUG] Batch ${batchNum} parsed: ${batchResult.days.length} days`);
 
-      return { batchNum, days: batchResult.days };
-    });
-
-    // Wait for all batches to complete
-    const batchResults = await Promise.all(batchPromises);
-
-    // Sort by batch number and combine days in order
-    batchResults.sort((a, b) => a.batchNum - b.batchNum);
-    for (const result of batchResults) {
-      allDays.push(...result.days);
+      allDays.push(...batchResult.days);
     }
 
-    const totalParallelTime = Date.now() - parallelStartTime;
-    if (DEBUG) console.log('[DEBUG] All batches completed in:', totalParallelTime, 'ms (PARALLEL)');
+    const totalSequentialTime = Date.now() - sequentialStartTime;
+    if (DEBUG) console.log('[DEBUG] All batches completed in:', totalSequentialTime, 'ms (SEQUENTIAL)');
 
     // Combine batches
     const mealPlan: MealPlanResponse = { days: allDays };
@@ -1161,11 +1269,9 @@ export async function handleGeneratePlan(
     if (DEBUG) console.log('[DEBUG] Parsed meal plan:', mealPlan.days.length, 'days,', totalMeals, 'total meals');
 
     // Post-generation: auto-correct meal types based on position
-    // The expected order for 5 meals is: breakfast, snack, lunch, snack, dinner
-    // The AI sometimes mislabels snacks as breakfast or other types
-    const expectedMealOrder = userProfile.includeSnacks
-      ? ['breakfast', 'snack', 'lunch', 'snack', 'dinner']
-      : ['breakfast', 'lunch', 'dinner'];
+    // Build expected order dynamically from user's meal counts
+    const postCounts = resolveMealCounts(userProfile);
+    const expectedMealOrder = buildMealOrder(postCounts);
 
     for (const day of mealPlan.days) {
       if (day.meals.length === expectedMealOrder.length) {
@@ -1177,10 +1283,10 @@ export async function handleGeneratePlan(
           for (let i = 0; i < day.meals.length; i++) {
             day.meals[i].mealType = expectedMealOrder[i];
           }
-          console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Auto-corrected meal types from [${originalTypes}] to [${expectedMealOrder.join(', ')}]`);
+          if (DEBUG) console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Auto-corrected meal types from [${originalTypes}] to [${expectedMealOrder.join(', ')}]`);
         }
       } else {
-        console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedMealOrder.length} meals, got ${day.meals.length} — cannot auto-correct`);
+        if (DEBUG) console.warn(`[VALIDATION] Day ${day.dayOfWeek}: Expected ${expectedMealOrder.length} meals, got ${day.meals.length} — cannot auto-correct`);
       }
     }
 
@@ -1189,7 +1295,7 @@ export async function handleGeneratePlan(
     for (const day of mealPlan.days) {
       for (const meal of day.meals) {
         if (recipeNames.has(meal.recipe.name)) {
-          console.warn(`[VALIDATION] Duplicate recipe name: "${meal.recipe.name}"`);
+          if (DEBUG) console.warn(`[VALIDATION] Duplicate recipe name: "${meal.recipe.name}"`);
         }
         recipeNames.add(meal.recipe.name);
       }
@@ -1247,6 +1353,19 @@ export async function handleGeneratePlan(
 
     if (DEBUG) console.log('[DEBUG] ========== GENERATE PLAN SUCCESS ==========');
 
+    // Only count against rate limit after successful generation
+    let rateLimitInfo = { remaining: 0, resetTime: new Date().toISOString(), limit: 5 };
+    try {
+      const updatedLimit = await incrementRateLimit(deviceId, 'generate-plan');
+      rateLimitInfo = {
+        remaining: updatedLimit.remaining,
+        resetTime: updatedLimit.resetTime.toISOString(),
+        limit: updatedLimit.limit,
+      };
+    } catch (rlError) {
+      if (DEBUG) console.error('[WARN] incrementRateLimit failed (non-fatal):', rlError instanceof Error ? rlError.message : rlError);
+    }
+
     return {
       success: true,
       mealPlan: {
@@ -1255,20 +1374,28 @@ export async function handleGeneratePlan(
       },
       recipesAdded: storageResult.saved,
       recipesDuplicate: storageResult.duplicates,
-      rateLimitInfo: {
-        remaining: rateLimit.remaining,
-        resetTime: rateLimit.resetTime.toISOString(),
-        limit: rateLimit.limit,
-      },
+      rateLimitInfo,
     };
   } catch (error) {
     if (DEBUG) console.log('[DEBUG] ========== GENERATE PLAN ERROR ==========');
-    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    const errorType = error instanceof Error ? error.constructor.name : typeof error;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    if (DEBUG) console.error('Error type:', errorType);
+    if (DEBUG) console.error('Error message:', errorMsg);
+    if (DEBUG && error instanceof Error && error.stack) {
+      console.error('Error stack:', error.stack);
+    }
 
+    // Surface rate limit errors so the client can show a meaningful message
+    const isRateLimit = errorType === 'RateLimitError' || errorMsg.includes('429');
+    const isJsonParse = errorMsg.includes('parse') || errorMsg.includes('JSON');
     return {
       success: false,
-      error: 'Failed to generate meal plan. Please try again.',
+      error: isRateLimit
+        ? 'AI service is busy. Please wait a minute and try again.'
+        : isJsonParse
+        ? 'AI returned an incomplete response. Please try again.'
+        : 'Failed to generate meal plan. Please try again.',
     };
   }
 }
