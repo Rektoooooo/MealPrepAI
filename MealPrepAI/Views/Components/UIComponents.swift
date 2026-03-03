@@ -245,6 +245,7 @@ struct QuickActionButton: View {
             .scaleEffect(isPressed ? 0.95 : 1)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
             withAnimation(Design.Animation.quick) {
                 isPressed = pressing

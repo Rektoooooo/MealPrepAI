@@ -5,6 +5,8 @@ import {
   SubscriptionStatus,
 } from '../utils/subscriptionVerifier';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 /**
  * POST /v1/apple-notifications
  * Webhook for Apple Server Notifications V2.
@@ -28,12 +30,12 @@ export const handleAppStoreWebhook = async (
 
     const notificationType = notification.notificationType;
     const subtype = notification.subtype;
-    console.log(`[apple-webhook] Received: ${notificationType} / ${subtype ?? 'none'}`);
+    if (DEBUG) console.log(`[apple-webhook] Received: ${notificationType} / ${subtype ?? 'none'}`);
 
     // Decode the transaction info from the notification
     const signedTransactionInfo = notification.data?.signedTransactionInfo;
     if (!signedTransactionInfo) {
-      console.warn('[apple-webhook] No transaction info in notification');
+      if (DEBUG) console.warn('[apple-webhook] No transaction info in notification');
       res.status(200).json({ received: true });
       return;
     }
@@ -42,7 +44,7 @@ export const handleAppStoreWebhook = async (
     const originalTransactionId = transaction.originalTransactionId;
 
     if (!originalTransactionId) {
-      console.warn('[apple-webhook] No originalTransactionId in transaction');
+      if (DEBUG) console.warn('[apple-webhook] No originalTransactionId in transaction');
       res.status(200).json({ received: true });
       return;
     }
@@ -88,7 +90,7 @@ export const handleAppStoreWebhook = async (
         break;
 
       default:
-        console.log(`[apple-webhook] Unhandled notification type: ${notificationType}`);
+        if (DEBUG) console.log(`[apple-webhook] Unhandled notification type: ${notificationType}`);
     }
 
     if (status) {
@@ -98,7 +100,7 @@ export const handleAppStoreWebhook = async (
         expiresDate,
         autoRenewEnabled,
       );
-      console.log(`[apple-webhook] Updated ${originalTransactionId} → ${status}`);
+      if (DEBUG) console.log(`[apple-webhook] Updated ${originalTransactionId} → ${status}`);
     } else if (autoRenewEnabled !== undefined) {
       // Import needed for auto-renew only update
       await updateStatusByOriginalTransactionId(
@@ -107,12 +109,12 @@ export const handleAppStoreWebhook = async (
         undefined,
         autoRenewEnabled,
       );
-      console.log(`[apple-webhook] Updated auto-renew for ${originalTransactionId}`);
+      if (DEBUG) console.log(`[apple-webhook] Updated auto-renew for ${originalTransactionId}`);
     }
 
     res.status(200).json({ received: true });
   } catch (error) {
-    console.error('[apple-webhook] Error processing notification:', error);
+    if (DEBUG) console.error('[apple-webhook] Error processing notification:', error);
     // Return 200 to prevent Apple from retrying on verification errors
     res.status(200).json({ received: true, error: 'processing_failed' });
   }

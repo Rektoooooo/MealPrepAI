@@ -34,6 +34,7 @@ enum OnboardingStep: Int, CaseIterable {
     case cuisinePreferences
     case cookingSkills
     case pantry
+    case mealSelection
 
     // Motivation & Value
     case appComparison
@@ -74,6 +75,7 @@ enum OnboardingStep: Int, CaseIterable {
         case .cuisinePreferences: return "Cuisine"
         case .cookingSkills: return "Skills"
         case .pantry: return "Pantry"
+        case .mealSelection: return "Meals"
         case .appComparison: return "Benefits"
         case .barriers: return "Challenges"
         case .potential: return "Potential"
@@ -202,6 +204,8 @@ struct NewOnboardingView: View {
                 )
             }
         }
+        .preferredColorScheme(.light)
+        .interactiveDismissDisabled()
         .alert("Unable to Save", isPresented: $showSaveErrorAlert) {
             Button("Try Again") {
                 let success = viewModel.saveProfile(modelContext: modelContext)
@@ -334,6 +338,15 @@ struct NewOnboardingView: View {
         case .pantry:
             PantryStepView(
                 pantryLevel: $viewModel.pantryLevel,
+                onContinue: { goToNext() }
+            )
+
+        case .mealSelection:
+            MealSelectionStepView(
+                breakfastCount: $viewModel.breakfastCount,
+                lunchCount: $viewModel.lunchCount,
+                dinnerCount: $viewModel.dinnerCount,
+                snackCount: $viewModel.snackCount,
                 onContinue: { goToNext() }
             )
 

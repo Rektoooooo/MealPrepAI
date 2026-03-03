@@ -736,7 +736,7 @@ struct RecipesView: View {
                     .font(Design.Typography.iconMedium)
                     .foregroundStyle(Color.mintVibrant)
                     .rotationEffect(.degrees(isLoading ? 360 : 0))
-                    .animation(isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isLoading)
+                    .animation(isLoading && !UIAccessibility.isReduceMotionEnabled ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isLoading)
             }
 
             VStack(spacing: Design.Spacing.sm) {

@@ -29,6 +29,9 @@ import { incrementPlansGenerated } from './utils/subscriptionVerifier';
 admin.initializeApp();
 const db = admin.firestore();
 
+// Only log verbose operational messages when running in the emulator
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Spoonacular API key from environment variable (.env file)
 const SPOONACULAR_API_KEY = process.env.SPOONACULAR_API_KEY;
 
@@ -144,7 +147,7 @@ async function fetchAndSaveRecipes(params: {
 
   const url = `https://api.spoonacular.com/recipes/complexSearch?${queryParts.join('&')}`;
   const label = [params.cuisine, params.type].filter(Boolean).join('/') || 'general';
-  console.log(`Fetching ${label} recipes...`);
+  if (DEBUG) console.log(`Fetching ${label} recipes...`);
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -153,12 +156,12 @@ async function fetchAndSaveRecipes(params: {
   }
 
   const data: SpoonacularResponse = await response.json();
-  console.log(`Found ${data.results.length} ${label} recipes`);
+  if (DEBUG) console.log(`Found ${data.results.length} ${label} recipes`);
 
   // Filter out recipes below health score threshold
   const healthyRecipes = data.results.filter(r => (r.healthScore || 0) >= MIN_HEALTH_SCORE);
   filtered = data.results.length - healthyRecipes.length;
-  if (filtered > 0) {
+  if (filtered > 0 && DEBUG) {
     console.log(`Filtered out ${filtered} ${label} recipes with healthScore < ${MIN_HEALTH_SCORE}`);
   }
 
@@ -219,7 +222,7 @@ async function fetchAndSaveRecipes(params: {
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       });
       added++;
-      console.log(`Added: ${recipe.title} (${label}, ${mealType})`);
+      if (DEBUG) console.log(`Added: ${recipe.title} (${label}, ${mealType})`);
     } catch (recipeError) {
       console.error(`Error processing recipe ${recipe.id}:`, recipeError);
     }
@@ -247,7 +250,7 @@ export const collectRecipes = functions
   .schedule('0 14 * * *')  // 2pm UTC daily
   .timeZone('UTC')
   .onRun(async () => {
-    console.log('Starting daily recipe collection...');
+    if (DEBUG) console.log('Starting daily recipe collection...');
 
     if (!SPOONACULAR_API_KEY) {
       console.error('Spoonacular API key not configured!');
@@ -303,7 +306,7 @@ export const collectRecipes = functions
       }
     }
 
-    console.log(`Recipe collection complete! Added: ${totalAdded}, Skipped: ${totalSkipped}, Filtered (health score < ${MIN_HEALTH_SCORE}): ${totalFiltered}`);
+    if (DEBUG) console.log(`Recipe collection complete! Added: ${totalAdded}, Skipped: ${totalSkipped}, Filtered (health score < ${MIN_HEALTH_SCORE}): ${totalFiltered}`);
     return null;
   });
 
@@ -329,7 +332,7 @@ export const triggerRecipeCollection = functions.https.onRequest(async (req, res
     return;
   }
 
-  console.log('Manual recipe collection triggered');
+  if (DEBUG) console.log('Manual recipe collection triggered');
 
   if (!SPOONACULAR_API_KEY) {
     res.status(500).send('Spoonacular API key not configured');
@@ -478,7 +481,7 @@ export const cleanupLowHealthScoreRecipes = functions
     const dryRun = req.query.dryRun === 'true';
     const threshold = Math.min(100, Math.max(0, parseInt(req.query.threshold as string) || MIN_HEALTH_SCORE));
 
-    console.log(`Cleanup low health score recipes (threshold: ${threshold}, dryRun: ${dryRun})`);
+    if (DEBUG) console.log(`Cleanup low health score recipes (threshold: ${threshold}, dryRun: ${dryRun})`);
 
     try {
       const snapshot = await db.collection(RECIPES_COLLECTION)
@@ -518,7 +521,7 @@ export const cleanupLowHealthScoreRecipes = functions
         }
         await batch.commit();
         deleted += chunk.length;
-        console.log(`Deleted batch: ${deleted}/${docs.length}`);
+        if (DEBUG) console.log(`Deleted batch: ${deleted}/${docs.length}`);
       }
 
       res.json({
@@ -552,7 +555,7 @@ export const populateRecipes = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  console.log('Starting initial recipe population...');
+  if (DEBUG) console.log('Starting initial recipe population...');
 
   if (!SPOONACULAR_API_KEY) {
     res.status(500).json({ error: 'Spoonacular API key not configured' });
@@ -578,7 +581,7 @@ export const populateRecipes = functions.https.onRequest(async (req, res) => {
     }
   }
 
-  console.log(`Done! Added ${totalAdded} recipes, Filtered: ${totalFiltered}`);
+  if (DEBUG) console.log(`Done! Added ${totalAdded} recipes, Filtered: ${totalFiltered}`);
   res.json({
     success: true,
     recipesAdded: totalAdded,
@@ -622,7 +625,7 @@ const verifyAppCheck = async (req: Request, res: Response, next: express.NextFun
   try {
     // Verify the App Check token
     const appCheckClaims = await admin.appCheck().verifyToken(appCheckToken);
-    console.log(`🔒 [AppCheck] Token verified for app: ${appCheckClaims.appId}`);
+    if (DEBUG) console.log(`🔒 [AppCheck] Token verified for app: ${appCheckClaims.appId}`);
 
     // Token is valid, proceed to the next middleware/route
     next();
@@ -775,9 +778,9 @@ export const cleanupRateLimits = functions
   .schedule('0 4 * * *')
   .timeZone('UTC')
   .onRun(async () => {
-    console.log('Starting rate limit cleanup...');
+    if (DEBUG) console.log('Starting rate limit cleanup...');
     const deleted = await cleanupExpiredRateLimits();
-    console.log(`Cleaned up ${deleted} expired rate limit records`);
+    if (DEBUG) console.log(`Cleaned up ${deleted} expired rate limit records`);
     return null;
   });
 
@@ -793,8 +796,8 @@ export const resetWeeklyAnalyticsScheduled = functions
   .schedule('0 0 * * 1')  // Monday midnight UTC
   .timeZone('UTC')
   .onRun(async () => {
-    console.log('Starting weekly analytics reset...');
+    if (DEBUG) console.log('Starting weekly analytics reset...');
     const processed = await resetWeeklyAnalytics();
-    console.log(`Reset weekly analytics for ${processed} users`);
+    if (DEBUG) console.log(`Reset weekly analytics for ${processed} users`);
     return null;
   });

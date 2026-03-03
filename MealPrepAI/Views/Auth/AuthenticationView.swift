@@ -10,6 +10,7 @@ import AuthenticationServices
 
 struct AuthenticationView: View {
     @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isSigningIn = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -82,7 +83,7 @@ struct AuthenticationView: View {
                         request.requestedScopes = [.fullName, .email]
                         authManager.prepareRequest(request)
                     }, onCompletion: handleSignInResult)
-                    .signInWithAppleButtonStyle(.black)
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                     .frame(height: 50)
                     .cornerRadius(Design.Radius.md)
                     .disabled(isSigningIn)
@@ -125,7 +126,7 @@ struct AuthenticationView: View {
 
             // Loading Overlay
             if isSigningIn {
-                Color.black.opacity(0.3)
+                Color.primary.opacity(0.3)
                     .ignoresSafeArea()
                     .overlay {
                         ProgressView()

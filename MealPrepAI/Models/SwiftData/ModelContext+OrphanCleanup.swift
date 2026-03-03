@@ -3,31 +3,13 @@ import SwiftData
 
 extension ModelContext {
 
-    /// Deletes orphaned Recipe records that are no longer attached to any Meal
-    /// and are not marked as favorites. Also cascades to their RecipeIngredients
-    /// (handled by Recipe's cascade delete rule) and cleans up orphaned Ingredients.
+    /// Cleans up orphaned ingredients that are no longer referenced.
+    /// NOTE: Recipes are NEVER automatically deleted — they form the user's
+    /// recipe library and must persist even when not attached to a meal plan.
     @MainActor
     func deleteOrphanedRecipes() {
-        // Only fetch non-favorite recipes — favorites are never orphaned,
-        // so excluding them up front cuts the working set significantly.
-        var descriptor = FetchDescriptor<Recipe>(
-            predicate: #Predicate<Recipe> { !$0.isFavorite }
-        )
-        descriptor.includePendingChanges = true
-        guard let candidates = try? fetch(descriptor) else { return }
-
-        for recipe in candidates {
-            if recipe.meals.isEmpty {
-                // Recipe.ingredients has cascade delete rule, so RecipeIngredients
-                // are automatically deleted when the Recipe is deleted.
-                delete(recipe)
-            }
-        }
-
-        // After removing orphan recipes, clean up any ingredients that are
-        // no longer referenced by any RecipeIngredient or GroceryItem.
+        // Only clean up orphaned ingredients — recipes are kept as a library.
         deleteOrphanedIngredients()
-
         try? save()
     }
 

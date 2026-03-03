@@ -54,6 +54,12 @@ class NewOnboardingViewModel {
     // MARK: - Step 15: Pantry Level
     var pantryLevel: PantryLevel = .average
 
+    // MARK: - Meal Counts
+    var breakfastCount: Int = 1
+    var lunchCount: Int = 1
+    var dinnerCount: Int = 1
+    var snackCount: Int = 2
+
     // MARK: - Step 18: Avatar
     var avatarEmoji: String = "🍳"
 
@@ -256,8 +262,10 @@ class NewOnboardingViewModel {
             preferredCuisines: preferredCuisines,
             cookingSkill: cookingSkill,
             maxCookingTime: .standard,
-            mealsPerDay: 3,
-            includeSnacks: true,
+            breakfastCount: breakfastCount,
+            lunchCount: lunchCount,
+            dinnerCount: dinnerCount,
+            snackCount: snackCount,
             simpleModeEnabled: false,
             hasCompletedOnboarding: false,
             healthKitEnabled: healthKitEnabled,

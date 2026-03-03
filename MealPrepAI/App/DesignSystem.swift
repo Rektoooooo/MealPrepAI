@@ -572,28 +572,36 @@ struct ShimmerModifier: ViewModifier {
     @State private var phase: CGFloat = 0
 
     func body(content: Content) -> some View {
-        content
-            .overlay(
-                GeometryReader { geo in
-                    LinearGradient(
-                        colors: [
-                            .clear,
-                            .white.opacity(0.4),
-                            .clear
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .frame(width: geo.size.width * 2)
-                    .offset(x: -geo.size.width + (phase * geo.size.width * 2))
+        if UIAccessibility.isReduceMotionEnabled {
+            content
+        } else {
+            content
+                .overlay(
+                    GeometryReader { geo in
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                .white.opacity(0.4),
+                                .clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: geo.size.width * 2)
+                        .offset(x: -geo.size.width + (phase * geo.size.width * 2))
+                    }
+                    .mask(content)
+                )
+                .onAppear {
+                    if UIAccessibility.isReduceMotionEnabled {
+                        phase = 1
+                    } else {
+                        withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                            phase = 1
+                        }
+                    }
                 }
-                .mask(content)
-            )
-            .onAppear {
-                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
+        }
     }
 }
 
@@ -757,11 +765,11 @@ extension GroceryCategory {
 /// Centralized URL constants to avoid force unwraps throughout the app.
 enum AppURLs {
     // swiftlint:disable force_unwrapping
-    static let terms = URL(string: "https://mealprepai.app/terms")!
-    static let privacy = URL(string: "https://mealprepai.app/privacy")!
-    static let licenses = URL(string: "https://mealprepai.app/licenses")!
+    static let terms = URL(string: "https://mealprepai-website.vercel.app/terms")!
+    static let privacy = URL(string: "https://mealprepai-website.vercel.app/privacy")!
+    static let licenses = URL(string: "https://mealprepai-website.vercel.app/licenses")!
     static let emailSupport = URL(string: "mailto:support@mealprepai.app")!
-    static let helpCenter = URL(string: "https://mealprepai.app/help")!
+    static let helpCenter = URL(string: "https://mealprepai-website.vercel.app/support")!
     static let twitter = URL(string: "https://twitter.com/mealprepai")!
     static let appStore = URL(string: "https://apps.apple.com/app/id6758867234")!
     // swiftlint:enable force_unwrapping

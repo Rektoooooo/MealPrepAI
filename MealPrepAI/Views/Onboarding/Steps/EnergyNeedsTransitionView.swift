@@ -65,8 +65,12 @@ struct EnergyNeedsTransitionView: View {
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {
                 appeared = true
             }
-            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 heartPulsing = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                    heartPulsing = true
+                }
             }
         }
     }

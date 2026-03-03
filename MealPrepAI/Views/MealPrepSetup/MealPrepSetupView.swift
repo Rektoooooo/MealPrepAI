@@ -50,6 +50,7 @@ struct MealPrepSetupView: View {
                 generatingOverlay
             }
         }
+        .preferredColorScheme(.light)
         .interactiveDismissDisabled(viewModel.isGenerating)
         .alert("Something Went Wrong", isPresented: Binding(
             get: { viewModel.generationError != nil },
@@ -57,6 +58,7 @@ struct MealPrepSetupView: View {
         )) {
             Button("Try Again") {
                 viewModel.generationError = nil
+                generatePlan()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -75,7 +77,6 @@ struct MealPrepSetupView: View {
         .onAppear {
             if !subscriptionManager.isSubscribed && (userProfile?.hasUsedFreeTrial == true) {
                 showingPaywall = true
-                SuperwallTracker.trackPaywallShown()
             }
             if !subscriptionManager.isSubscribed {
                 viewModel.planDuration = 7
@@ -87,7 +88,6 @@ struct MealPrepSetupView: View {
     private var paywallView: some View {
         PaywallStepView(
             onSubscribe: { plan in
-                SuperwallTracker.trackPaywallSubscribeTapped(plan: plan.rawValue)
                 Task {
                     let success = await subscriptionManager.purchase(plan: plan)
                     if success {
@@ -96,7 +96,6 @@ struct MealPrepSetupView: View {
                 }
             },
             onRestorePurchases: {
-                SuperwallTracker.trackRestoreTapped()
                 Task {
                     await subscriptionManager.restore()
                     if subscriptionManager.isSubscribed {
@@ -182,16 +181,10 @@ struct MealPrepSetupView: View {
 
     // MARK: - Generating Overlay
     private var generatingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-                .accessibilityHidden(true)
-
-            GeneratingMealPlanView(progress: viewModel.generationProgress)
-        }
-        .transition(.opacity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Generating meal plan, please wait")
+        GeneratingMealPlanView(progress: viewModel.generationProgress)
+            .transition(.opacity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Generating meal plan, please wait")
     }
 
     // MARK: - Actions

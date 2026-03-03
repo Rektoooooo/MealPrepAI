@@ -30,8 +30,12 @@ struct RecipeSkeletonView: View {
             .padding(.horizontal, Design.Spacing.lg)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 isAnimating = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    isAnimating = true
+                }
             }
         }
     }
@@ -65,8 +69,12 @@ struct FeaturedRecipeSkeleton: View {
             .padding(.horizontal, Design.Spacing.lg)
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 isAnimating = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    isAnimating = true
+                }
             }
         }
     }
@@ -105,8 +113,12 @@ struct RecipeCardSkeleton: View {
                 )
         )
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 isAnimating = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    isAnimating = true
+                }
             }
         }
     }
@@ -136,8 +148,12 @@ struct SkeletonBox: View {
             )
             .frame(width: width, height: height)
             .onAppear {
-                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false)) {
+                if UIAccessibility.isReduceMotionEnabled {
                     isAnimating = true
+                } else {
+                    withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false)) {
+                        isAnimating = true
+                    }
                 }
             }
     }
@@ -166,8 +182,12 @@ struct ShimmerEffect: ViewModifier {
                 }
             )
             .onAppear {
-                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                if UIAccessibility.isReduceMotionEnabled {
                     phase = 1
+                } else {
+                    withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
+                        phase = 1
+                    }
                 }
             }
     }
@@ -198,8 +218,12 @@ struct InlineRecipeSkeleton: View {
                 .fill(Color.cardBackground)
         )
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 isAnimating = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    isAnimating = true
+                }
             }
         }
     }

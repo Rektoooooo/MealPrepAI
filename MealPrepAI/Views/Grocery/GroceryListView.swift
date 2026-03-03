@@ -15,6 +15,7 @@ struct GroceryListView: View {
     @State private var showingCompleteConfirmation = false
     @State private var animateContent = false
     @State private var showGroceryError = false
+    @Environment(NotificationManager.self) private var notificationManager
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -307,7 +308,13 @@ struct GroceryListView: View {
         for item in checkedItems {
             modelContext.delete(item)
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Failed to clear checked items: \(error)")
+            #endif
+        }
     }
 
     private func uncheckAllItems() {
@@ -315,7 +322,13 @@ struct GroceryListView: View {
         for item in list.items {
             item.isChecked = false
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Failed to uncheck items: \(error)")
+            #endif
+        }
     }
 
     private func markShoppingComplete() {
@@ -335,7 +348,13 @@ struct GroceryListView: View {
                 mealPlan.isActive = false
             }
 
-            try? modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                #if DEBUG
+                print("Failed to mark shopping complete: \(error)")
+                #endif
+            }
         }
     }
 
@@ -519,6 +538,7 @@ struct GroceryListView: View {
         list.lastModified = Date()
         do {
             try modelContext.save()
+            notificationManager.notifyGroceryListGenerated(itemCount: ingredientQuantities.count)
             #if DEBUG
             print("[DEBUG:Grocery] SUCCESS: Grocery list saved with \(ingredientQuantities.count) items")
             #endif
@@ -769,9 +789,15 @@ struct AddGroceryItemSheet: View {
         modelContext.insert(groceryItem)
 
         groceryList.lastModified = Date()
-        try? modelContext.save()
-        AnalyticsService.shared.trackGroceryItemAdded()
-        dismiss()
+        do {
+            try modelContext.save()
+            AnalyticsService.shared.trackGroceryItemAdded()
+            dismiss()
+        } catch {
+            #if DEBUG
+            print("Failed to save grocery item: \(error)")
+            #endif
+        }
     }
 }
 
@@ -1019,5 +1045,6 @@ struct ShareGroceryListSheet: View {
 
 #Preview {
     GroceryListView()
+        .environment(NotificationManager())
         .modelContainer(for: [MealPlan.self, GroceryList.self, GroceryItem.self, Ingredient.self], inMemory: true)
 }

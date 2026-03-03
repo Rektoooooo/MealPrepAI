@@ -15,11 +15,7 @@ import SuperwallKit
 // MARK: - App Configuration
 enum AppConfig {
     enum Superwall {
-        #if DEBUG
         static let apiKey = "pk_Sk5q5XhpVeMrBXV1EJ1X_"
-        #else
-        static let apiKey = "pk_Sk5q5XhpVeMrBXV1EJ1X_"
-        #endif
     }
 }
 
@@ -49,6 +45,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+/// Tracks whether ModelContainer fell back to in-memory storage
+var didFallBackToInMemoryStore = false
+
 // Create ModelContainer with CloudKit sync and schema versioning
 let sharedModelContainer: ModelContainer = {
     let schema = Schema(versionedSchema: SchemaV1.self)
@@ -71,6 +70,7 @@ let sharedModelContainer: ModelContainer = {
         #if DEBUG
         print("ModelContainer creation failed: \(error). Falling back to in-memory store.")
         #endif
+        didFallBackToInMemoryStore = true
         // Fallback to in-memory store so the app can still launch
         let fallbackConfig = ModelConfiguration(
             schema: schema,
@@ -95,9 +95,10 @@ struct MealPrepAIApp: App {
     @State private var syncManager = CloudKitSyncManager()
     @State private var healthKitManager = HealthKitManager()
     @State private var notificationManager = NotificationManager()
-    @State private var subscriptionManager = SubscriptionManager()
+    @State private var subscriptionManager: SubscriptionManager
     @State private var networkMonitor = NetworkMonitor()
     @State private var streakManager = StreakManager()
+    @State private var showDataStorageAlert = didFallBackToInMemoryStore
 
     // Firebase Recipe Services - initialized after Firebase is configured
     @State private var firebaseRecipeService: FirebaseRecipeService
@@ -129,8 +130,11 @@ struct MealPrepAIApp: App {
             diskCapacity: 200_000_000
         )
 
-        // Configure Superwall for analytics tracking
-        Superwall.configure(apiKey: AppConfig.Superwall.apiKey)
+        // Configure Superwall with PurchaseController for subscription-aware paywall gating
+        let subManager = SubscriptionManager()
+        _subscriptionManager = State(initialValue: subManager)
+        let purchaseController = SuperwallPurchaseController(subscriptionManager: subManager)
+        Superwall.configure(apiKey: AppConfig.Superwall.apiKey, purchaseController: purchaseController)
 
         // Configure analytics (Firebase Analytics SDK already linked)
         AnalyticsService.shared.configure()
@@ -215,6 +219,11 @@ struct MealPrepAIApp: App {
                 default:
                     break
                 }
+            }
+            .alert("Data Storage Issue", isPresented: $showDataStorageAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Your data couldn't be saved to persistent storage. Any data created this session may be lost when you close the app. Try restarting the app or freeing up device storage.")
             }
         }
         .modelContainer(sharedModelContainer)

@@ -11,7 +11,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { checkRateLimit } from '../utils/rateLimiter';
+import { checkRateLimit, incrementRateLimit } from '../utils/rateLimiter';
 // Image matching disabled — AI-generated recipes use gradient placeholders on iOS
 // import { matchRecipeImage } from '../utils/imageMatch';
 import { saveRecipeIfUnique, GeneratedRecipeDTO } from '../utils/recipeStorage';
@@ -286,6 +286,26 @@ export async function handleSwapMeal(
     return { success: false, error: 'User profile is required' };
   }
 
+  // Validate user profile numeric fields
+  if (typeof userProfile.dailyCalorieTarget !== 'number' || userProfile.dailyCalorieTarget < 800 || userProfile.dailyCalorieTarget > 10000) {
+    return { success: false, error: 'Invalid calorie target' };
+  }
+  if (typeof userProfile.proteinGrams !== 'number' || userProfile.proteinGrams < 0 || userProfile.proteinGrams > 1000) {
+    return { success: false, error: 'Invalid protein target' };
+  }
+  if (typeof userProfile.carbsGrams !== 'number' || userProfile.carbsGrams < 0 || userProfile.carbsGrams > 1000) {
+    return { success: false, error: 'Invalid carbs target' };
+  }
+  if (typeof userProfile.fatGrams !== 'number' || userProfile.fatGrams < 0 || userProfile.fatGrams > 500) {
+    return { success: false, error: 'Invalid fat target' };
+  }
+  if (!Array.isArray(userProfile.dietaryRestrictions)) {
+    return { success: false, error: 'Invalid dietary restrictions' };
+  }
+  if (!Array.isArray(userProfile.allergies)) {
+    return { success: false, error: 'Invalid allergies' };
+  }
+
   if (!mealType) {
     if (DEBUG) console.log('[DEBUG] ERROR: Meal type is required');
     return { success: false, error: 'Meal type is required' };
@@ -348,12 +368,12 @@ export async function handleSwapMeal(
     );
     if (DEBUG) console.log('[DEBUG] User prompt length:', userPrompt.length, 'characters');
 
-    if (DEBUG) console.log('[DEBUG] Calling Claude API for', mealType, 'swap (model: claude-3-5-haiku-latest)...');
+    if (DEBUG) console.log('[DEBUG] Calling Claude API for', mealType, 'swap (model: claude-haiku-4-5-20251001)...');
     const startTime = Date.now();
 
     // Call Claude API - Using Claude Haiku for cost efficiency
     const response = await client.messages.create({
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
@@ -422,19 +442,22 @@ export async function handleSwapMeal(
       console.log('[DEBUG] ========== SWAP MEAL SUCCESS ==========');
     }
 
+    // Only count against rate limit after successful swap
+    const updatedLimit = await incrementRateLimit(deviceId, 'swap-meal');
+
     return {
       success: true,
       recipe,
       rateLimitInfo: {
-        remaining: rateLimit.remaining,
-        resetTime: rateLimit.resetTime.toISOString(),
-        limit: rateLimit.limit,
+        remaining: updatedLimit.remaining,
+        resetTime: updatedLimit.resetTime.toISOString(),
+        limit: updatedLimit.limit,
       },
     };
   } catch (error) {
     if (DEBUG) console.log('[DEBUG] ========== SWAP MEAL ERROR ==========');
-    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    if (DEBUG) console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    if (DEBUG) console.error('Error message:', error instanceof Error ? error.message : String(error));
 
     return {
       success: false,

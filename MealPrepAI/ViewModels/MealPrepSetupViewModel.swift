@@ -281,11 +281,12 @@ final class MealPrepSetupViewModel {
                 // Mark free trial as used for free users
                 if !isSubscribed {
                     profile.hasUsedFreeTrial = true
-                    SuperwallTracker.trackFreeTrialStarted()
                 }
 
                 // Reschedule local notifications for the new plan
                 if let nm = notificationManager {
+                    nm.notifyPlanGenerated(planDuration: planDuration)
+
                     // Fetch the active plan from the context
                     let descriptor = FetchDescriptor<MealPlan>(
                         predicate: #Predicate { $0.isActive },

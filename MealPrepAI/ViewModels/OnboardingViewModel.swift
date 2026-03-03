@@ -116,8 +116,10 @@ class OnboardingViewModel {
             preferredCuisines: Array(preferredCuisines),
             cookingSkill: cookingSkill,
             maxCookingTime: maxCookingTime,
-            mealsPerDay: mealsPerDay,
-            includeSnacks: includeSnacks,
+            breakfastCount: 1,
+            lunchCount: 1,
+            dinnerCount: 1,
+            snackCount: includeSnacks ? 2 : 0,
             simpleModeEnabled: simpleModeEnabled,
             hasCompletedOnboarding: false  // Set to false initially
         )

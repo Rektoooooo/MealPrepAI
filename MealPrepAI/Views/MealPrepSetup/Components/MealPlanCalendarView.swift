@@ -33,13 +33,17 @@ struct MealPlanCalendarView: View {
     }
 
     private var canGoBack: Bool {
-        let prevMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth)!
-        let prevMonthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: calendar.startOfMonth(prevMonth))!
+        guard let prevMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth),
+              let prevMonthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: calendar.startOfMonth(prevMonth)) else {
+            return false
+        }
         return prevMonthEnd >= minDate
     }
 
     private var canGoForward: Bool {
-        let nextMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth)!
+        guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth) else {
+            return false
+        }
         let nextMonthStart = calendar.startOfMonth(nextMonth)
         return nextMonthStart <= maxDate
     }
@@ -71,7 +75,7 @@ struct MealPlanCalendarView: View {
             HStack {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        displayedMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth)!
+                        displayedMonth = calendar.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
                     }
                 }) {
                     Image(systemName: "chevron.left")
@@ -91,7 +95,7 @@ struct MealPlanCalendarView: View {
 
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        displayedMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth)!
+                        displayedMonth = calendar.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
                     }
                 }) {
                     Image(systemName: "chevron.right")
@@ -122,7 +126,7 @@ struct MealPlanCalendarView: View {
 
             // Calendar grid
             let weeks = weeksInMonth()
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 ForEach(weeks.indices, id: \.self) { weekIndex in
                     HStack(spacing: 0) {
                         ForEach(weeks[weekIndex].indices, id: \.self) { dayIndex in
@@ -220,7 +224,7 @@ struct MealPlanCalendarView: View {
                         OnboardingDesign.Colors.textPrimary
                     )
                     .frame(maxWidth: .infinity)
-                    .frame(height: 38)
+                    .frame(height: 44)
                     .background(
                         ZStack {
                             // Existing plan range background
@@ -329,7 +333,7 @@ struct MealPlanCalendarView: View {
         }
 
         for day in 1...monthRange.count {
-            let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart)!
+            guard let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) else { continue }
             currentWeek.append(date)
 
             if currentWeek.count == 7 {
@@ -353,7 +357,7 @@ struct MealPlanCalendarView: View {
 private extension Calendar {
     func startOfMonth(_ date: Date) -> Date {
         let components = dateComponents([.year, .month], from: date)
-        return self.date(from: components)!
+        return self.date(from: components) ?? date
     }
 }
 

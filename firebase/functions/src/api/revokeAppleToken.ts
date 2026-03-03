@@ -19,6 +19,8 @@
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 const APPLE_TOKEN_URL = 'https://appleid.apple.com/auth/token';
 const APPLE_REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
 
@@ -171,11 +173,11 @@ export async function handleRevokeAppleToken(req: Request, res: Response): Promi
 
     // Step 1: Exchange authorization code for refresh token
     const refreshToken = await exchangeCodeForToken(authorizationCode, clientSecret);
-    console.log('Apple token exchange successful');
+    if (DEBUG) console.log('Apple token exchange successful');
 
     // Step 2: Revoke the refresh token
     await revokeToken(refreshToken, clientSecret);
-    console.log('Apple token revocation successful');
+    if (DEBUG) console.log('Apple token revocation successful');
 
     res.status(200).json({ success: true });
   } catch (error) {

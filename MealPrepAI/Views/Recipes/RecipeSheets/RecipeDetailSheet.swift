@@ -381,8 +381,14 @@ struct RecipeDetailSheet: View {
         .alert("Delete Recipe", isPresented: $showingDeleteConfirmation) {
             Button("Delete", role: .destructive) {
                 modelContext.delete(recipe)
-                try? modelContext.save()
-                dismiss()
+                do {
+                    try modelContext.save()
+                    dismiss()
+                } catch {
+                    #if DEBUG
+                    print("Failed to delete recipe: \(error)")
+                    #endif
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

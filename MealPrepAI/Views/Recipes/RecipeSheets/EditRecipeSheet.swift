@@ -229,9 +229,20 @@ struct EditRecipeSheet: View {
         }
         .onChange(of: selectedPhotoItem) { _, newValue in
             Task {
-                if let newValue,
-                   let data = try? await newValue.loadTransferable(type: Data.self) {
-                    await MainActor.run { recipeImageData = data }
+                if let newValue {
+                    do {
+                        if let data = try await newValue.loadTransferable(type: Data.self) {
+                            await MainActor.run { recipeImageData = data }
+                        }
+                    } catch {
+                        #if DEBUG
+                        print("Failed to load photo: \(error)")
+                        #endif
+                        await MainActor.run {
+                            errorMessage = "Failed to load the selected photo. Please try another image."
+                            showErrorAlert = true
+                        }
+                    }
                 }
             }
         }

@@ -30,7 +30,7 @@ struct WeeklyPlanView: View {
         let daysToSubtract = weekday - 1
 
         // Get Sunday of current week
-        let sundayOfCurrentWeek = calendar.date(byAdding: .day, value: -daysToSubtract, to: today)!
+        let sundayOfCurrentWeek = calendar.date(byAdding: .day, value: -daysToSubtract, to: today) ?? today
 
         // Apply week offset
         return calendar.date(byAdding: .day, value: weekOffset * 7, to: sundayOfCurrentWeek) ?? sundayOfCurrentWeek
@@ -56,7 +56,7 @@ struct WeeklyPlanView: View {
     private var currentMealPlan: MealPlan? {
         let calendar = Calendar.current
         // Calculate the end of the viewing week (Saturday)
-        let viewingWeekEnd = calendar.date(byAdding: .day, value: 6, to: viewingWeekStart)!
+        let viewingWeekEnd = calendar.date(byAdding: .day, value: 6, to: viewingWeekStart) ?? viewingWeekStart
 
         // Find meal plan that has any days overlapping with the viewing week
         return mealPlans.first { plan in

@@ -7,6 +7,8 @@
 
 import * as admin from 'firebase-admin';
 
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
 // Lazy initialization to avoid accessing Firestore before app is initialized
 function getDb() {
   return admin.firestore();
@@ -132,7 +134,7 @@ export async function matchRecipeImage(
   minScore: number = 0.15
 ): Promise<string | null> {
   const recipeTitle = recipe.title || recipe.name || '';
-  console.log('[DEBUG:ImageMatch] Starting image match for:', {
+  if (DEBUG) console.log('[DEBUG:ImageMatch] Starting image match for:', {
     title: recipeTitle,
     cuisineType: recipe.cuisineType,
     mealType: recipe.mealType,
@@ -150,7 +152,7 @@ export async function matchRecipeImage(
       .limit(50);
 
     let recipesSnapshot = await recipesQuery.get();
-    console.log('[DEBUG:ImageMatch] Cuisine query returned:', recipesSnapshot.size, 'recipes');
+    if (DEBUG) console.log('[DEBUG:ImageMatch] Cuisine query returned:', recipesSnapshot.size, 'recipes');
 
     // If no matches for cuisine, try meal type
     if (recipesSnapshot.empty) {
@@ -160,18 +162,18 @@ export async function matchRecipeImage(
         .limit(50);
 
       recipesSnapshot = await recipesQuery.get();
-      console.log('[DEBUG:ImageMatch] Meal type query returned:', recipesSnapshot.size, 'recipes');
+      if (DEBUG) console.log('[DEBUG:ImageMatch] Meal type query returned:', recipesSnapshot.size, 'recipes');
     }
 
     // If still no matches, get any recipes
     if (recipesSnapshot.empty) {
       recipesQuery = getDb().collection('recipes').limit(50);
       recipesSnapshot = await recipesQuery.get();
-      console.log('[DEBUG:ImageMatch] General query returned:', recipesSnapshot.size, 'recipes');
+      if (DEBUG) console.log('[DEBUG:ImageMatch] General query returned:', recipesSnapshot.size, 'recipes');
     }
 
     if (recipesSnapshot.empty) {
-      console.log('[DEBUG:ImageMatch] No recipes found in database');
+      if (DEBUG) console.log('[DEBUG:ImageMatch] No recipes found in database');
       return null;
     }
 
@@ -207,13 +209,13 @@ export async function matchRecipeImage(
       });
     }
 
-    console.log('[DEBUG:ImageMatch] Scored', matches.length, 'recipes with images');
+    if (DEBUG) console.log('[DEBUG:ImageMatch] Scored', matches.length, 'recipes with images');
 
     // Sort by score descending
     matches.sort((a, b) => b.score - a.score);
 
     if (matches.length > 0) {
-      console.log('[DEBUG:ImageMatch] Top 3 matches:', matches.slice(0, 3).map(m => ({
+      if (DEBUG) console.log('[DEBUG:ImageMatch] Top 3 matches:', matches.slice(0, 3).map(m => ({
         title: m.title,
         score: m.score.toFixed(3)
       })));
@@ -222,7 +224,7 @@ export async function matchRecipeImage(
     // Try to find the best match that isn't already used
     for (const match of matches) {
       if (match.score >= minScore && !excludeImageUrls.has(match.imageUrl)) {
-        console.log('[DEBUG:ImageMatch] MATCH FOUND:', match.title, 'score:', match.score.toFixed(3));
+        if (DEBUG) console.log('[DEBUG:ImageMatch] MATCH FOUND:', match.title, 'score:', match.score.toFixed(3));
         return match.imageUrl;
       }
     }
@@ -230,11 +232,11 @@ export async function matchRecipeImage(
     // If all good matches are excluded, allow reuse of the best one
     const bestAboveThreshold = matches.find((m) => m.score >= minScore);
     if (bestAboveThreshold) {
-      console.log('[DEBUG:ImageMatch] All good matches excluded, reusing best:', bestAboveThreshold.title);
+      if (DEBUG) console.log('[DEBUG:ImageMatch] All good matches excluded, reusing best:', bestAboveThreshold.title);
       return bestAboveThreshold.imageUrl;
     }
 
-    console.log('[DEBUG:ImageMatch] Best score', matches[0]?.score?.toFixed(3) || 'N/A', 'below threshold', minScore);
+    if (DEBUG) console.log('[DEBUG:ImageMatch] Best score', matches[0]?.score?.toFixed(3) || 'N/A', 'below threshold', minScore);
 
     // Fallback: pick a random image from same cuisine (not already used)
     const cuisineMatches = recipesSnapshot.docs
@@ -243,7 +245,7 @@ export async function matchRecipeImage(
 
     if (cuisineMatches.length > 0) {
       const pick = cuisineMatches[Math.floor(Math.random() * cuisineMatches.length)];
-      console.log('[DEBUG:ImageMatch] FALLBACK random cuisine match:', pick.title);
+      if (DEBUG) console.log('[DEBUG:ImageMatch] FALLBACK random cuisine match:', pick.title);
       return pick.imageUrl;
     }
 
@@ -254,7 +256,7 @@ export async function matchRecipeImage(
 
     if (anyMatches.length > 0) {
       const shuffled = shuffleArray(anyMatches);
-      console.log('[DEBUG:ImageMatch] FALLBACK random any image:', shuffled[0].title);
+      if (DEBUG) console.log('[DEBUG:ImageMatch] FALLBACK random any image:', shuffled[0].title);
       return shuffled[0].imageUrl;
     }
 
@@ -266,14 +268,14 @@ export async function matchRecipeImage(
 
     if (anyImage) {
       const data = anyImage.data() as RecipeDoc;
-      console.log('[DEBUG:ImageMatch] FALLBACK last resort (reuse):', data.title);
+      if (DEBUG) console.log('[DEBUG:ImageMatch] FALLBACK last resort (reuse):', data.title);
       return data.imageUrl;
     }
 
-    console.log('[DEBUG:ImageMatch] No image found at all');
+    if (DEBUG) console.log('[DEBUG:ImageMatch] No image found at all');
     return null;
   } catch (error) {
-    console.error('[DEBUG:ImageMatch] ERROR:', error);
+    if (DEBUG) console.error('[DEBUG:ImageMatch] ERROR:', error);
     return null;
   }
 }

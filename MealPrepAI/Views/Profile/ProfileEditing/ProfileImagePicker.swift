@@ -7,6 +7,7 @@ struct ProfileImagePicker: View {
 
     @State private var selectedMode: ImagePickerMode = .emoji
     @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var showPhotoErrorAlert = false
 
     enum ImagePickerMode: String, CaseIterable {
         case emoji = "Emoji"
@@ -27,6 +28,11 @@ struct ProfileImagePicker: View {
             } else {
                 photoPickerSection
             }
+        }
+        .alert("Photo Error", isPresented: $showPhotoErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Failed to load the selected photo. Please try another image.")
         }
     }
 
@@ -172,10 +178,20 @@ struct ProfileImagePicker: View {
             }
             .onChange(of: selectedPhotoItem) { _, newValue in
                 Task {
-                    if let newValue,
-                       let data = try? await newValue.loadTransferable(type: Data.self) {
-                        await MainActor.run {
-                            profileImageData = data
+                    if let newValue {
+                        do {
+                            if let data = try await newValue.loadTransferable(type: Data.self) {
+                                await MainActor.run {
+                                    profileImageData = data
+                                }
+                            }
+                        } catch {
+                            #if DEBUG
+                            print("Failed to load photo: \(error)")
+                            #endif
+                            await MainActor.run {
+                                showPhotoErrorAlert = true
+                            }
                         }
                     }
                 }

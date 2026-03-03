@@ -227,7 +227,7 @@ class MealPlanGenerator {
             let allNewPlanDays = newPlan.days
             if let earliest = allNewPlanDays.min(by: { $0.date < $1.date }),
                let latest = allNewPlanDays.max(by: { $0.date < $1.date }) {
-                let totalDays = Calendar.current.dateComponents([.day], from: earliest.date, to: latest.date).day! + 1
+                let totalDays = (Calendar.current.dateComponents([.day], from: earliest.date, to: latest.date).day ?? 0) + 1
                 newPlan.weekStartDate = earliest.date
                 newPlan.planDuration = totalDays
                 #if DEBUG
@@ -315,6 +315,10 @@ class MealPlanGenerator {
             simpleModeEnabled: profile.simpleModeEnabled,
             mealsPerDay: profile.mealsPerDay,
             includeSnacks: profile.includeSnacks,
+            breakfastCount: profile.breakfastCount,
+            lunchCount: profile.lunchCount,
+            dinnerCount: profile.dinnerCount,
+            snackCount: profile.snackCount,
             pantryLevel: profile.pantryLevel.rawValue,
             barriers: profile.barriers.map { $0.rawValue },
             primaryGoals: profile.primaryGoals.map { $0.rawValue },

@@ -43,9 +43,11 @@ final class UserProfile {
     var cookingSkillRaw: String = "Intermediate"
     var maxCookingTimeRaw: String = "30-45 minutes"
 
-    // Meal settings
-    var mealsPerDay: Int = 3
-    var includeSnacks: Bool = true
+    // Meal settings — per-type counts (source of truth)
+    var breakfastCount: Int = 1
+    var lunchCount: Int = 1
+    var dinnerCount: Int = 1
+    var snackCount: Int = 2
     var simpleModeEnabled: Bool = false
 
     // Subscription & Trial
@@ -180,6 +182,16 @@ final class UserProfile {
         }
     }
 
+    // MARK: - Backwards-Compatible Computed Properties
+
+    var mealsPerDay: Int {
+        breakfastCount + lunchCount + dinnerCount + snackCount
+    }
+
+    var includeSnacks: Bool {
+        snackCount > 0
+    }
+
     // MARK: - Profile Image Computed Properties
 
     var profileImage: UIImage? {
@@ -217,8 +229,10 @@ final class UserProfile {
         preferredCuisines: [CuisineType] = [],
         cookingSkill: CookingSkill = .intermediate,
         maxCookingTime: CookingTime = .standard,
-        mealsPerDay: Int = 3,
-        includeSnacks: Bool = true,
+        breakfastCount: Int = 1,
+        lunchCount: Int = 1,
+        dinnerCount: Int = 1,
+        snackCount: Int = 2,
         simpleModeEnabled: Bool = false,
         hasCompletedOnboarding: Bool = false,
         healthKitEnabled: Bool = false,
@@ -255,8 +269,10 @@ final class UserProfile {
         self.preferredCuisinesData = encodeOrNil(preferredCuisines)
         self.cookingSkillRaw = cookingSkill.rawValue
         self.maxCookingTimeRaw = maxCookingTime.rawValue
-        self.mealsPerDay = mealsPerDay
-        self.includeSnacks = includeSnacks
+        self.breakfastCount = breakfastCount
+        self.lunchCount = lunchCount
+        self.dinnerCount = dinnerCount
+        self.snackCount = snackCount
         self.simpleModeEnabled = simpleModeEnabled
         self.hasCompletedOnboarding = hasCompletedOnboarding
         self.healthKitEnabled = healthKitEnabled

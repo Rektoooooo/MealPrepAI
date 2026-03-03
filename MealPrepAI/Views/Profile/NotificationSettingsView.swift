@@ -13,8 +13,6 @@ struct NotificationSettingsView: View {
 
     @AppStorage("mealReminders") private var mealReminders = true
     @AppStorage("groceryReminders") private var groceryReminders = true
-    @AppStorage("weeklyDigest") private var weeklyDigest = false
-    @AppStorage("tipsAndSuggestions") private var tipsAndSuggestions = true
     @AppStorage("prepReminders") private var prepReminders = true
     @AppStorage("planExpiryReminder") private var planExpiryReminder = true
     @AppStorage("trialExpiryReminder") private var trialExpiryReminder = true
@@ -369,73 +367,6 @@ struct NotificationSettingsView: View {
                     }
                 }
 
-                Divider()
-                    .padding(.vertical, Design.Spacing.xxs)
-                    .accessibilityHidden(true)
-
-                // Weekly Digest
-                HStack(spacing: Design.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.accentBlue.opacity(0.15))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "chart.bar.fill")
-                            .font(Design.Typography.callout)
-                            .foregroundStyle(Color.accentBlue)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Weekly Digest")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textPrimary)
-
-                        Text("Summary of your weekly progress")
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Toggle("", isOn: $weeklyDigest)
-                        .labelsHidden()
-                        .tint(Color.accentPurple)
-                        .accessibilityLabel("Weekly Digest")
-                        .accessibilityValue(weeklyDigest ? "On" : "Off")
-                }
-
-                Divider()
-                    .padding(.vertical, Design.Spacing.xxs)
-                    .accessibilityHidden(true)
-
-                // Tips & Suggestions
-                HStack(spacing: Design.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.accentOrange.opacity(0.15))
-                            .frame(width: 36, height: 36)
-                        Image(systemName: "lightbulb.fill")
-                            .font(Design.Typography.callout)
-                            .foregroundStyle(Color.accentOrange)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Tips & Suggestions")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textPrimary)
-
-                        Text("Helpful meal prep tips and ideas")
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Toggle("", isOn: $tipsAndSuggestions)
-                        .labelsHidden()
-                        .tint(Color.accentPurple)
-                        .accessibilityLabel("Tips and Suggestions")
-                        .accessibilityValue(tipsAndSuggestions ? "On" : "Off")
-                }
             }
             .padding(Design.Spacing.md)
             .background(

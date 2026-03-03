@@ -20,11 +20,14 @@ struct ProfileView: View {
     @State private var animateContent = false
     @State private var showingPaywall = false
     @State private var showingManageSubscription = false
+    @State private var showingLoadingGamePreview = false
     @AppStorage("appearanceMode") private var appearanceMode: AppearanceMode = .system
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
 
     @State private var mealsLogged: Int = 0
     @State private var showSignInError = false
+    @State private var isDeletingAccount = false
+    @State private var showHealthKitError = false
 
     var body: some View {
         NavigationStack {
@@ -76,10 +79,20 @@ struct ProfileView: View {
                     showingOnboardingPreview = false
                 }
             }
+            .fullScreenCover(isPresented: $showingLoadingGamePreview) {
+                LoadingGamePreviewView {
+                    showingLoadingGamePreview = false
+                }
+            }
             .alert("Sign In Failed", isPresented: $showSignInError) {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("We couldn't sign you in. Please try again.")
+            }
+            .alert("Health Access Unavailable", isPresented: $showHealthKitError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("We couldn't connect to Apple Health. Please check your Health permissions in Settings.")
             }
             .onAppear {
                 withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
@@ -660,7 +673,17 @@ struct ProfileView: View {
                                 profile?.healthKitEnabled = newValue
                                 if newValue && !healthKitManager.isAuthorized {
                                     Task {
-                                        try? await healthKitManager.requestAuthorization()
+                                        do {
+                                            try await healthKitManager.requestAuthorization()
+                                        } catch {
+                                            await MainActor.run {
+                                                profile?.healthKitEnabled = false
+                                                showHealthKitError = true
+                                            }
+                                            #if DEBUG
+                                            print("HealthKit authorization failed: \(error)")
+                                            #endif
+                                        }
                                     }
                                 }
                             }
@@ -981,6 +1004,76 @@ struct ProfileView: View {
                 Divider()
                     .padding(.vertical, Design.Spacing.xxs)
 
+                // Send Feedback Row
+                Button(action: openFeedbackEmail) {
+                    HStack(spacing: Design.Spacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.accentOrange.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "envelope.fill")
+                                .font(Design.Typography.callout)
+                                .foregroundStyle(Color.accentOrange)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Send Feedback")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color.textPrimary)
+
+                            Text("Report bugs or suggest features")
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "arrow.up.right")
+                            .font(Design.Typography.caption.weight(.semibold))
+                            .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
+
+                // Ingredient Catch Game Row
+                Button(action: { showingLoadingGamePreview = true }) {
+                    HStack(spacing: Design.Spacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.accentOrange.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "gamecontroller.fill")
+                                .font(Design.Typography.callout)
+                                .foregroundStyle(Color.accentOrange)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Ingredient Catch")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color.textPrimary)
+
+                            Text("Play the mini game")
+                                .font(.caption)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(Design.Typography.caption.weight(.semibold))
+                            .foregroundStyle(Color.textSecondary.opacity(0.5))
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .padding(.vertical, Design.Spacing.xxs)
+
                 // About Row
                 NavigationLink(destination: AboutNavigationView()) {
                     HStack(spacing: Design.Spacing.md) {
@@ -1163,7 +1256,7 @@ struct ProfileView: View {
 
             VStack(spacing: Design.Spacing.sm) {
                 // Delete Account Button
-                Button(action: { showingDeleteAccountAlert = true }) {
+                Button(action: { if !isDeletingAccount { showingDeleteAccountAlert = true } }) {
                     HStack(spacing: Design.Spacing.md) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
@@ -1209,10 +1302,39 @@ struct ProfileView: View {
         .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Delete Everything", role: .destructive) {
+                isDeletingAccount = true
                 deleteAccountAndResetOnboarding()
             }
         } message: {
             Text("This will permanently delete all your data including your profile, meal plans, and preferences. You'll need to complete onboarding again. This action cannot be undone.")
+        }
+        .overlay {
+            if isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .clipShape(RoundedRectangle(cornerRadius: Design.Radius.card))
+                    ProgressView()
+                        .tint(.white)
+                }
+            }
+        }
+        .disabled(isDeletingAccount)
+    }
+
+    private func openFeedbackEmail() {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+        let systemVersion = UIDevice.current.systemVersion
+        let deviceModel = UIDevice.current.model
+
+        let subject = "MealPrepAI Feedback (v\(appVersion))"
+        let body = "\n\n\n---\nApp: MealPrepAI v\(appVersion) (\(buildNumber))\nDevice: \(deviceModel), iOS \(systemVersion)"
+
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+
+        if let url = URL(string: "mailto:sebastian.kucera@icloud.com?subject=\(encodedSubject)&body=\(encodedBody)") {
+            UIApplication.shared.open(url)
         }
     }
 
@@ -1250,7 +1372,13 @@ struct ProfileView: View {
         }
 
         // Save the context to persist the deletion
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Failed to save account deletion: \(error)")
+            #endif
+        }
 
         // Delete CloudKit zone to remove all synced data
         Task {

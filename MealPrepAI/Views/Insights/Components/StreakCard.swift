@@ -105,7 +105,11 @@ struct StreakCard: View {
         }
         .insightsGlassCard(tint: Color.accentOrange)
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+            if !UIAccessibility.isReduceMotionEnabled {
+                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                    flameGlow = true
+                }
+            } else {
                 flameGlow = true
             }
         }

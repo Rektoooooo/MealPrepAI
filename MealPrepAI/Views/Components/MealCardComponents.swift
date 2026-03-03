@@ -239,7 +239,7 @@ struct NutritionSummaryCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private var cardBackground: Color {
-        colorScheme == .dark ? Color(hex: "2C2C2E") : Color(hex: "1C1C1E")
+        colorScheme == .dark ? Color(hex: "1C1C1E") : Color(hex: "2C2C2E")
     }
 
     var body: some View {

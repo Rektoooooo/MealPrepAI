@@ -132,8 +132,12 @@ struct MacroBreakdownChart: View {
         }
         .insightsGlassCard(tint: Color.proteinColor)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 animateDonut = true
+            } else {
+                withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+                    animateDonut = true
+                }
             }
         }
     }

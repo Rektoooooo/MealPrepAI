@@ -813,6 +813,10 @@ struct GeneratePlanUserProfile: Codable, Sendable {
     let simpleModeEnabled: Bool
     let mealsPerDay: Int
     let includeSnacks: Bool
+    let breakfastCount: Int
+    let lunchCount: Int
+    let dinnerCount: Int
+    let snackCount: Int
     let pantryLevel: String  // Well-stocked, Average, Minimal
     let barriers: [String]   // Time constraints, budget, etc.
     let primaryGoals: [String]  // planMeals, eatHealthy, saveMoney, etc.

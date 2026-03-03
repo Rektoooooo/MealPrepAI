@@ -106,3 +106,22 @@ Full 4-phase analytics system implemented.
 - [x] Added `NSPrivacyCollectedDataTypeProductInteraction` to `PrivacyInfo.xcprivacy`
 - [x] iOS build verified (xcodebuild success)
 - [x] TypeScript compilation verified (tsc --noEmit clean)
+
+---
+
+## Release Readiness Fixes (March 3, 2026)
+
+### Critical Issues
+- [x] **C1: 234 Production Print Statements** — Verified: all 234 prints across 22 files already wrapped in `#if DEBUG`. No action needed.
+- [x] **C2: Onboarding Dismissal Not Protected** — Added `.interactiveDismissDisabled()` to `NewOnboardingView.swift` to prevent swipe-to-dismiss data loss.
+- [x] **C3: Superwall API Key Identical for DEBUG/Release** — Removed redundant `#if DEBUG` / `#else` in `MealPrepAIApp.swift`, kept single `static let apiKey`.
+- [x] **C4: Cloud Functions Debug Flag Hardcoded** — Removed `|| true` from `generatePlan.ts` DEBUG constant. Now properly gates on env vars only.
+
+### High Priority Issues
+- [x] **H1: Missing Input Validation in Cloud Functions** — Added numeric field validation to `swapMeal.ts` (calories, protein, carbs, fat, arrays) and `substituteIngredient.ts` (ingredient name/qty/unit, recipe context, arrays). `generatePlan.ts` already had thorough validation.
+- [x] **H2: ModelContainer Silent Fallback to In-Memory** — Added `didFallBackToInMemoryStore` flag + user-facing alert in `MealPrepAIApp.swift` warning about data loss.
+- [x] **H5: Missing Restore Purchases Button** — Already implemented in `ProfileView.swift:439-466` with `subscriptionManager.restore()`.
+
+### Verification
+- [x] iOS build succeeded (xcodebuild)
+- [x] TypeScript compilation clean (tsc --noEmit)

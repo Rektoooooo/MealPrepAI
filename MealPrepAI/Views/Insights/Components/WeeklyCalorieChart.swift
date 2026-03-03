@@ -98,8 +98,12 @@ struct WeeklyCalorieChart: View {
         }
         .insightsGlassCard(tint: Color.lunchGradientEnd)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.8).delay(0.2)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 animateBars = true
+            } else {
+                withAnimation(.easeOut(duration: 0.8).delay(0.2)) {
+                    animateBars = true
+                }
             }
         }
     }

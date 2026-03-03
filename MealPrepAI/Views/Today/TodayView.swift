@@ -508,7 +508,7 @@ struct TodayView: View {
     // MARK: - Meals Section
     private var mealsSection: some View {
         VStack(spacing: Design.Spacing.md) {
-            NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color(hex: "212121"), showSeeAll: true)
+            NewSectionHeader(title: "Today's Meals", icon: "fork.knife", iconColor: Color.mintVibrant, showSeeAll: true)
 
             if todaysMeals.isEmpty {
                 Text("No meals planned for this day")
@@ -543,7 +543,7 @@ struct TodayView: View {
     // MARK: - Quick Actions
     private var quickActions: some View {
         VStack(spacing: Design.Spacing.md) {
-            NewSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: Color(hex: "212121"))
+            NewSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: Color.mintVibrant)
 
             HStack(spacing: Design.Spacing.sm) {
                 QuickActionCard(
@@ -1101,12 +1101,8 @@ struct GeneratingMealPlanView: View {
     let progress: String
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isAnimating = false
-    @State private var pulseScale: CGFloat = 1.0
-    @State private var rotationAngle: Double = 0
+    @Environment(\.colorScheme) private var colorScheme
     @State private var currentTipIndex = 0
-    @State private var floatOffset: CGFloat = 0
-    @State private var progressWidth: CGFloat = 0.05
     @State private var animationTimers: [Timer] = []
 
     private let tips = [
@@ -1119,158 +1115,42 @@ struct GeneratingMealPlanView: View {
         "Almost ready..."
     ]
 
-    // Cooking icons for animation
-    private let cookingIcons = ["fork.knife", "flame", "leaf.fill", "carrot.fill", "fish.fill", "cup.and.saucer.fill"]
-
     var body: some View {
         VStack(spacing: 0) {
-            Spacer()
-
-            if reduceMotion {
-                // Static progress indicator for reduce motion users
-                VStack(spacing: Design.Spacing.lg) {
-                    ZStack {
-                        Circle()
-                            .fill(Color(hex: "F5F5F5"))
-                            .frame(width: 110, height: 110)
-                            .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
-
-                        Image(systemName: "sparkles")
-                            .font(Design.Typography.iconSmall).fontWeight(.medium)
-                            .foregroundStyle(Color.black)
-                    }
-                }
-                .frame(height: 220)
-            } else {
-                // Main animated area
-                ZStack {
-                    // Outer pulsing ring
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.black.opacity(0.1), Color.black.opacity(0.05)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 2
-                        )
-                        .frame(width: 200, height: 200)
-                        .scaleEffect(pulseScale)
-                        .opacity(2.2 - pulseScale)
-
-                    // Second pulsing ring (delayed)
-                    Circle()
-                        .stroke(Color.black.opacity(0.08), lineWidth: 1.5)
-                        .frame(width: 160, height: 160)
-                        .scaleEffect(pulseScale * 0.9)
-                        .opacity(2.2 - pulseScale)
-
-                    // Rotating dashed circle
-                    Circle()
-                        .stroke(
-                            Color.black.opacity(0.15),
-                            style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])
-                        )
-                        .frame(width: 130, height: 130)
-                        .rotationEffect(.degrees(rotationAngle))
-
-                    // Center solid circle
-                    Circle()
-                        .fill(Color(hex: "F5F5F5"))
-                        .frame(width: 110, height: 110)
-                        .shadow(color: Color.black.opacity(0.08), radius: 20, y: 8)
-
-                    // Center content - floating icon
-                    VStack(spacing: 6) {
-                        Image(systemName: cookingIcons[currentTipIndex % cookingIcons.count])
-                            .font(Design.Typography.iconSmall).fontWeight(.medium)
-                            .foregroundStyle(Color.black)
-                            .offset(y: floatOffset)
-                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                            .id("icon-\(currentTipIndex)")
-                    }
-
-                    // Orbiting elements
-                    ForEach(0..<4, id: \.self) { index in
-                        let angle = Double(index) * 90 + rotationAngle
-                        let iconNames = ["sparkle", "circle.fill", "sparkle", "circle.fill"]
-
-                        Image(systemName: iconNames[index])
-                            .font(.system(size: index % 2 == 0 ? 10 : 6, weight: .medium))
-                            .foregroundStyle(Color.black.opacity(index % 2 == 0 ? 0.6 : 0.3))
-                            .offset(
-                                x: cos(angle * .pi / 180) * 85,
-                                y: sin(angle * .pi / 180) * 85
-                            )
-                    }
-                }
-                .frame(height: 220)
-            }
-
-            Spacer()
-                .frame(height: 40)
-
-            // Progress text
-            VStack(spacing: 12) {
+            // Top section: title + tip
+            VStack(spacing: Design.Spacing.sm) {
                 Text("Creating Your Plan")
-                    .font(.system(.title2, weight: .bold))
-                    .foregroundStyle(Color.black)
+                    .font(Design.Typography.title3)
+                    .foregroundStyle(Color.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Cycling tip text
                 Text(progress.isEmpty ? tips[currentTipIndex % tips.count] : progress)
-                    .font(.system(.body, weight: .medium))
-                    .foregroundStyle(Color(hex: "6B6B6B"))
-                    .multilineTextAlignment(.center)
-                    .frame(height: 24)
+                    .font(Design.Typography.subheadline)
+                    .foregroundStyle(Color.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 20)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: currentTipIndex)
                     .id("tip-\(currentTipIndex)")
             }
-            .padding(.horizontal, 40)
+            .padding(.horizontal, Design.Spacing.md)
+            .padding(.top, Design.Spacing.sm)
 
-            Spacer()
-                .frame(height: 50)
-
-            // Progress indicator
-            VStack(spacing: 16) {
-                if reduceMotion {
-                    // Static indeterminate progress for reduce motion
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .tint(Color.black)
-                        .padding(.horizontal, 50)
-                } else {
-                    // Clean progress bar
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            // Background
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color(hex: "E5E5E5"))
-                                .frame(height: 6)
-
-                            // Progress fill
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.black)
-                                .frame(width: geometry.size.width * progressWidth, height: 6)
-                        }
-                    }
-                    .frame(height: 6)
-                    .padding(.horizontal, 50)
-                }
-
-                // Time estimate
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                        .font(Design.Typography.caption)
-                    Text("This usually takes 30-60 seconds")
-                        .font(.system(.caption, weight: .medium))
-                }
-                .foregroundStyle(Color(hex: "9CA3AF"))
-            }
-
-            Spacer()
-            Spacer()
+            // Game fills remaining space
+            IngredientCatchGame()
+                .padding(.top, Design.Spacing.md)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .background(
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(hex: "1C1C1E"), Color(hex: "1A1A1C"), Color.backgroundPrimary]
+                    : [Color(hex: "FFF8F5"), Color(hex: "FFFCFA"), Color.backgroundPrimary],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .ignoresSafeArea()
+        )
         .onAppear {
             startAnimations()
         }
@@ -1281,37 +1161,13 @@ struct GeneratingMealPlanView: View {
     }
 
     private func startAnimations() {
-        isAnimating = true
-
-        // Skip all continuous animations when reduce motion is enabled
-        guard !reduceMotion else {
-            // Still cycle tips for text updates (no animation)
-            let tipTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
-                currentTipIndex += 1
-            }
-            animationTimers.append(tipTimer)
-            return
-        }
-
-        withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-            pulseScale = 1.2
-        }
-
-        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
-            rotationAngle = 360
-        }
-
-        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-            floatOffset = -8
-        }
-
-        withAnimation(.easeInOut(duration: 45)) {
-            progressWidth = 0.92
-        }
-
         let tipTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
-            withAnimation(.easeInOut(duration: 0.5)) {
+            if reduceMotion {
                 currentTipIndex += 1
+            } else {
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    currentTipIndex += 1
+                }
             }
         }
         animationTimers.append(tipTimer)

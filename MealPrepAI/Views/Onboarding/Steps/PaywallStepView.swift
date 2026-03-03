@@ -144,7 +144,7 @@ struct PaywallStepView: View {
                     .frame(height: 56)
                     .background(
                         RoundedRectangle(cornerRadius: 28)
-                            .fill(Color.black)
+                            .fill(Color.primary)
                     )
                 }
                 .disabled(subscriptionManager.isLoading)
@@ -184,9 +184,12 @@ struct PaywallStepView: View {
             .padding(.bottom, OnboardingDesign.Spacing.xl)
             .opacity(appeared ? 1 : 0)
         }
-        .background(Color.white.ignoresSafeArea())
+        .background(Color(UIColor.systemBackground).ignoresSafeArea())
         .alert("Purchase Failed", isPresented: $showPurchaseError) {
-            Button("OK", role: .cancel) { }
+            Button("Try Again") {
+                onSubscribe(selectedPlan)
+            }
+            Button("Cancel", role: .cancel) { }
         } message: {
             Text(subscriptionManager.purchaseError ?? "Something went wrong. Please try again.")
         }
@@ -196,7 +199,6 @@ struct PaywallStepView: View {
             }
         }
         .onAppear {
-            SuperwallTracker.trackPaywallShown()
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {
                 appeared = true
             }

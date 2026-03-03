@@ -57,6 +57,16 @@ struct EditProfileView: View {
                     ) {
                         EditCookingPrefsView(profile: profile)
                     }
+
+                    // Meal Settings Section
+                    navigationSection(
+                        title: "Meal Settings",
+                        icon: "fork.knife",
+                        iconColor: Color.brandGreen,
+                        summary: mealSettingsSummary
+                    ) {
+                        EditMealSettingsView(profile: profile)
+                    }
                 }
                 .padding(.horizontal, Design.Spacing.md)
                 .padding(.bottom, Design.Spacing.xxl)
@@ -224,6 +234,15 @@ struct EditProfileView: View {
         let skill = profile.cookingSkill.rawValue
         let time = profile.maxCookingTime.rawValue
         return "\(skill), \(time)"
+    }
+
+    private var mealSettingsSummary: String {
+        var parts: [String] = []
+        if profile.breakfastCount > 0 { parts.append("\(profile.breakfastCount) breakfast") }
+        if profile.lunchCount > 0 { parts.append("\(profile.lunchCount) lunch") }
+        if profile.dinnerCount > 0 { parts.append("\(profile.dinnerCount) dinner") }
+        if profile.snackCount > 0 { parts.append("\(profile.snackCount) snack\(profile.snackCount > 1 ? "s" : "")") }
+        return parts.isEmpty ? "No meals configured" : parts.joined(separator: ", ")
     }
 
     // MARK: - Data Management

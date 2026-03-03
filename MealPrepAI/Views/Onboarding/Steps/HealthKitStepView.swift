@@ -108,8 +108,12 @@ struct HealthKitStepView: View {
             withAnimation(OnboardingDesign.Animation.bouncy.delay(0.2)) {
                 appeared = true
             }
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            if UIAccessibility.isReduceMotionEnabled {
                 iconPulsing = true
+            } else {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                    iconPulsing = true
+                }
             }
         }
     }

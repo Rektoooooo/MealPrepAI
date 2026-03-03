@@ -59,7 +59,8 @@ interface RateLimitResult {
 }
 
 /**
- * Check if a request is within rate limits and increment counter
+ * Check if a request is within rate limits WITHOUT incrementing.
+ * Call incrementRateLimit() after successful completion.
  */
 export async function checkRateLimit(
   deviceId: string,
@@ -74,10 +75,8 @@ export async function checkRateLimit(
   const now = Date.now();
   const cached = rateLimitCache.get(docId);
   if (cached && (now - cached.checkedAt < CACHE_TTL_MS) && now < cached.resetAt) {
-    // Well within limits (< 50% of limit) — serve from cache
-    if (cached.count < config.limit * 0.5) {
-      cached.count += 1;
-      console.log('[DEBUG:RateLimit] Cache hit (within limits):', { count: cached.count, limit: config.limit });
+    if (cached.count < config.limit) {
+      if (DEBUG) console.log('[DEBUG:RateLimit] Cache hit (within limits):', { count: cached.count, limit: config.limit });
       return {
         allowed: true,
         remaining: config.limit - cached.count,
@@ -95,36 +94,90 @@ export async function checkRateLimit(
 
   if (DEBUG) console.log('[DEBUG:RateLimit] Config:', { limit: config.limit, windowHours: config.windowHours });
 
+  const doc = await docRef.get();
+  const data = doc.data() as RateLimitDoc | undefined;
+
+  const resetTime = new Date(nowTs.toMillis() + windowMs);
+
+  if (data && data.windowStart.toMillis() > windowStart.getTime()) {
+    if (DEBUG) console.log('[DEBUG:RateLimit] Existing record found:', {
+      count: data.count,
+      windowStart: data.windowStart.toDate().toISOString(),
+    });
+
+    if (data.count >= config.limit) {
+      const windowResetTime = new Date(
+        data.windowStart.toMillis() + windowMs
+      );
+      if (DEBUG) console.log('[DEBUG:RateLimit] RATE LIMITED - count:', data.count, '>= limit:', config.limit);
+
+      // Update cache
+      rateLimitCache.set(docId, {
+        count: data.count,
+        resetAt: windowResetTime.getTime(),
+        checkedAt: Date.now(),
+      });
+
+      return {
+        allowed: false,
+        remaining: 0,
+        resetTime: windowResetTime,
+        limit: config.limit,
+      };
+    }
+
+    const remaining = config.limit - data.count;
+    const dataResetTime = new Date(data.windowStart.toMillis() + windowMs);
+
+    // Update cache
+    rateLimitCache.set(docId, {
+      count: data.count,
+      resetAt: dataResetTime.getTime(),
+      checkedAt: Date.now(),
+    });
+
+    return {
+      allowed: true,
+      remaining,
+      resetTime: dataResetTime,
+      limit: config.limit,
+    };
+  }
+
+  // No record or window expired
+  if (DEBUG) console.log('[DEBUG:RateLimit] No active window, request allowed');
+  return {
+    allowed: true,
+    remaining: config.limit,
+    resetTime,
+    limit: config.limit,
+  };
+}
+
+/**
+ * Increment the rate limit counter after a successful request.
+ */
+export async function incrementRateLimit(
+  deviceId: string,
+  endpoint: RateLimitEndpoint
+): Promise<RateLimitResult> {
+  if (DEBUG) console.log('[DEBUG:RateLimit] Incrementing rate limit:', { deviceId, endpoint });
+
+  const config = RATE_LIMITS[endpoint];
+  const docId = `${deviceId}_${endpoint}`;
+  const docRef = getDb().collection('rate_limits').doc(docId);
+
+  const nowTs = admin.firestore.Timestamp.now();
+  const windowMs = config.windowHours * 60 * 60 * 1000;
+  const windowStart = new Date(nowTs.toMillis() - windowMs);
+
   const result = await getDb().runTransaction(async (transaction) => {
     const doc = await transaction.get(docRef);
     const data = doc.data() as RateLimitDoc | undefined;
 
-    // Calculate window reset time
     const resetTime = new Date(nowTs.toMillis() + windowMs);
 
-    // Check if existing record is within the current window
     if (data && data.windowStart.toMillis() > windowStart.getTime()) {
-      if (DEBUG) console.log('[DEBUG:RateLimit] Existing record found:', {
-        count: data.count,
-        windowStart: data.windowStart.toDate().toISOString(),
-      });
-
-      // Still within window
-      if (data.count >= config.limit) {
-        // Rate limited
-        const windowResetTime = new Date(
-          data.windowStart.toMillis() + windowMs
-        );
-        if (DEBUG) console.log('[DEBUG:RateLimit] RATE LIMITED - count:', data.count, '>= limit:', config.limit);
-        return {
-          allowed: false,
-          remaining: 0,
-          resetTime: windowResetTime,
-          limit: config.limit,
-        };
-      }
-
-      // Increment counter
       if (DEBUG) console.log('[DEBUG:RateLimit] Incrementing counter:', data.count, '->', data.count + 1);
       transaction.update(docRef, {
         count: data.count + 1,
@@ -133,13 +186,13 @@ export async function checkRateLimit(
 
       return {
         allowed: true,
-        remaining: config.limit - data.count - 1,
+        remaining: Math.max(0, config.limit - data.count - 1),
         resetTime: new Date(data.windowStart.toMillis() + windowMs),
         limit: config.limit,
       };
     }
 
-    // No record or window expired - create new window
+    // No record or window expired — create new window with count 1
     if (DEBUG) console.log('[DEBUG:RateLimit] Creating new rate limit window');
     const newDoc: RateLimitDoc = {
       deviceId,
@@ -159,7 +212,7 @@ export async function checkRateLimit(
     };
   });
 
-  // Update in-memory cache after Firestore transaction
+  // Update in-memory cache
   rateLimitCache.set(docId, {
     count: config.limit - result.remaining,
     resetAt: result.resetTime.getTime(),

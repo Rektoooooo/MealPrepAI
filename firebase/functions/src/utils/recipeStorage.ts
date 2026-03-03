@@ -285,7 +285,7 @@ export async function saveRecipesIfUnique(
     }
   }
 
-  console.log(
+  if (DEBUG) console.log(
     `Recipe storage complete: ${saved} new, ${duplicates} duplicates`
   );
 

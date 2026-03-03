@@ -11,7 +11,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { checkRateLimit } from '../utils/rateLimiter';
+import { checkRateLimit, incrementRateLimit } from '../utils/rateLimiter';
 
 const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
 
@@ -131,11 +131,26 @@ export async function handleSubstituteIngredient(
   if (!deviceId || typeof deviceId !== 'string' || deviceId.length > 128 || !/^[\w-]+$/.test(deviceId)) {
     return { success: false, error: 'Invalid device ID' };
   }
-  if (!ingredientName) {
-    return { success: false, error: 'Ingredient name is required' };
+  if (!ingredientName || typeof ingredientName !== 'string' || ingredientName.length > 200) {
+    return { success: false, error: 'Invalid ingredient name' };
   }
-  if (!recipeContext) {
+  if (typeof ingredientQuantity !== 'number' || ingredientQuantity <= 0 || ingredientQuantity > 100000) {
+    return { success: false, error: 'Invalid ingredient quantity' };
+  }
+  if (!ingredientUnit || typeof ingredientUnit !== 'string') {
+    return { success: false, error: 'Invalid ingredient unit' };
+  }
+  if (!recipeContext || typeof recipeContext !== 'object') {
     return { success: false, error: 'Recipe context is required' };
+  }
+  if (!recipeContext.recipeName || typeof recipeContext.recipeName !== 'string') {
+    return { success: false, error: 'Recipe name is required' };
+  }
+  if (!Array.isArray(dietaryRestrictions)) {
+    return { success: false, error: 'Invalid dietary restrictions' };
+  }
+  if (!Array.isArray(allergies)) {
+    return { success: false, error: 'Invalid allergies' };
   }
 
   // Check rate limit
@@ -176,7 +191,7 @@ Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "
     const startTime = Date.now();
 
     const response = await client.messages.create({
-      model: 'claude-3-5-haiku-latest',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1500,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
@@ -193,17 +208,20 @@ Respond with: { "substitutes": [ { "name": "string", "reason": "max 10 words", "
     const substitutes = parseSubstitutesResponse(textContent.text);
     if (DEBUG) console.log('[DEBUG] Parsed', substitutes.length, 'substitutes');
 
+    // Only count against rate limit after successful substitution
+    const updatedLimit = await incrementRateLimit(deviceId, 'substitute-ingredient');
+
     return {
       success: true,
       substitutes,
       rateLimitInfo: {
-        remaining: rateLimit.remaining,
-        resetTime: rateLimit.resetTime.toISOString(),
-        limit: rateLimit.limit,
+        remaining: updatedLimit.remaining,
+        resetTime: updatedLimit.resetTime.toISOString(),
+        limit: updatedLimit.limit,
       },
     };
   } catch (error) {
-    console.error('[DEBUG] Substitute ingredient error:', error);
+    if (DEBUG) console.error('[DEBUG] Substitute ingredient error:', error);
     return {
       success: false,
       error: 'Failed to generate substitutes. Please try again.',

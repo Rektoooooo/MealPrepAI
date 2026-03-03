@@ -1,20 +1,21 @@
 import Foundation
 import StoreKit
+import SuperwallKit
 
 @MainActor
 @Observable
 final class SubscriptionManager {
     // MARK: - Properties
     var isSubscribed: Bool = false
-    var products: [Product] = []
+    var products: [StoreKit.Product] = []
     var isLoading: Bool = false
     var purchaseError: String?
 
-    var monthlyProduct: Product? {
+    var monthlyProduct: StoreKit.Product? {
         products.first { $0.id == Self.monthlyID }
     }
 
-    var annualProduct: Product? {
+    var annualProduct: StoreKit.Product? {
         products.first { $0.id == Self.annualID }
     }
 
@@ -57,7 +58,7 @@ final class SubscriptionManager {
         defer { isLoading = false }
 
         do {
-            products = try await Product.products(for: Self.productIDs)
+            products = try await StoreKit.Product.products(for: Self.productIDs)
                 .sorted { $0.price < $1.price }
             hasLoadedProducts = true
         } catch {
@@ -71,7 +72,7 @@ final class SubscriptionManager {
     func purchase(plan: SubscriptionPlan) async -> Bool {
         await ensureProductsLoaded()
 
-        let product: Product?
+        let product: StoreKit.Product?
         switch plan {
         case .monthly: product = monthlyProduct
         case .annual: product = annualProduct
@@ -152,6 +153,19 @@ final class SubscriptionManager {
         }
 
         isSubscribed = hasActiveSubscription
+        syncSuperwallStatus()
+    }
+
+    // MARK: - Superwall Sync
+    private func syncSuperwallStatus() {
+        if isSubscribed {
+            Superwall.shared.subscriptionStatus = .active(Set([Entitlement(id: "pro")]))
+        } else {
+            Superwall.shared.subscriptionStatus = .inactive
+        }
+        #if DEBUG
+        print("[SubscriptionManager] Superwall subscriptionStatus synced: \(isSubscribed ? "active" : "inactive")")
+        #endif
     }
 
     // MARK: - Transaction Listener

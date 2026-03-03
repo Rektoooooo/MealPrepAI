@@ -194,7 +194,7 @@ final class AnalyticsService {
 
         Analytics.logEvent("meal_eaten", parameters: [
             "meal_type": mealType.rawValue,
-            "day_of_week": dayNames[weekday],
+            "day_of_week": weekday >= 0 && weekday < dayNames.count ? dayNames[weekday] : "Unknown",
             "time_of_day": timeOfDay,
         ])
         incrementCounter("meals_eaten")

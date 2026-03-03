@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **Always use the `ios-developer` skill** for every task in this codebase
 2. **Build after every task** using the MCP build tool to verify the code compiles
 3. **Fix any build errors** before considering a task complete
+4. **Commit not push** after every new feature or change
 
 ## Build Commands
 

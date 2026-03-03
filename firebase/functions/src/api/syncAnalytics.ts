@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import * as admin from 'firebase-admin';
 
-const db = admin.firestore();
+const DEBUG = process.env.FUNCTIONS_EMULATOR === 'true';
+
+function getDb() {
+  return admin.firestore();
+}
 const ANALYTICS_COLLECTION = 'user_analytics';
 const UUID_REGEX = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
 
@@ -60,7 +64,7 @@ export const handleSyncAnalytics = async (
   }
 
   try {
-    const docRef = db.collection(ANALYTICS_COLLECTION).doc(deviceId);
+    const docRef = getDb().collection(ANALYTICS_COLLECTION).doc(deviceId);
     const now = admin.firestore.FieldValue.serverTimestamp();
 
     // Build the update object with incremented counters
@@ -92,7 +96,7 @@ export const handleSyncAnalytics = async (
 
     await docRef.set(setData, { merge: true });
 
-    console.log(`[Analytics] Synced ${Object.keys(sanitizedDeltas).length} counters for device ${deviceId.substring(0, 8)}...`);
+    if (DEBUG) console.log(`[Analytics] Synced ${Object.keys(sanitizedDeltas).length} counters for device ${deviceId.substring(0, 8)}...`);
 
     res.json({
       success: true,
@@ -122,7 +126,7 @@ export const resetWeeklyAnalytics = async (): Promise<number> => {
 
     while (hasMore) {
       // Paginated query: only fetch the field we need, in pages of 500
-      let query = db.collection(ANALYTICS_COLLECTION)
+      let query = getDb().collection(ANALYTICS_COLLECTION)
         .select('engagement.activeDatesThisWeek')
         .limit(pageSize);
 
@@ -134,13 +138,13 @@ export const resetWeeklyAnalytics = async (): Promise<number> => {
 
       if (snapshot.empty) {
         if (processedCount === 0) {
-          console.log('[Analytics] No documents to reset');
+          if (DEBUG) console.log('[Analytics] No documents to reset');
         }
         break;
       }
 
       // Process this page as a batch
-      const batch = db.batch();
+      const batch = getDb().batch();
       for (const doc of snapshot.docs) {
         const data = doc.data();
         const activeDates: string[] = data?.engagement?.activeDatesThisWeek || [];
@@ -160,7 +164,7 @@ export const resetWeeklyAnalytics = async (): Promise<number> => {
       hasMore = snapshot.docs.length === pageSize;
     }
 
-    console.log(`[Analytics] Reset weekly analytics for ${processedCount} documents`);
+    if (DEBUG) console.log(`[Analytics] Reset weekly analytics for ${processedCount} documents`);
     return processedCount;
   } catch (error) {
     console.error('[Analytics] Weekly reset error:', error);
