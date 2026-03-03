@@ -859,7 +859,7 @@ struct GenerateMealPlanSheet: View {
 
                 if generator.isGenerating {
                     // Beautiful loading state
-                    GeneratingMealPlanView(progress: generator.progress)
+                    GeneratingMealPlanView(progress: generator.progress, fraction: generator.progressFraction)
                 } else {
                     // Ready state
                     ScrollView(showsIndicators: false) {
@@ -1099,6 +1099,7 @@ struct ProfileStatBadge: View {
 // MARK: - Generating Meal Plan View (Animated Loading)
 struct GeneratingMealPlanView: View {
     let progress: String
+    let fraction: Double
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -1117,7 +1118,7 @@ struct GeneratingMealPlanView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top section: title + tip
+            // Top section: title + progress
             VStack(spacing: Design.Spacing.sm) {
                 Text("Creating Your Plan")
                     .font(Design.Typography.title3)
@@ -1132,6 +1133,9 @@ struct GeneratingMealPlanView: View {
                     .frame(height: 20)
                     .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: currentTipIndex)
                     .id("tip-\(currentTipIndex)")
+
+                // Progress bar
+                progressBar
             }
             .padding(.horizontal, Design.Spacing.md)
             .padding(.top, Design.Spacing.sm)
@@ -1158,6 +1162,30 @@ struct GeneratingMealPlanView: View {
             animationTimers.forEach { $0.invalidate() }
             animationTimers.removeAll()
         }
+    }
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                // Track
+                Capsule()
+                    .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
+
+                // Fill
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.brandGreen, Color.brandGreen.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(0, geo.size.width * CGFloat(fraction)))
+                    .animation(.easeInOut(duration: 0.6), value: fraction)
+            }
+        }
+        .frame(height: 6)
+        .clipShape(Capsule())
     }
 
     private func startAnimations() {

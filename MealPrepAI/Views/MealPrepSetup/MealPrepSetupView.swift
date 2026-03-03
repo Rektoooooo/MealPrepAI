@@ -181,7 +181,7 @@ struct MealPrepSetupView: View {
 
     // MARK: - Generating Overlay
     private var generatingOverlay: some View {
-        GeneratingMealPlanView(progress: viewModel.generationProgress)
+        GeneratingMealPlanView(progress: viewModel.generationProgress, fraction: viewModel.generationFraction)
             .transition(.opacity)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Generating meal plan, please wait")

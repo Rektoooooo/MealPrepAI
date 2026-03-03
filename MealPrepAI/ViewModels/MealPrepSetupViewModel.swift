@@ -46,7 +46,9 @@ final class MealPrepSetupViewModel {
     // MARK: - Generation State
     var isGenerating: Bool = false
     var generationProgress: String = ""
+    var generationFraction: Double = 0.0
     var generationError: Error?
+    private var progressTimer: Timer?
 
     // MARK: - Date Selection
     var selectedStartDate: Date = Date()
@@ -228,6 +230,7 @@ final class MealPrepSetupViewModel {
     ) {
         isGenerating = true
         generationProgress = "Preparing your preferences..."
+        generationFraction = 0.05
         generationError = nil
 
         Task {
@@ -242,6 +245,7 @@ final class MealPrepSetupViewModel {
                 let weeklyPrefsString = buildWeeklyPreferencesString()
 
                 generationProgress = "Generating your personalized meal plan..."
+                generationFraction = 0.15
 
                 // Build macro overrides if any are set
                 let macroOverrides: MacroOverrides? = {
@@ -267,6 +271,9 @@ final class MealPrepSetupViewModel {
                     return (weeklyFocus: focus, temporaryExclusions: exclusions, weeklyBusyness: busyness)
                 }()
 
+                // Start a timer to slowly crawl progress during the long API call
+                startProgressTimer()
+
                 _ = try await generator.generateMealPlan(
                     for: profile,
                     startDate: selectedStartDate,
@@ -278,10 +285,17 @@ final class MealPrepSetupViewModel {
                     modelContext: modelContext
                 )
 
+                stopProgressTimer()
+                generationProgress = "Processing your meal plan..."
+                generationFraction = 0.80
+
                 // Mark free trial as used for free users
                 if !isSubscribed {
                     profile.hasUsedFreeTrial = true
                 }
+
+                generationProgress = "Saving to your library..."
+                generationFraction = 0.90
 
                 // Reschedule local notifications for the new plan
                 if let nm = notificationManager {
@@ -300,19 +314,47 @@ final class MealPrepSetupViewModel {
                     )
                 }
 
+                generationFraction = 1.0
+                // Brief pause so user sees 100%
+                try? await Task.sleep(for: .milliseconds(400))
+
                 isGenerating = false
                 generationProgress = ""
+                generationFraction = 0.0
                 onComplete()
 
             } catch {
+                stopProgressTimer()
                 isGenerating = false
                 generationProgress = ""
+                generationFraction = 0.0
                 generationError = error
                 #if DEBUG
                 print("Failed to generate meal plan: \(error)")
                 #endif
             }
         }
+    }
+
+    // MARK: - Progress Timer
+
+    /// Slowly crawls progress from current value toward 0.75 during the API call
+    private func startProgressTimer() {
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isGenerating else { return }
+                // Ease toward 0.75 but never reach it (leaves room for post-API steps)
+                let remaining = 0.75 - self.generationFraction
+                if remaining > 0.01 {
+                    self.generationFraction += remaining * 0.12
+                }
+            }
+        }
+    }
+
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
     }
 
     // MARK: - Private Helpers

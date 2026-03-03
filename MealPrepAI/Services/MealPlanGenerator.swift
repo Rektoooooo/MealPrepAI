@@ -21,6 +21,7 @@ struct MacroOverrides {
 class MealPlanGenerator {
     var isGenerating = false
     var progress: String = ""
+    var progressFraction: Double = 0.0
     var error: Error?
 
     private let apiService = APIService.shared
@@ -52,12 +53,14 @@ class MealPlanGenerator {
 
         isGenerating = true
         progress = "Building your personalized meal plan..."
+        progressFraction = 0.05
         error = nil
         AnalyticsService.shared.trackPlanGenerationStarted()
 
         defer {
             isGenerating = false
             progress = ""
+            progressFraction = 0.0
             #if DEBUG
             let elapsedTime = Date().timeIntervalSince(generationStartTime)
             #if DEBUG
@@ -77,6 +80,7 @@ class MealPlanGenerator {
             let apiProfile = buildAPIUserProfile(from: profile, overrides: macroOverrides, measurementSystem: measurementSystem)
 
             progress = "Generating recipes with AI..."
+            progressFraction = 0.15
             #if DEBUG
             print("[DEBUG:Generator] Calling generateMealPlan API...")
             #endif
@@ -146,6 +150,7 @@ class MealPlanGenerator {
             }
 
             progress = "Processing meal plan..."
+            progressFraction = 0.75
 
             // Convert API response to MealPlanResponse format
             #if DEBUG
@@ -157,6 +162,7 @@ class MealPlanGenerator {
             #endif
 
             progress = "Saving to your library..."
+            progressFraction = 0.90
 
             // Convert to SwiftData models and save
             #if DEBUG
