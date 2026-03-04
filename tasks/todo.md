@@ -125,3 +125,52 @@ Full 4-phase analytics system implemented.
 ### Verification
 - [x] iOS build succeeded (xcodebuild)
 - [x] TypeScript compilation clean (tsc --noEmit)
+
+---
+
+## Meal Plan Variety & Deduplication Fixes (March 4, 2026)
+
+All changes in `firebase/functions/src/api/generatePlan.ts`.
+
+### Post-Generation Enforcement
+- [x] **1. Recipe name dedup auto-fix** — Duplicate names get day name appended (e.g., "(Sunday)")
+- [x] **5. Snack name dedup** — Snacks appearing 3+ times get "(DayName Variation)" suffix
+- [x] **9. Ingredient dominance scanner** — Warning-only: logs `[VARIETY]` for 5+/7 day ingredients
+
+### Generation Pipeline
+- [x] **2. Cross-batch recipe tracking** — Accumulates names across batches into excludeRecipeNames
+
+### Pre-Generation Enforcement
+- [x] **3. Breakfast category cap (max 2/week)** — Excess categories swapped with under-represented ones
+- [x] **4. Snack archetype caps extended** — Added hummus, hard-boiled eggs, trail mix (max 2 each)
+
+### Prompt Changes
+- [x] **6. Conditional fat guidance** — fatGrams >= 80: generous oil; < 80: don't over-oil
+- [x] **7. Dairy-free egg clarification** — "Eggs are NOT dairy" when dairy-free but not egg-allergic
+- [x] **8. Ingredient/protein diversity** — Max 4/7 days per ingredient, max 3 protein/fruit repeats
+
+### Verification
+- [x] TypeScript compilation clean (tsc --noEmit)
+
+---
+
+## 3 Remaining Fixes for App Store Release (March 4, 2026)
+
+All changes in `firebase/functions/src/api/generatePlan.ts`.
+
+### Fix 1: Imperial Unit Correction (CRITICAL)
+- [x] **1a. Conditional valid units** — Valid units line now metric/imperial aware (ounce, pound for imperial; gram, milliliter for metric)
+- [x] **1b. `correctIngredientUnits()` post-gen function** — Converts proteins from cup→ounce (×8) and gram→ounce (÷28.35) in imperial mode
+- [x] **1c. Called in post-gen pipeline** — Runs after `correctIngredientCategories()`
+
+### Fix 2: Snack Type Enforcement (HIGH)
+- [x] **2a. snackAssignments passed to `buildUserPrompt`** — Added `snackAssignments` and `vegetableAssignments` params, included MANDATORY SNACK TYPES section in prompt
+- [x] **2b. `enforceSnackTypeCaps()` post-gen function** — Counts yogurt/cottage snacks; if >2, replaces excess with assigned archetype recipe names from `SNACK_REPLACEMENTS` map. Includes fallback for unmatched archetypes and avoids replacing yogurt-with-yogurt/cottage-with-cottage. All replacement names are allergen-safe (no tree nuts, no "mixed nuts" in names).
+
+### Fix 3: Ingredient Dominance Mitigation (MEDIUM)
+- [x] **3a. `assignDailyVegetables()` pre-gen function** — Pre-assigns 2-3 featured vegetables per day with max 4 appearances/week
+- [x] **3b. Vegetable assignments in skeleton + user prompts** — Added MANDATORY VEGETABLE ROTATION section to both prompts
+- [x] **3c. Strengthened dominance scanner** — Added onion/garlic/soy sauce to pantry staples, summary log for dominant ingredients
+
+### Verification
+- [x] TypeScript compilation clean (tsc --noEmit)

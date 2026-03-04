@@ -163,28 +163,85 @@ function getAnthropicClient(): Anthropic {
 }
 
 /**
+ * Build a dynamic pantry staples list based on user's restrictions and allergies.
+ * Removes soy sauce for GF/soy-allergy, adds tamari for GF without soy allergy.
+ */
+function buildPantryStaples(profile: UserProfile): string {
+  const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
+  const allergyTerms = expandAllergyTerms(profile.allergies);
+  const isGlutenFree = restrictions.includes('gluten-free') || allergyTerms.includes('gluten');
+  const hasSoyAllergy = allergyTerms.includes('soy') || allergyTerms.includes('soy sauce');
+
+  const staples = ['salt', 'pepper', 'garlic powder', 'Italian seasoning'];
+
+  if (!isGlutenFree && !hasSoyAllergy) {
+    staples.push('soy sauce');
+  } else if (isGlutenFree && !hasSoyAllergy) {
+    staples.push('tamari (gluten-free soy sauce)');
+  }
+  // If soy allergy: no soy sauce or tamari at all
+
+  if (!allergyTerms.includes('sesame')) {
+    // sesame oil is a common pantry staple but skip if allergic
+  }
+
+  staples.push('honey');
+
+  return staples.join(', ');
+}
+
+/**
  * Build the system prompt for Claude
  */
-function buildSystemPrompt(): string {
+function buildSystemPrompt(profile: UserProfile): string {
+  const pantryLine = buildPantryStaples(profile);
+  const expandedAllergies = expandAllergyTerms(profile.allergies);
+  const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
+  const isGlutenFree = restrictions.includes('gluten-free') || expandedAllergies.includes('gluten');
+
+  // Build explicit allergen ban lines for the RESTRICTIONS section
+  const allergenBanLines: string[] = [];
+  for (const allergy of profile.allergies) {
+    const key = allergy.toLowerCase();
+    const terms = ALLERGY_EXPANSIONS[key];
+    if (terms) {
+      allergenBanLines.push(`- ${allergy}: NEVER use ${terms.slice(0, 10).join(', ')}${terms.length > 10 ? ', ...' : ''}`);
+    }
+  }
+  // Also add explicit bans for dairy-free restriction (not just allergy)
+  const isDairyFree = restrictions.includes('dairy-free');
+  if (isDairyFree && !expandedAllergies.includes('dairy')) {
+    const dairyTerms = ALLERGY_EXPANSIONS['dairy'];
+    if (dairyTerms) {
+      allergenBanLines.push(`- Dairy-Free: NEVER use ${dairyTerms.slice(0, 10).join(', ')}${dairyTerms.length > 10 ? ', ...' : ''}`);
+    }
+  }
+  const allergenBanSection = allergenBanLines.length > 0
+    ? `\nEXPLICIT ALLERGEN BANS (life-threatening — zero tolerance):\n${allergenBanLines.join('\n')}\n`
+    : '';
+
+  // Conditional GF oat note
+  const gfOatNote = isGlutenFree
+    ? '\n- When using oats for gluten-free users, always specify "certified gluten-free oats"\n'
+    : '';
+
+  // Dairy-free does NOT mean egg-free clarification
+  const dairyFreeEggNote = isDairyFree && !profile.allergies.some(a => a.toLowerCase().includes('egg'))
+    ? '\nIMPORTANT: Dairy-free does NOT mean egg-free. Eggs are NOT dairy. Use eggs freely for protein and variety.\n'
+    : '';
+
   return `You are a professional nutritionist creating personalized meal plans.
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks.
 
 ═══════════════════════════════════════════════════════════════
-STRICT CALORIE & MACRO REQUIREMENTS
+CALORIE & MACRO REQUIREMENTS
 ═══════════════════════════════════════════════════════════════
 
-Each day's totals should be CLOSE to targets, but natural variation is expected:
-- Daily calories: within 200 kcal of target
-- Daily protein: within 15g of target
-- Carbs and fat: within 15g of target
-
-Do NOT hit the exact same calorie total every day — real meal plans vary naturally.
-Some days should be lighter (target - 150 cal), some heavier (target + 150 cal).
-A 2200-cal day followed by a 2500-cal day is BETTER than hitting 2400 every day.
-
-The user prompt contains calculated per-meal target RANGES based on their profile.
-Follow those ranges, not exact numbers.
+The user prompt contains SPECIFIC per-day calorie targets that already vary.
+Follow each day's specific targets — they are intentionally different.
+Do NOT adjust portions to force identical daily totals.
+Each day's totals should be CLOSE to that day's specific target (within ~150 cal).
 
 ═══════════════════════════════════════════════════════════════
 INGREDIENT GUIDELINES
@@ -194,7 +251,7 @@ IMPORTANT: Use ONLY the ingredients listed in the user's specific prompt.
 The ingredient list is customized based on their dietary restrictions.
 
 PANTRY (always available, don't list in ingredients):
-- salt, pepper, garlic powder, Italian seasoning, soy sauce, honey
+- ${pantryLine}
 
 LIMIT: 5-8 ingredients per recipe (excluding pantry staples)
 
@@ -203,13 +260,14 @@ VARIETY REQUIREMENTS (CRITICAL)
 ═══════════════════════════════════════════════════════════════
 - NEVER repeat same protein 2 days in a row for lunch/dinner
 - Follow the rotation pattern provided in the user's prompt
-- Breakfasts MUST use at least 4 different base categories across 7 days: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl
-- Max 2 yogurt-based snacks per week, max 2 cottage-cheese-based snacks per week
-- At least 5 DISTINCT snack concepts across the week
+- Breakfast categories and snack types are pre-assigned in the user prompt — follow them exactly
 - NEVER generate two recipes with the same primary protein AND cooking method in the same plan
 - Each recipe name must be distinct — no duplicates across the entire plan
 - Each day's meals should feel distinct from adjacent days — different cuisine feel, different cooking methods
 - Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, etc.)
+- No single ingredient (excluding pantry staples) should appear in more than 4 out of 7 days
+- Rotate fruits across breakfasts — never use the same fruit more than 3 times per week
+- No single protein source should appear in more than 3 lunch/dinner meals across a 7-day plan
 
 ═══════════════════════════════════════════════════════════════
 MEAL GUIDELINES
@@ -220,9 +278,14 @@ The targets are calculated based on the user's specific protein goal.
 
 BREAKFAST (MAX 15 minutes total prep+cook — this is non-negotiable):
 - prepTimeMinutes + cookTimeMinutes MUST be ≤ 15
-- Quick recipes ONLY: scrambles, oatmeal, yogurt bowls, toast, smoothies, overnight oats
-- Use available proteins: eggs, yogurt, or protein from user's list
-- Add carbs (oats, toast) for energy
+- Follow the assigned breakfast CATEGORY from the user prompt. Category examples:
+  - "toast/bread": avocado toast, PB banana toast, smoked salmon toast — NOT eggs on toast
+  - "pancake/waffle": protein pancakes, banana oat pancakes, sweet potato pancakes
+  - "smoothie/shake": protein smoothie, green smoothie, berry shake, chocolate PB smoothie
+  - "oats/porridge": overnight oats, protein oatmeal, baked oats, chia pudding
+  - "yogurt bowl": yogurt parfait, cottage cheese bowl, acai bowl
+  - "eggs": scrambled eggs, veggie egg scramble, egg muffins — eggs category ONLY
+- IMPORTANT: Only use eggs as the main protein when the category is "eggs". Other categories should use their own protein sources.
 - Hit the protein target from user prompt (varies per user)
 
 LUNCH (respect user's max cooking time):
@@ -234,18 +297,21 @@ DINNER (respect user's max cooking time):
 
 SNACKS (no-cook, 5 min):
 - VARY snacks across the week — do NOT repeat the same snack concept more than twice
-- Good options: nut butter + fruit, trail mix, hummus + veggies, hard boiled eggs, protein smoothie, cottage cheese + fruit, yogurt parfait, rice cakes + toppings, edamame, dark chocolate + almonds
+- Follow the pre-assigned snack types from the user prompt EXACTLY
 - Hit the snack protein target from user prompt (varies per user!)
 - If user is dairy-free/vegan, use available protein sources
+- NEVER use an ingredient the user is allergic to in snacks — check the allergen list above
 
 ═══════════════════════════════════════════════════════════════
 CARB & FAT ENFORCEMENT (CRITICAL)
 ═══════════════════════════════════════════════════════════════
 
-Carbs are often too low and fat too high. To fix:
+Carbs are often too low. To fix:
 - LUNCH: Include a proper carb source (rice, potato, quinoa, pasta, bread) — at least 40-50g carbs
 - DINNER: Include a carb side — at least 30-40g carbs
-- FAT: Don't over-oil. Use 1 tbsp oil max per recipe. Avoid adding cheese/butter unless needed.
+${profile.fatGrams >= 80
+    ? `- FAT: User needs ${profile.fatGrams}g fat/day. Use generous oil (2 tbsp per recipe), add avocado/nuts, don't skimp on fats.`
+    : `- FAT: Don't over-oil. Use 1 tbsp oil max per recipe. Avoid adding cheese/butter unless needed.`}
 
 ═══════════════════════════════════════════════════════════════
 SKELETON PLAN
@@ -292,7 +358,8 @@ RESTRICTIONS
 
 - NEVER include allergenic ingredients - life-threatening
 - Respect dietary restrictions strictly
-- Every ingredient in instructions MUST be in ingredients list`;
+- Every ingredient in instructions MUST be in ingredients list
+${allergenBanSection}${gfOatNote}${dairyFreeEggNote}`;
 }
 
 // Module-level constant: maps compound food categories to individual ingredients
@@ -301,6 +368,28 @@ const DISLIKE_EXPANSIONS: Record<string, string[]> = {
   'fish': ['salmon', 'tuna', 'cod', 'tilapia', 'trout', 'bass', 'halibut', 'mackerel'],
   'beans': ['black beans', 'chickpeas', 'lentils', 'kidney beans'],
   'spicy food': ['chili', 'jalapeño', 'cayenne', 'hot sauce'],
+};
+
+/**
+ * Maps each allergy type to all ingredient terms that must be banned.
+ * Used for both ingredient filtering AND post-generation scanning.
+ */
+const ALLERGY_EXPANSIONS: Record<string, string[]> = {
+  'peanuts': ['peanut', 'peanut butter', 'peanut oil', 'peanut sauce', 'peanuts'],
+  'peanut': ['peanut', 'peanut butter', 'peanut oil', 'peanut sauce', 'peanuts'],
+  'tree nuts': ['almond', 'almonds', 'almond butter', 'almond flour', 'almond milk', 'walnut', 'walnuts', 'cashew', 'cashews', 'pecan', 'pecans', 'pistachio', 'pistachios', 'macadamia', 'hazelnut', 'hazelnuts', 'pine nut', 'pine nuts', 'mixed nuts', 'trail mix'],
+  'tree nut': ['almond', 'almonds', 'almond butter', 'almond flour', 'almond milk', 'walnut', 'walnuts', 'cashew', 'cashews', 'pecan', 'pecans', 'pistachio', 'pistachios', 'macadamia', 'hazelnut', 'hazelnuts', 'pine nut', 'pine nuts', 'mixed nuts', 'trail mix'],
+  'milk': ['cheese', 'butter', 'yogurt', 'greek yogurt', 'cream', 'cottage cheese', 'ricotta', 'mozzarella', 'parmesan', 'whey', 'casein', 'ghee', 'ice cream', 'milk', 'whole milk', 'skim milk'],
+  'dairy': ['cheese', 'butter', 'yogurt', 'greek yogurt', 'cream', 'cottage cheese', 'ricotta', 'mozzarella', 'parmesan', 'whey', 'casein', 'ghee', 'ice cream', 'milk', 'whole milk', 'skim milk'],
+  'lactose': ['cheese', 'butter', 'yogurt', 'greek yogurt', 'cream', 'cottage cheese', 'ricotta', 'mozzarella', 'parmesan', 'whey', 'casein', 'ghee', 'ice cream', 'milk', 'whole milk', 'skim milk'],
+  'eggs': ['egg', 'eggs', 'egg white', 'egg whites', 'mayonnaise'],
+  'egg': ['egg', 'eggs', 'egg white', 'egg whites', 'mayonnaise'],
+  'wheat': ['bread', 'pasta', 'tortilla', 'flour', 'couscous', 'seitan', 'crackers', 'breadcrumbs', 'noodles', 'pita', 'naan', 'wrap', 'whole wheat bread'],
+  'gluten': ['bread', 'pasta', 'tortilla', 'flour', 'couscous', 'seitan', 'crackers', 'breadcrumbs', 'noodles', 'pita', 'naan', 'wrap', 'whole wheat bread', 'soy sauce'],
+  'soy': ['soy sauce', 'tofu', 'tempeh', 'edamame', 'soy milk', 'miso', 'tamari'],
+  'fish': ['salmon', 'tuna', 'cod', 'tilapia', 'trout', 'bass', 'halibut', 'mackerel', 'sardine', 'anchovy', 'fish sauce'],
+  'shellfish': ['shrimp', 'crab', 'lobster', 'clam', 'mussel', 'scallop', 'oyster', 'prawn'],
+  'sesame': ['sesame oil', 'sesame seeds', 'tahini'],
 };
 
 /**
@@ -318,6 +407,25 @@ function expandFoodTerms(terms: string[]): string[] {
 }
 
 /**
+ * Expand allergy names into all ingredient terms that must be banned.
+ * Returns a deduplicated flat list of lowercase terms.
+ */
+function expandAllergyTerms(allergies: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const allergy of allergies) {
+    const key = allergy.toLowerCase();
+    expanded.add(key);
+    const terms = ALLERGY_EXPANSIONS[key];
+    if (terms) {
+      for (const term of terms) {
+        expanded.add(term.toLowerCase());
+      }
+    }
+  }
+  return Array.from(expanded);
+}
+
+/**
  * Build dynamic ingredient list based on user preferences
  */
 function buildIngredientList(profile: UserProfile, temporaryExclusions?: string[]): {
@@ -332,7 +440,7 @@ function buildIngredientList(profile: UserProfile, temporaryExclusions?: string[
   const restrictions = profile.dietaryRestrictions.map(r => r.toLowerCase());
   const rawDislikes = (profile.foodDislikes || []).map(d => d.toLowerCase());
   const dislikes = expandFoodTerms(rawDislikes);
-  const allergies = profile.allergies.map(a => a.toLowerCase());
+  const allergies = expandAllergyTerms(profile.allergies);
 
   const isVegan = restrictions.includes('vegan');
   const isVegetarian = restrictions.includes('vegetarian') || isVegan;
@@ -365,7 +473,7 @@ function buildIngredientList(profile: UserProfile, temporaryExclusions?: string[
 
   // Build carb list
   let carbs = isGlutenFree
-    ? filterItems(['rice', 'oats', 'potato', 'quinoa', 'sweet potato', 'couscous'])
+    ? filterItems(['rice', 'oats', 'potato', 'quinoa', 'sweet potato'])
     : filterItems(['rice', 'oats', 'whole wheat bread', 'potato', 'pasta', 'sweet potato', 'quinoa', 'couscous', 'tortilla']);
 
   // Build vegetable list
@@ -497,6 +605,259 @@ function computeMealPercentages(counts: ReturnType<typeof resolveMealCounts>): R
   };
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Server-side pre-randomization utilities
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Fisher-Yates shuffle (returns a new array, does not mutate input)
+ */
+function shuffleArray<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+interface DayTargets {
+  day: number;
+  cal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+/**
+ * Pre-randomize per-day calorie/macro targets with ±8% jitter.
+ * Each day gets a fresh random multiplier so daily totals are visibly different.
+ */
+function jitterDailyTargets(profile: UserProfile, duration: number): DayTargets[] {
+  const targets: DayTargets[] = [];
+  for (let d = 0; d < duration; d++) {
+    // ±8% for calories
+    const calMult = 1 + (Math.random() * 0.16 - 0.08);
+    // ±7% for macros (slightly different per macro)
+    const protMult = 1 + (Math.random() * 0.14 - 0.07);
+    const carbMult = 1 + (Math.random() * 0.14 - 0.07);
+    const fatMult = 1 + (Math.random() * 0.14 - 0.07);
+    targets.push({
+      day: d,
+      cal: Math.round(profile.dailyCalorieTarget * calMult),
+      protein: Math.round(profile.proteinGrams * protMult),
+      carbs: Math.round(profile.carbsGrams * carbMult),
+      fat: Math.round(profile.fatGrams * fatMult),
+    });
+  }
+  return targets;
+}
+
+const BREAKFAST_CATEGORIES = [
+  'eggs', 'oats/porridge', 'toast/bread', 'smoothie/shake', 'pancake/waffle', 'yogurt bowl',
+];
+
+/**
+ * Pre-assign one breakfast category per day.
+ * Shuffles randomly and cycles, ensuring no two consecutive days share the same category.
+ * Guarantees 4+ distinct categories for 7-day plans.
+ */
+function assignBreakfastCategories(duration: number, breakfastCount: number): string[] {
+  if (breakfastCount === 0) return [];
+
+  // Shuffle categories freshly each call
+  let pool = shuffleArray(BREAKFAST_CATEGORIES);
+
+  // Cycle through shuffled pool for all days
+  const assignments: string[] = [];
+  for (let d = 0; d < duration; d++) {
+    assignments.push(pool[d % pool.length]);
+  }
+
+  // Fix consecutive duplicates by swapping with next different category
+  for (let d = 1; d < assignments.length; d++) {
+    if (assignments[d] === assignments[d - 1]) {
+      // Find next different category to swap with
+      for (let j = d + 1; j < assignments.length; j++) {
+        if (assignments[j] !== assignments[d - 1]) {
+          [assignments[d], assignments[j]] = [assignments[j], assignments[d]];
+          break;
+        }
+      }
+      // If still duplicate (end of array), pick a random different one
+      if (assignments[d] === assignments[d - 1]) {
+        const others = BREAKFAST_CATEGORIES.filter(c => c !== assignments[d - 1]);
+        assignments[d] = others[Math.floor(Math.random() * others.length)];
+      }
+    }
+  }
+
+  // Enforce max-per-category cap to prevent breakfast monotony
+  const maxPerCategory = duration <= 7 ? 2 : Math.ceil(duration / BREAKFAST_CATEGORIES.length);
+  const counts = new Map<string, number>();
+  for (const cat of assignments) counts.set(cat, (counts.get(cat) || 0) + 1);
+
+  for (let d = 0; d < assignments.length; d++) {
+    const cat = assignments[d];
+    if ((counts.get(cat) || 0) > maxPerCategory) {
+      const underUsed = BREAKFAST_CATEGORIES.filter(c =>
+        (counts.get(c) || 0) < maxPerCategory &&
+        (d === 0 || c !== assignments[d - 1]) &&
+        (d === assignments.length - 1 || c !== assignments[d + 1])
+      );
+      if (underUsed.length > 0) {
+        const replacement = underUsed[Math.floor(Math.random() * underUsed.length)];
+        counts.set(cat, (counts.get(cat) || 0) - 1);
+        counts.set(replacement, (counts.get(replacement) || 0) + 1);
+        assignments[d] = replacement;
+      }
+    }
+  }
+
+  return assignments;
+}
+
+const SNACK_POOL = [
+  'nut butter + fruit', 'trail mix', 'hummus + veggies', 'hard boiled eggs',
+  'protein smoothie', 'cottage cheese + fruit', 'yogurt parfait',
+  'rice cakes + toppings', 'edamame', 'dark chocolate + almonds',
+];
+
+const DAIRY_SNACKS = new Set(['cottage cheese + fruit', 'yogurt parfait']);
+
+/**
+ * Pre-assign snack archetypes per day.
+ * Filters dairy-based if needed, filters by expanded allergies, enforces max 2 yogurt-based and max 2 cottage-cheese-based.
+ */
+function assignSnackArchetypes(
+  duration: number,
+  snackCount: number,
+  isDairyFree: boolean,
+  expandedAllergies: string[] = []
+): string[][] {
+  if (snackCount === 0) return Array.from({ length: duration }, () => []);
+
+  // Filter pool based on dietary restrictions
+  let pool = isDairyFree
+    ? SNACK_POOL.filter(s => !DAIRY_SNACKS.has(s))
+    : [...SNACK_POOL];
+
+  // Filter pool by expanded allergy terms
+  if (expandedAllergies.length > 0) {
+    pool = pool.filter(snack => {
+      const snackLower = snack.toLowerCase();
+      return !expandedAllergies.some(allergen => snackLower.includes(allergen));
+    });
+  }
+
+  // Fallback pool if everything got filtered
+  if (pool.length === 0) {
+    pool = ['rice cakes + toppings', 'protein smoothie', 'fruit salad'];
+  }
+
+  const assignments: string[][] = [];
+  let yogurtCount = 0;
+  let cottageCount = 0;
+  let hummusCount = 0;
+  let eggsCount = 0;
+  let trailMixCount = 0;
+
+  const isAtCap = (snack: string): boolean => {
+    if (snack === 'yogurt parfait' && yogurtCount >= 2) return true;
+    if (snack === 'cottage cheese + fruit' && cottageCount >= 2) return true;
+    if (snack === 'hummus + veggies' && hummusCount >= 2) return true;
+    if (snack === 'hard boiled eggs' && eggsCount >= 2) return true;
+    if (snack === 'trail mix' && trailMixCount >= 2) return true;
+    return false;
+  };
+
+  const incrementCap = (snack: string): void => {
+    if (snack === 'yogurt parfait') yogurtCount++;
+    if (snack === 'cottage cheese + fruit') cottageCount++;
+    if (snack === 'hummus + veggies') hummusCount++;
+    if (snack === 'hard boiled eggs') eggsCount++;
+    if (snack === 'trail mix') trailMixCount++;
+  };
+
+  for (let d = 0; d < duration; d++) {
+    const daySnacks: string[] = [];
+    const shuffled = shuffleArray(pool);
+
+    for (const snack of shuffled) {
+      if (daySnacks.length >= snackCount) break;
+
+      // Enforce weekly caps
+      if (isAtCap(snack)) continue;
+
+      // Avoid same snack twice in one day
+      if (daySnacks.includes(snack)) continue;
+
+      daySnacks.push(snack);
+      incrementCap(snack);
+    }
+
+    // Fill remaining slots if needed
+    while (daySnacks.length < snackCount) {
+      const fallback = shuffleArray(pool.filter(s =>
+        !daySnacks.includes(s) && !isAtCap(s)
+      ));
+      if (fallback.length > 0) {
+        const pick = fallback[0];
+        daySnacks.push(pick);
+        incrementCap(pick);
+      } else {
+        // Absolute fallback
+        daySnacks.push('mixed nuts');
+      }
+    }
+
+    assignments.push(daySnacks);
+  }
+
+  return assignments;
+}
+
+/**
+ * Pre-assign 2-3 "featured vegetables" per day from the available pool.
+ * Ensures no single vegetable dominates the week (max 4 days per veg).
+ */
+function assignDailyVegetables(
+  duration: number,
+  vegetables: string[]
+): string[][] {
+  if (vegetables.length === 0) return Array.from({ length: duration }, () => []);
+
+  const vegsPerDay = Math.min(3, vegetables.length);
+  const maxPerWeek = Math.min(4, Math.ceil(duration * vegsPerDay / vegetables.length));
+  const counts = new Map<string, number>();
+  const assignments: string[][] = [];
+
+  for (let d = 0; d < duration; d++) {
+    const dayVegs: string[] = [];
+    const pool = shuffleArray(vegetables).filter(v =>
+      (counts.get(v) || 0) < maxPerWeek && !dayVegs.includes(v)
+    );
+
+    for (const veg of pool) {
+      if (dayVegs.length >= vegsPerDay) break;
+      dayVegs.push(veg);
+      counts.set(veg, (counts.get(veg) || 0) + 1);
+    }
+
+    // Fallback if pool was too small
+    while (dayVegs.length < vegsPerDay && vegetables.length > 0) {
+      const fallback = shuffleArray(vegetables).find(v => !dayVegs.includes(v));
+      if (fallback) {
+        dayVegs.push(fallback);
+        counts.set(fallback, (counts.get(fallback) || 0) + 1);
+      } else break;
+    }
+
+    assignments.push(dayVegs);
+  }
+  return assignments;
+}
+
 // Skeleton types for 2-step generation
 interface SkeletonMealConcept {
   concept: string;
@@ -531,7 +892,10 @@ function buildSkeletonPrompt(
   duration: number,
   weeklyPreferences?: string,
   excludeRecipeNames?: string[],
-  temporaryExclusions?: string[]
+  temporaryExclusions?: string[],
+  breakfastAssignments?: string[],
+  snackAssignments?: string[][],
+  vegetableAssignments?: string[][]
 ): string {
   const counts = resolveMealCounts(profile);
   const ingredients = buildIngredientList(profile, temporaryExclusions);
@@ -593,15 +957,25 @@ ${excludeList ? `AVOID THESE RECIPES: ${excludeList}` : ''}
 RULES:
 1. From the available ingredients above, pick a shared grocery list of 20-25 items for the week
 2. No repeated proteins on consecutive days for lunch/dinner
-3. Each breakfast MUST use a different base category. Categories: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl. Use at least 4 different categories across the week.
-4. At least 5 DISTINCT snack concepts across the week. Max 2 yogurt-based, max 2 cottage-cheese-based, max 2 nut-only snacks.
-5. Same protein can appear multiple times but cooked differently (grilled vs stir-fry vs baked)
-6. Rotate through the user's preferred cuisines across the week — spread them evenly
-7. Each meal concept must be UNIQUE — no repeated concepts across the plan
-8. Include the SPECIFIC cooking method in each concept (e.g. "pan-seared", "baked", "grilled", not just "chicken with rice")
-9. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
-10. Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, roast, etc.)
-11. No two consecutive days should share the same cuisine theme
+3. Same protein can appear multiple times but cooked differently (grilled vs stir-fry vs baked)
+4. Rotate through the user's preferred cuisines across the week — spread them evenly
+5. Each meal concept must be UNIQUE — no repeated concepts across the plan
+6. Include the SPECIFIC cooking method in each concept (e.g. "pan-seared", "baked", "grilled", not just "chicken with rice")
+7. CRITICAL: If the user's weekly preferences say to AVOID certain ingredients (e.g. "avoid seafood"), do NOT include ANY of those ingredients in the grocery list or meal concepts
+8. Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, roast, etc.)
+9. No two consecutive days should share the same cuisine theme
+
+${breakfastAssignments && breakfastAssignments.length > 0 ? `MANDATORY BREAKFAST CATEGORIES (pre-assigned, DO NOT CHANGE):
+${breakfastAssignments.map((cat, i) => `Day ${i}: ${cat}`).join('\n')}
+Each breakfast concept MUST match its assigned category above.` : ''}
+
+${snackAssignments && snackAssignments.some(s => s.length > 0) ? `MANDATORY SNACK TYPES (pre-assigned, DO NOT CHANGE):
+${snackAssignments.map((snacks, i) => `Day ${i}: ${snacks.map((s, j) => `Snack${j + 1}="${s}"`).join(', ')}`).join('\n')}
+Each snack concept MUST match its assigned type above.` : ''}
+
+${vegetableAssignments && vegetableAssignments.some(v => v.length > 0) ? `MANDATORY VEGETABLE ROTATION (pre-assigned, spread usage):
+${vegetableAssignments.map((vegs, i) => `Day ${i}: ${vegs.join(', ')}`).join('\n')}
+Use ONLY these vegetables as the primary vegetables for each day's lunch and dinner. Do NOT default to bell pepper every day.` : ''}
 
 Return JSON:
 {
@@ -636,10 +1010,13 @@ async function generateSkeleton(
   duration: number,
   weeklyPreferences?: string,
   excludeRecipeNames?: string[],
-  temporaryExclusions?: string[]
+  temporaryExclusions?: string[],
+  breakfastAssignments?: string[],
+  snackAssignments?: string[][],
+  vegetableAssignments?: string[][]
 ): Promise<WeekSkeleton | null> {
   try {
-    const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames, temporaryExclusions);
+    const prompt = buildSkeletonPrompt(profile, duration, weeklyPreferences, excludeRecipeNames, temporaryExclusions, breakfastAssignments, snackAssignments, vegetableAssignments);
     const maxTokens = duration <= 7 ? 1200 : 2000;
 
     if (DEBUG) console.log('[DEBUG] Generating skeleton with Haiku...');
@@ -703,7 +1080,10 @@ function buildUserPrompt(
   excludeRecipeNames?: string[],
   skeleton?: WeekSkeleton | null,
   temporaryExclusions?: string[],
-  allSkeletonConcepts?: string[]
+  allSkeletonConcepts?: string[],
+  perDayTargets?: DayTargets[],
+  snackAssignments?: string[][],
+  vegetableAssignments?: string[][]
 ): string {
   const counts = resolveMealCounts(profile);
   const mealPcts = computeMealPercentages(counts);
@@ -797,24 +1177,6 @@ function buildUserPrompt(
       };
     }
   }
-  // Convenience aliases for the JSON example
-  const breakfastCal = mealTargets.breakfast?.cal ?? 0;
-  const breakfastProtein = mealTargets.breakfast?.protein ?? 0;
-  const breakfastCarbs = mealTargets.breakfast?.carbs ?? 0;
-  const breakfastFat = mealTargets.breakfast?.fat ?? 0;
-  const lunchCal = mealTargets.lunch?.cal ?? 0;
-  const lunchProtein = mealTargets.lunch?.protein ?? 0;
-  const lunchCarbs = mealTargets.lunch?.carbs ?? 0;
-  const lunchFat = mealTargets.lunch?.fat ?? 0;
-  const dinnerCal = mealTargets.dinner?.cal ?? 0;
-  const dinnerProtein = mealTargets.dinner?.protein ?? 0;
-  const dinnerCarbs = mealTargets.dinner?.carbs ?? 0;
-  const dinnerFat = mealTargets.dinner?.fat ?? 0;
-  const snackCal = mealTargets.snack?.cal ?? 0;
-  const snackProtein = mealTargets.snack?.protein ?? 0;
-  const snackCarbs = mealTargets.snack?.carbs ?? 0;
-  const snackFat = mealTargets.snack?.fat ?? 0;
-
   // Build skeleton section if available
   let skeletonSection = '';
   if (skeleton) {
@@ -851,21 +1213,119 @@ Use the assigned proteins, cuisines, and cooking styles. Use ingredients from th
     }
   }
 
+  // Build per-day targets section
+  const relevantDayTargets = perDayTargets
+    ? perDayTargets.filter(dt => dt.day >= startDay && dt.day <= endDay)
+    : null;
+
+  const perDayTargetSection = relevantDayTargets && relevantDayTargets.length > 0
+    ? `═══ PER-DAY TARGETS (follow each day's specific numbers) ═══
+${relevantDayTargets.map(dt => {
+  // Compute per-meal targets from this day's jittered totals
+  const mealLines: string[] = [];
+  for (const type of ['breakfast', 'lunch', 'dinner', 'snack'] as const) {
+    const p = mealPcts[type];
+    if (p) {
+      const mCal = Math.round(dt.cal * p.calPct);
+      const mProt = Math.round(dt.protein * p.protPct);
+      mealLines.push(`${type}: ~${mCal} cal, ~${mProt}g protein`);
+    }
+  }
+  return `Day ${dt.day}: ~${dt.cal} cal, ~${dt.protein}g protein, ~${dt.carbs}g carbs, ~${dt.fat}g fat
+  ${mealLines.join(' | ')}`;
+}).join('\n')}`
+    : `═══ DAILY TARGETS ═══
+- Calories: ~${profile.dailyCalorieTarget} kcal
+- Protein: ~${profile.proteinGrams}g, Carbs: ~${profile.carbsGrams}g, Fat: ~${profile.fatGrams}g`;
+
+  // Build JSON example with 2 visibly different example days if we have per-day targets
+  const exampleDays: string[] = [];
+  const exDayTargets = relevantDayTargets && relevantDayTargets.length >= 2
+    ? [relevantDayTargets[0], relevantDayTargets[1]]
+    : relevantDayTargets && relevantDayTargets.length === 1
+    ? [relevantDayTargets[0]]
+    : null;
+
+  if (exDayTargets) {
+    for (const exDt of exDayTargets) {
+      const meals = expectedMealOrder.map(type => {
+        const p = mealPcts[type];
+        const exCal = p ? Math.round(exDt.cal * p.calPct) : 400;
+        const exProt = p ? Math.round(exDt.protein * p.protPct) : 25;
+        const exCarbs = p ? Math.round(exDt.carbs * p.carbPct) : 40;
+        const exFat = p ? Math.round(exDt.fat * p.fatPct) : 15;
+        return `        {
+          "mealType": "${type}",
+          "recipe": {
+            "name": "Example ${type} recipe",
+            "description": "A ${type} recipe",
+            "instructions": ["Step 1", "Step 2"],
+            "prepTimeMinutes": ${type === 'breakfast' ? 5 : type === 'snack' ? 3 : 10},
+            "cookTimeMinutes": ${type === 'breakfast' ? 8 : type === 'snack' ? 0 : 20},
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "american",
+            "calories": ${exCal},
+            "proteinGrams": ${exProt},
+            "carbsGrams": ${exCarbs},
+            "fatGrams": ${exFat},
+            "fiberGrams": 3,
+            "ingredients": [
+              {"name": "ingredient", "quantity": 100, "unit": "gram", "category": "Produce"}
+            ]
+          }
+        }`;
+      }).join(',\n');
+
+      exampleDays.push(`    {
+      "dayOfWeek": ${exDt.day},
+      "meals": [
+${meals}
+      ]
+    }`);
+    }
+  } else {
+    // Fallback: single example day with offset values
+    const meals = expectedMealOrder.map(type => {
+      const t = mealTargets[type];
+      const exCal = (t?.cal ?? 0) - 25;
+      const exProt = (t?.protein ?? 0) - 3;
+      const exCarbs = (t?.carbs ?? 0) + 5;
+      const exFat = (t?.fat ?? 0) - 2;
+      return `        {
+          "mealType": "${type}",
+          "recipe": {
+            "name": "Example ${type} recipe",
+            "description": "A ${type} recipe",
+            "instructions": ["Step 1", "Step 2"],
+            "prepTimeMinutes": ${type === 'breakfast' ? 5 : type === 'snack' ? 3 : 10},
+            "cookTimeMinutes": ${type === 'breakfast' ? 8 : type === 'snack' ? 0 : 20},
+            "servings": 1,
+            "complexity": "easy",
+            "cuisineType": "american",
+            "calories": ${exCal},
+            "proteinGrams": ${exProt},
+            "carbsGrams": ${exCarbs},
+            "fatGrams": ${exFat},
+            "fiberGrams": 3,
+            "ingredients": [
+              {"name": "ingredient", "quantity": 100, "unit": "gram", "category": "Produce"}
+            ]
+          }
+        }`;
+    }).join(',\n');
+
+    exampleDays.push(`    {
+      "dayOfWeek": ${startDay},
+      "meals": [
+${meals}
+      ]
+    }`);
+  }
+
   return `Create a ${numDays}-day meal plan (days ${startDay}-${endDay}).
 
-═══ DAILY TARGETS (aim for these ranges — natural day-to-day variation is expected) ═══
-- Calories: ${profile.dailyCalorieTarget - 200}-${profile.dailyCalorieTarget + 200} kcal (target ~${profile.dailyCalorieTarget})
-- Protein: ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g (target ~${profile.proteinGrams}g)
-- Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g (target ~${profile.carbsGrams}g)
-- Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g (target ~${profile.fatGrams}g)
-- IMPORTANT: Each day should feel different. A ${profile.dailyCalorieTarget - 200}-cal day followed by a ${profile.dailyCalorieTarget + 100}-cal day is BETTER than hitting ${profile.dailyCalorieTarget} every day.
-
-═══ PER-MEAL TARGETS (ranges — vary naturally within these bounds) ═══
-${counts.breakfastCount > 0 ? `- Breakfast (×${counts.breakfastCount}): ${Math.round(breakfastCal * 0.85)}-${Math.round(breakfastCal * 1.15)} cal, ${Math.round(breakfastProtein * 0.85)}-${Math.round(breakfastProtein * 1.15)}g protein, ${Math.round(breakfastCarbs * 0.85)}-${Math.round(breakfastCarbs * 1.15)}g carbs, ${Math.round(breakfastFat * 0.85)}-${Math.round(breakfastFat * 1.15)}g fat each` : ''}
-${counts.snackCount > 0 ? `- Snack (×${counts.snackCount}): ${Math.round(snackCal * 0.85)}-${Math.round(snackCal * 1.15)} cal, ${Math.round(snackProtein * 0.85)}-${Math.round(snackProtein * 1.15)}g protein, ${Math.round(snackCarbs * 0.85)}-${Math.round(snackCarbs * 1.15)}g carbs, ${Math.round(snackFat * 0.85)}-${Math.round(snackFat * 1.15)}g fat each` : ''}
-${counts.lunchCount > 0 ? `- Lunch (×${counts.lunchCount}): ${Math.round(lunchCal * 0.85)}-${Math.round(lunchCal * 1.15)} cal, ${Math.round(lunchProtein * 0.85)}-${Math.round(lunchProtein * 1.15)}g protein, ${Math.round(lunchCarbs * 0.85)}-${Math.round(lunchCarbs * 1.15)}g carbs, ${Math.round(lunchFat * 0.85)}-${Math.round(lunchFat * 1.15)}g fat each` : ''}
-${counts.dinnerCount > 0 ? `- Dinner (×${counts.dinnerCount}): ${Math.round(dinnerCal * 0.85)}-${Math.round(dinnerCal * 1.15)} cal, ${Math.round(dinnerProtein * 0.85)}-${Math.round(dinnerProtein * 1.15)}g protein, ${Math.round(dinnerCarbs * 0.85)}-${Math.round(dinnerCarbs * 1.15)}g carbs, ${Math.round(dinnerFat * 0.85)}-${Math.round(dinnerFat * 1.15)}g fat each` : ''}
-- These are ranges, not exact targets. Vary naturally within them.
+${perDayTargetSection}
 
 ${personalizationSection}
 ═══ RESTRICTIONS ═══
@@ -909,68 +1369,45 @@ ${isMetric
 - Pantry staples (don't list): salt, pepper, garlic powder, spices, honey
 
 ${skeletonSection}
-═══ VARIETY RULES (CRITICAL) ═══
-${counts.breakfastCount > 0 ? '- Breakfasts MUST use at least 4 different base categories: eggs, oats/porridge, toast/bread, smoothie/shake, pancake/waffle, yogurt bowl. No two consecutive days with the same category.' : ''}
-${counts.snackCount > 0 ? `- At least 5 DISTINCT snack concepts. Max 2 yogurt-based, max 2 cottage-cheese-based, max 2 nut-only. Vary across days!` : ''}
+═══ VARIETY RULES ═══
 - No repeated protein for lunch/dinner on consecutive days
 - Use at least 4 different cooking methods across lunch/dinner (grill, bake, pan-sear, stir-fry, slow-cook, roast)
 - No two consecutive days should share the same cuisine theme
 - Each day should have a different overall character — different flavors, textures, and feel
 - CARBS: Include a proper carb source in lunch and dinner (rice, potato, quinoa, pasta, bread)
 
+${snackAssignments && snackAssignments.some(s => s.length > 0) ? `═══ MANDATORY SNACK TYPES (pre-assigned, follow EXACTLY) ═══
+${snackAssignments
+  .map((snacks, i) => ({ snacks, i }))
+  .filter(({ i }) => i >= startDay && i <= endDay)
+  .map(({ snacks, i }) => `Day ${i}: ${snacks.map((s, j) => `Snack${j + 1}="${s}"`).join(', ')}`)
+  .join('\n')}
+Each snack MUST match its assigned type. Do NOT substitute yogurt or cottage cheese for other types.` : ''}
+
+${vegetableAssignments && vegetableAssignments.some(v => v.length > 0) ? `═══ MANDATORY VEGETABLE ROTATION (pre-assigned, spread usage) ═══
+${vegetableAssignments
+  .map((vegs, i) => ({ vegs, i }))
+  .filter(({ i }) => i >= startDay && i <= endDay)
+  .map(({ vegs, i }) => `Day ${i}: ${vegs.join(', ')}`)
+  .join('\n')}
+Use ONLY these vegetables as the primary vegetables for each day's lunch and dinner. Do NOT default to bell pepper every day.` : ''}
+
 Respond with JSON (each day MUST have exactly ${expectedMealOrder.length} meals in order: ${expectedMealOrder.join(', ')}):
 {
   "days": [
-    {
-      "dayOfWeek": ${startDay},
-      "meals": [
-${expectedMealOrder.map(type => {
-  const t = mealTargets[type];
-  // Offset example values so Claude doesn't copy them verbatim
-  const exCal = (t?.cal ?? 0) - 25;
-  const exProt = (t?.protein ?? 0) - 3;
-  const exCarbs = (t?.carbs ?? 0) + 5;
-  const exFat = (t?.fat ?? 0) - 2;
-  return `        {
-          "mealType": "${type}",
-          "recipe": {
-            "name": "Example ${type} recipe",
-            "description": "A ${type} recipe",
-            "instructions": ["Step 1", "Step 2"],
-            "prepTimeMinutes": ${type === 'breakfast' ? 5 : type === 'snack' ? 3 : 10},
-            "cookTimeMinutes": ${type === 'breakfast' ? 8 : type === 'snack' ? 0 : 20},
-            "servings": 1,
-            "complexity": "easy",
-            "cuisineType": "american",
-            "calories": ${exCal},
-            "proteinGrams": ${exProt},
-            "carbsGrams": ${exCarbs},
-            "fatGrams": ${exFat},
-            "fiberGrams": 3,
-            "ingredients": [
-              {"name": "ingredient", "quantity": 100, "unit": "gram", "category": "produce"}
-            ]
-          }
-        }`;
-}).join(',\n')}
-NOTE: The values above are EXAMPLES only. Vary your actual values naturally within the per-meal ranges.
-      ]
-    }
+${exampleDays.join(',\n')}
   ]
 }
 
 Valid mealTypes: breakfast, snack, lunch, dinner
-Valid units: gram, cup, tablespoon, teaspoon, piece, slice
-Valid categories: produce, meat, dairy, pantry
+${isMetric
+  ? 'Valid units: gram, milliliter, piece, slice, tablespoon, teaspoon'
+  : 'Valid units: ounce, pound, cup, tablespoon, teaspoon, piece, slice'}
+Valid categories: Produce, Meat & Seafood, Dairy & Eggs, Grains & Bread, Condiments & Sauces, Nuts & Seeds, Canned & Jarred, Frozen, Spices & Seasonings, Beverages, Baking & Cooking, Snacks
 
 dayOfWeek: ${startDay}-${endDay}
 
-FINAL CHECK — BEFORE RESPONDING, verify each day's meals sum to approximately:
-- Calories: ${profile.dailyCalorieTarget - 200}-${profile.dailyCalorieTarget + 200} kcal
-- Protein: ${profile.proteinGrams - 15}-${profile.proteinGrams + 15}g
-- Carbs: ${profile.carbsGrams - 15}-${profile.carbsGrams + 15}g
-- Fat: ${profile.fatGrams - 10}-${profile.fatGrams + 10}g
-Natural day-to-day variation is expected and desired. Do NOT adjust portions to hit identical totals each day.`;
+When done, sanity-check each day is in the right ballpark. Don't adjust portions to force exact matches.`;
 }
 
 /**
@@ -1007,6 +1444,366 @@ function parseClaudeResponse(content: string, batchLabel: string = 'unknown'): M
     if (DEBUG) console.error(`[DEBUG] ${batchLabel} - Clean JSON (first 1000 chars):`, cleanJSON.substring(0, 1000));
     if (DEBUG) console.error(`[DEBUG] ${batchLabel} - Clean JSON (last 500 chars):`, cleanJSON.substring(Math.max(0, cleanJSON.length - 500)));
     throw new Error(`Failed to parse JSON response from Claude for ${batchLabel}`);
+  }
+}
+
+// Known dairy-free alternatives that contain "milk"/"butter"/"cream" but are NOT dairy
+const DAIRY_FREE_COMPOUNDS = new Set([
+  'almond milk', 'oat milk', 'soy milk', 'coconut milk', 'rice milk', 'cashew milk',
+  'almond butter', 'peanut butter', 'cashew butter', 'sunflower seed butter', 'nut butter',
+  'coconut cream', 'coconut oil',
+]);
+
+/**
+ * Scan every ingredient and recipe name for allergy violations.
+ * Log-only for now — gives visibility without breaking UX.
+ * Skips known dairy-free alternatives (almond milk, coconut milk, etc.)
+ */
+function scanForAllergyViolations(mealPlan: MealPlanResponse, expandedAllergies: string[]): void {
+  if (expandedAllergies.length === 0) return;
+
+  const isDairyFreeAllergen = (allergen: string) =>
+    ['milk', 'butter', 'cream', 'yogurt', 'cheese'].includes(allergen);
+
+  for (const day of mealPlan.days) {
+    for (const meal of day.meals) {
+      const recipeName = meal.recipe.name.toLowerCase();
+      for (const allergen of expandedAllergies) {
+        if (recipeName.includes(allergen)) {
+          // Skip false positives: dairy-free compounds containing "milk"/"butter"
+          if (isDairyFreeAllergen(allergen) && Array.from(DAIRY_FREE_COMPOUNDS).some(c => recipeName.includes(c))) continue;
+          console.warn(`[ALLERGY] Day ${day.dayOfWeek} ${meal.mealType}: Recipe name "${meal.recipe.name}" contains allergen "${allergen}"`);
+        }
+      }
+      for (const ing of meal.recipe.ingredients) {
+        const ingName = ing.name.toLowerCase();
+        for (const allergen of expandedAllergies) {
+          if (ingName.includes(allergen)) {
+            // Skip false positives: dairy-free compounds containing "milk"/"butter"
+            if (isDairyFreeAllergen(allergen) && Array.from(DAIRY_FREE_COMPOUNDS).some(c => ingName.includes(c))) continue;
+            console.warn(`[ALLERGY] Day ${day.dayOfWeek} ${meal.mealType} "${meal.recipe.name}": Ingredient "${ing.name}" contains allergen "${allergen}"`);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Maps common ingredients to correct iOS GroceryCategory enum values.
+ * Longer patterns checked first to avoid partial matches (e.g., "almond milk" before "milk").
+ */
+const INGREDIENT_CATEGORY_MAP: [string, string][] = [
+  // Beverages (check before shorter terms)
+  ['almond milk', 'Beverages'],
+  ['oat milk', 'Beverages'],
+  ['soy milk', 'Beverages'],
+  ['coconut milk', 'Beverages'],
+  ['orange juice', 'Beverages'],
+  ['protein shake', 'Beverages'],
+  // Proteins - Meat & Seafood
+  ['chicken breast', 'Meat & Seafood'],
+  ['chicken thigh', 'Meat & Seafood'],
+  ['ground beef', 'Meat & Seafood'],
+  ['ground turkey', 'Meat & Seafood'],
+  ['turkey breast', 'Meat & Seafood'],
+  ['pork chop', 'Meat & Seafood'],
+  ['steak', 'Meat & Seafood'],
+  ['salmon', 'Meat & Seafood'],
+  ['tuna', 'Meat & Seafood'],
+  ['shrimp', 'Meat & Seafood'],
+  ['cod', 'Meat & Seafood'],
+  ['tilapia', 'Meat & Seafood'],
+  ['chicken', 'Meat & Seafood'],
+  ['beef', 'Meat & Seafood'],
+  ['pork', 'Meat & Seafood'],
+  ['turkey', 'Meat & Seafood'],
+  ['fish', 'Meat & Seafood'],
+  // Nuts & Seeds (butter variants — MUST come before generic 'butter' to avoid false matches)
+  ['peanut butter', 'Nuts & Seeds'],
+  ['almond butter', 'Nuts & Seeds'],
+  ['cashew butter', 'Nuts & Seeds'],
+  ['nut butter', 'Nuts & Seeds'],
+  ['sunflower seed butter', 'Nuts & Seeds'],
+  // Dairy & Eggs
+  ['greek yogurt', 'Dairy & Eggs'],
+  ['cottage cheese', 'Dairy & Eggs'],
+  ['cream cheese', 'Dairy & Eggs'],
+  ['sour cream', 'Dairy & Eggs'],
+  ['egg white', 'Dairy & Eggs'],
+  ['eggs', 'Dairy & Eggs'],
+  ['egg', 'Dairy & Eggs'],
+  ['cheese', 'Dairy & Eggs'],
+  ['yogurt', 'Dairy & Eggs'],
+  ['butter', 'Dairy & Eggs'],
+  ['milk', 'Dairy & Eggs'],
+  ['cream', 'Dairy & Eggs'],
+  // Produce
+  ['sweet potato', 'Produce'],
+  ['bell pepper', 'Produce'],
+  ['green beans', 'Produce'],
+  ['mixed berries', 'Produce'],
+  ['banana', 'Produce'],
+  ['apple', 'Produce'],
+  ['avocado', 'Produce'],
+  ['broccoli', 'Produce'],
+  ['spinach', 'Produce'],
+  ['onion', 'Produce'],
+  ['tomato', 'Produce'],
+  ['carrot', 'Produce'],
+  ['zucchini', 'Produce'],
+  ['mushroom', 'Produce'],
+  ['asparagus', 'Produce'],
+  ['cauliflower', 'Produce'],
+  ['cucumber', 'Produce'],
+  ['corn', 'Produce'],
+  ['kale', 'Produce'],
+  ['cabbage', 'Produce'],
+  ['lettuce', 'Produce'],
+  ['garlic', 'Produce'],
+  ['ginger', 'Produce'],
+  ['lemon', 'Produce'],
+  ['lime', 'Produce'],
+  ['mango', 'Produce'],
+  ['strawberr', 'Produce'],
+  ['blueberr', 'Produce'],
+  ['orange', 'Produce'],
+  ['pear', 'Produce'],
+  ['potato', 'Produce'],
+  ['celery', 'Produce'],
+  // Grains & Bread
+  ['whole wheat bread', 'Grains & Bread'],
+  ['bread', 'Grains & Bread'],
+  ['tortilla', 'Grains & Bread'],
+  ['rice', 'Grains & Bread'],
+  ['oats', 'Grains & Bread'],
+  ['quinoa', 'Grains & Bread'],
+  ['pasta', 'Grains & Bread'],
+  ['couscous', 'Grains & Bread'],
+  ['noodle', 'Grains & Bread'],
+  ['wrap', 'Grains & Bread'],
+  ['pita', 'Grains & Bread'],
+  ['naan', 'Grains & Bread'],
+  ['rice cake', 'Grains & Bread'],
+  ['cereal', 'Grains & Bread'],
+  ['granola', 'Grains & Bread'],
+  // Condiments & Sauces
+  ['olive oil', 'Condiments & Sauces'],
+  ['coconut oil', 'Condiments & Sauces'],
+  ['soy sauce', 'Condiments & Sauces'],
+  ['tamari', 'Condiments & Sauces'],
+  ['hot sauce', 'Condiments & Sauces'],
+  ['honey', 'Condiments & Sauces'],
+  ['maple syrup', 'Condiments & Sauces'],
+  ['vinegar', 'Condiments & Sauces'],
+  ['mustard', 'Condiments & Sauces'],
+  ['mayonnaise', 'Condiments & Sauces'],
+  ['salsa', 'Condiments & Sauces'],
+  ['hummus', 'Condiments & Sauces'],
+  ['pesto', 'Condiments & Sauces'],
+  ['tahini', 'Condiments & Sauces'],
+  // Nuts & Seeds
+  ['almond', 'Nuts & Seeds'],
+  ['walnut', 'Nuts & Seeds'],
+  ['cashew', 'Nuts & Seeds'],
+  ['pecan', 'Nuts & Seeds'],
+  ['pistachio', 'Nuts & Seeds'],
+  ['peanut', 'Nuts & Seeds'],
+  ['chia seed', 'Nuts & Seeds'],
+  ['flax seed', 'Nuts & Seeds'],
+  ['sunflower seed', 'Nuts & Seeds'],
+  ['pumpkin seed', 'Nuts & Seeds'],
+  ['sesame seed', 'Nuts & Seeds'],
+  ['trail mix', 'Nuts & Seeds'],
+  ['mixed nuts', 'Nuts & Seeds'],
+  // Canned & Jarred
+  ['black beans', 'Canned & Jarred'],
+  ['chickpeas', 'Canned & Jarred'],
+  ['lentils', 'Canned & Jarred'],
+  ['kidney beans', 'Canned & Jarred'],
+  ['canned tomato', 'Canned & Jarred'],
+  ['coconut cream', 'Canned & Jarred'],
+  // Frozen
+  ['frozen berries', 'Frozen'],
+  ['frozen vegetables', 'Frozen'],
+  ['edamame', 'Frozen'],
+  // Plant-based proteins
+  ['tofu', 'Produce'],
+  ['tempeh', 'Produce'],
+  ['seitan', 'Produce'],
+  // Spices (pantry)
+  ['cumin', 'Spices & Seasonings'],
+  ['paprika', 'Spices & Seasonings'],
+  ['cinnamon', 'Spices & Seasonings'],
+  ['turmeric', 'Spices & Seasonings'],
+  ['oregano', 'Spices & Seasonings'],
+  ['basil', 'Spices & Seasonings'],
+  ['thyme', 'Spices & Seasonings'],
+  // Baking
+  ['protein powder', 'Baking & Cooking'],
+  ['flour', 'Baking & Cooking'],
+  ['cocoa powder', 'Baking & Cooking'],
+  ['baking powder', 'Baking & Cooking'],
+  ['dark chocolate', 'Snacks'],
+  ['chocolate', 'Snacks'],
+];
+
+/**
+ * Correct ingredient categories to match iOS GroceryCategory enum values.
+ * Checks longer patterns first to avoid partial matches.
+ */
+function correctIngredientCategories(mealPlan: MealPlanResponse): void {
+  for (const day of mealPlan.days) {
+    for (const meal of day.meals) {
+      for (const ing of meal.recipe.ingredients) {
+        const ingLower = ing.name.toLowerCase();
+        for (const [pattern, category] of INGREDIENT_CATEGORY_MAP) {
+          if (ingLower.includes(pattern)) {
+            if (ing.category !== category) {
+              if (DEBUG) console.log(`[CATEGORY] "${ing.name}": "${ing.category}" → "${category}"`);
+              ing.category = category;
+            }
+            break; // First match wins (longer patterns are first)
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Protein/meat ingredient patterns that should use ounce, not cup/gram in imperial mode.
+ */
+const OUNCE_INGREDIENTS = [
+  'chicken', 'beef', 'salmon', 'pork', 'turkey', 'shrimp', 'cod',
+  'tilapia', 'steak', 'fish', 'tuna', 'lamb', 'bacon', 'sausage',
+  'ground beef', 'ground turkey', 'chicken breast', 'pork chop',
+  'tofu', 'tempeh',
+];
+
+/**
+ * Correct nonsensical imperial units (e.g. "6 cup salmon" → "48 ounce salmon").
+ * Only runs for imperial mode. Fixes proteins measured in cups/grams.
+ */
+function correctIngredientUnits(mealPlan: MealPlanResponse, isMetric: boolean): void {
+  if (isMetric) return;
+
+  for (const day of mealPlan.days) {
+    for (const meal of day.meals) {
+      for (const ing of meal.recipe.ingredients) {
+        const nameLower = ing.name.toLowerCase();
+        const isProtein = OUNCE_INGREDIENTS.some(p => nameLower.includes(p));
+
+        if (isProtein && ing.unit === 'cup') {
+          // cup → ounce for proteins (1 cup meat ≈ 8 oz)
+          const oldQty = ing.quantity;
+          ing.quantity = Math.round(ing.quantity * 8 * 10) / 10;
+          ing.unit = 'ounce';
+          if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} cup → ${ing.quantity} ounce`);
+        } else if (isProtein && ing.unit === 'gram') {
+          // gram → ounce for proteins (28.35g per oz)
+          const oldQty = ing.quantity;
+          ing.quantity = Math.round(ing.quantity / 28.35 * 10) / 10;
+          ing.unit = 'ounce';
+          if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} gram → ${ing.quantity} ounce`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Snack archetype → replacement recipe name templates for post-gen enforcement.
+ */
+const SNACK_REPLACEMENTS: Record<string, string[]> = {
+  'nut butter + fruit': ['Apple with Peanut Butter', 'Banana with Peanut Butter', 'Pear with Sunflower Seed Butter'],
+  'trail mix': ['Trail Mix with Dark Chocolate', 'Mixed Nuts and Dried Fruit', 'Energy Trail Mix'],
+  'hummus + veggies': ['Hummus with Carrot Sticks', 'Hummus with Cucumber and Bell Pepper', 'Veggie Hummus Dip'],
+  'hard boiled eggs': ['Hard Boiled Eggs with Sea Salt', 'Hard Boiled Eggs with Everything Seasoning', 'Seasoned Hard Boiled Eggs'],
+  'protein smoothie': ['Berry Protein Smoothie', 'Banana Spinach Protein Shake', 'Chocolate Protein Smoothie'],
+  'rice cakes + toppings': ['Rice Cakes with Avocado', 'Rice Cakes with Peanut Butter', 'Rice Cakes with Hummus'],
+  'edamame': ['Steamed Edamame with Sea Salt', 'Spiced Edamame Bowl', 'Edamame Snack Bowl'],
+  'dark chocolate + almonds': ['Dark Chocolate Bites', 'Dark Chocolate with Seeds', 'Dark Chocolate Snack Square'],
+  'mixed nuts': ['Roasted Seed Mix', 'Pumpkin Seed Snack Bowl', 'Sunflower and Pumpkin Seeds'],
+  'fruit salad': ['Fresh Fruit Salad', 'Mixed Berry Bowl', 'Tropical Fruit Cup'],
+  'yogurt parfait': ['Greek Yogurt Berry Parfait', 'Yogurt with Granola and Honey', 'Blueberry Yogurt Bowl'],
+  'cottage cheese + fruit': ['Cottage Cheese with Peaches', 'Cottage Cheese and Berry Bowl', 'Cottage Cheese with Pineapple'],
+};
+
+// Safe fallback replacements (no yogurt, no cottage cheese, no common allergens)
+const FALLBACK_SNACK_NAMES = [
+  'Rice Cakes with Sunflower Seed Butter', 'Steamed Edamame Bowl', 'Hummus with Veggie Sticks',
+  'Hard Boiled Eggs with Sea Salt', 'Berry Protein Smoothie', 'Fresh Fruit Cup',
+  'Sliced Apple with Honey', 'Banana with Seed Butter', 'Roasted Chickpea Snack Bowl',
+];
+
+/**
+ * Post-gen: enforce snack type caps by renaming excess yogurt/cottage snacks
+ * to match their originally assigned archetype.
+ */
+function enforceSnackTypeCaps(
+  mealPlan: MealPlanResponse,
+  snackAssignments: string[][]
+): void {
+  // First pass: count yogurt and cottage cheese snacks
+  let yogurtCount = 0;
+  let cottageCount = 0;
+
+  for (const day of mealPlan.days) {
+    for (const meal of day.meals) {
+      if (meal.mealType !== 'snack') continue;
+      const name = meal.recipe.name.toLowerCase();
+      if (name.includes('yogurt') || name.includes('parfait')) yogurtCount++;
+      if (name.includes('cottage')) cottageCount++;
+    }
+  }
+
+  if (yogurtCount <= 2 && cottageCount <= 2) return; // All good
+
+  // Second pass: fix excess by replacing with assigned archetype
+  let yogurtSeen = 0;
+  let cottageSeen = 0;
+
+  for (const day of mealPlan.days) {
+    let snackIdx = 0;
+    for (const meal of day.meals) {
+      if (meal.mealType !== 'snack') continue;
+      const name = meal.recipe.name.toLowerCase();
+      const isYogurt = name.includes('yogurt') || name.includes('parfait');
+      const isCottage = name.includes('cottage');
+
+      if (isYogurt) yogurtSeen++;
+      if (isCottage) cottageSeen++;
+
+      const needsReplace = (isYogurt && yogurtSeen > 2) || (isCottage && cottageSeen > 2);
+      if (needsReplace) {
+        const dayAssignments = snackAssignments[day.dayOfWeek];
+        const assignedType = dayAssignments?.[snackIdx];
+
+        // Don't replace excess yogurt with yogurt, or excess cottage with cottage
+        const assignedIsYogurt = assignedType === 'yogurt parfait';
+        const assignedIsCottage = assignedType === 'cottage cheese + fruit';
+        const wouldRepeatProblem = (isYogurt && assignedIsYogurt) || (isCottage && assignedIsCottage);
+
+        let replacements: string[] | undefined;
+        let source = '';
+        if (assignedType && !wouldRepeatProblem && SNACK_REPLACEMENTS[assignedType]) {
+          replacements = SNACK_REPLACEMENTS[assignedType];
+          source = assignedType;
+        }
+
+        // Fallback: pick from safe non-yogurt/non-cottage names
+        if (!replacements) {
+          replacements = FALLBACK_SNACK_NAMES;
+          source = 'fallback';
+        }
+
+        const oldName = meal.recipe.name;
+        meal.recipe.name = replacements[Math.floor(Math.random() * replacements.length)];
+        console.warn(`[SNACK-ENFORCE] Day ${day.dayOfWeek}: Replaced excess "${oldName}" → "${meal.recipe.name}" (source: ${source})`);
+      }
+      snackIdx++;
+    }
   }
 }
 
@@ -1154,8 +1951,25 @@ export async function handleGeneratePlan(
       console.log('[DEBUG]   Rotation:', ingredientList.proteinRotation);
     }
 
+    // Step 0: Server-side pre-randomization
+    const perDayTargets = jitterDailyTargets(userProfile, duration);
+    const breakfastAssignments = assignBreakfastCategories(duration, resolvedCounts.breakfastCount);
+    const expandedAllergies = expandAllergyTerms(userProfile.allergies);
+    const isDairyFree = userProfile.dietaryRestrictions.map(r => r.toLowerCase()).includes('dairy-free') ||
+      expandedAllergies.includes('dairy') || expandedAllergies.includes('lactose');
+    const snackAssignments = assignSnackArchetypes(duration, resolvedCounts.snackCount, isDairyFree, expandedAllergies);
+    const vegetableAssignments = assignDailyVegetables(duration, ingredientList.vegetables);
+
+    if (DEBUG) {
+      console.log('[DEBUG] ========== PRE-RANDOMIZATION ==========');
+      console.log('[DEBUG] Per-day targets:', JSON.stringify(perDayTargets));
+      console.log('[DEBUG] Breakfast assignments:', JSON.stringify(breakfastAssignments));
+      console.log('[DEBUG] Snack assignments:', JSON.stringify(snackAssignments));
+      console.log('[DEBUG] Vegetable assignments:', JSON.stringify(vegetableAssignments));
+    }
+
     // Step 1: Generate skeleton for the week
-    const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames, resolvedExclusions);
+    const skeleton = await generateSkeleton(client, userProfile, duration, weeklyPreferences, excludeRecipeNames, resolvedExclusions, breakfastAssignments, snackAssignments, vegetableAssignments);
     if (DEBUG) {
       if (skeleton) {
         console.log(`[DEBUG] Skeleton: ${JSON.stringify(skeleton)}`);
@@ -1164,7 +1978,7 @@ export async function handleGeneratePlan(
       }
     }
 
-    const systemPrompt = buildSystemPrompt();
+    const systemPrompt = buildSystemPrompt(userProfile);
     const allDays: DayDTO[] = [];
 
     // Step 2: Using Claude Haiku for cost efficiency (~12x cheaper than Sonnet)
@@ -1202,6 +2016,9 @@ export async function handleGeneratePlan(
     if (DEBUG) console.log(`[DEBUG] Starting ${batches.length} batches SEQUENTIALLY for ${duration}-day plan...`);
     const sequentialStartTime = Date.now();
 
+    // Track recipe names across batches to prevent cross-batch duplicates
+    const generatedRecipeNames: string[] = [];
+
     for (let i = 0; i < batches.length; i++) {
       const [startDay, endDay] = batches[i];
       const batchNum = i + 1;
@@ -1226,7 +2043,8 @@ export async function handleGeneratePlan(
         }
       }
 
-      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, excludeRecipeNames, skeleton, resolvedExclusions, otherBatchConcepts);
+      const batchExcludeNames = [...excludeRecipeNames, ...generatedRecipeNames];
+      const userPrompt = buildUserPrompt(userProfile, startDay, endDay, weeklyPreferences, batchExcludeNames, skeleton, resolvedExclusions, otherBatchConcepts, perDayTargets, snackAssignments, vegetableAssignments);
       const startTime = Date.now();
 
       const response = await callClaudeWithRetry(
@@ -1254,6 +2072,13 @@ export async function handleGeneratePlan(
 
       const batchResult = parseClaudeResponse(textContent.text, `Batch ${batchNum} (days ${startDay}-${endDay})`);
       if (DEBUG) console.log(`[DEBUG] Batch ${batchNum} parsed: ${batchResult.days.length} days`);
+
+      // Accumulate recipe names for cross-batch deduplication
+      for (const day of batchResult.days) {
+        for (const meal of day.meals) {
+          generatedRecipeNames.push(meal.recipe.name);
+        }
+      }
 
       allDays.push(...batchResult.days);
     }
@@ -1290,14 +2115,98 @@ export async function handleGeneratePlan(
       }
     }
 
-    // Validation: check for recipe name uniqueness
-    const recipeNames = new Set<string>();
+    // Post-generation: auto-fix duplicate recipe names by appending day name
+    const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const recipeNameMap = new Map<string, { dayOfWeek: number; mealType: string }>();
     for (const day of mealPlan.days) {
       for (const meal of day.meals) {
-        if (recipeNames.has(meal.recipe.name)) {
-          if (DEBUG) console.warn(`[VALIDATION] Duplicate recipe name: "${meal.recipe.name}"`);
+        const nameKey = meal.recipe.name.toLowerCase().trim();
+        if (recipeNameMap.has(nameKey)) {
+          const dayName = DAY_NAMES[day.dayOfWeek % 7] ?? `Day ${day.dayOfWeek}`;
+          const oldName = meal.recipe.name;
+          meal.recipe.name = `${meal.recipe.name} (${dayName})`;
+          console.warn(`[DEDUP] Renamed duplicate "${oldName}" → "${meal.recipe.name}"`);
+        } else {
+          recipeNameMap.set(nameKey, { dayOfWeek: day.dayOfWeek, mealType: meal.mealType });
         }
-        recipeNames.add(meal.recipe.name);
+      }
+    }
+
+    // Post-generation: validate snack variety (always runs, not just DEBUG)
+    {
+      let yogurtSnacks = 0;
+      let cottageSnacks = 0;
+      const snackConcepts = new Set<string>();
+      for (const day of mealPlan.days) {
+        for (const meal of day.meals) {
+          if (meal.mealType === 'snack') {
+            const name = meal.recipe.name.toLowerCase();
+            if (name.includes('yogurt')) yogurtSnacks++;
+            if (name.includes('cottage')) cottageSnacks++;
+            snackConcepts.add(name);
+          }
+        }
+      }
+      if (DEBUG) console.log(`[VALIDATION] Snack diversity: ${snackConcepts.size} distinct snacks, ${yogurtSnacks} yogurt-based, ${cottageSnacks} cottage-cheese-based`);
+      if (yogurtSnacks > 2) console.warn(`[VALIDATION] WARNING: ${yogurtSnacks} yogurt snacks exceeds limit of 2`);
+      if (cottageSnacks > 2) console.warn(`[VALIDATION] WARNING: ${cottageSnacks} cottage cheese snacks exceeds limit of 2`);
+
+      // Enforce snack type caps by renaming excess yogurt/cottage to assigned archetypes
+      if (yogurtSnacks > 2 || cottageSnacks > 2) {
+        enforceSnackTypeCaps(mealPlan, snackAssignments);
+      }
+
+      // Log per-day calorie totals for verification
+      if (DEBUG) {
+        for (const day of mealPlan.days) {
+          const dayCal = day.meals.reduce((sum, m) => sum + (m.recipe.calories || 0), 0);
+          console.log(`[VALIDATION] Day ${day.dayOfWeek}: total ${dayCal} cal`);
+        }
+      }
+    }
+
+    // Post-generation: rename snacks appearing 3+ times to force variety
+    {
+      const snackNameCounts = new Map<string, number>();
+      for (const day of mealPlan.days) {
+        for (const meal of day.meals) {
+          if (meal.mealType !== 'snack') continue;
+          const nameKey = meal.recipe.name.toLowerCase().trim();
+          const count = (snackNameCounts.get(nameKey) || 0) + 1;
+          snackNameCounts.set(nameKey, count);
+          if (count > 2) {
+            const dayName = DAY_NAMES[day.dayOfWeek % 7] ?? `Day ${day.dayOfWeek}`;
+            const oldName = meal.recipe.name;
+            meal.recipe.name = `${meal.recipe.name} (${dayName} Variation)`;
+            if (DEBUG) console.warn(`[SNACK-DEDUP] Renamed "${oldName}" → "${meal.recipe.name}" (appeared ${count} times)`);
+          }
+        }
+      }
+    }
+
+    // Post-generation: ingredient dominance scanner (warning-only diagnostic)
+    {
+      const PANTRY_STAPLES = new Set(['olive oil', 'salt', 'pepper', 'honey', 'garlic powder', 'coconut oil', 'garlic', 'onion', 'soy sauce']);
+      const ingredientDayMap = new Map<string, Set<number>>();
+      for (const day of mealPlan.days) {
+        for (const meal of day.meals) {
+          for (const ing of meal.recipe.ingredients) {
+            const ingKey = ing.name.toLowerCase().replace(/s$/, '');
+            if (PANTRY_STAPLES.has(ingKey)) continue;
+            if (!ingredientDayMap.has(ingKey)) ingredientDayMap.set(ingKey, new Set());
+            ingredientDayMap.get(ingKey)!.add(day.dayOfWeek);
+          }
+        }
+      }
+      const dominantIngredients: string[] = [];
+      for (const [ingredient, days] of ingredientDayMap) {
+        if (days.size >= 5) {
+          dominantIngredients.push(`${ingredient} (${days.size}/${duration})`);
+          console.warn(`[VARIETY] "${ingredient}" appears in ${days.size}/${duration} days`);
+        }
+      }
+      if (dominantIngredients.length > 0) {
+        console.warn(`[VARIETY] DOMINANT INGREDIENTS SUMMARY: ${dominantIngredients.join(', ')}`);
       }
     }
 
@@ -1313,6 +2222,28 @@ export async function handleGeneratePlan(
         }
       }
     }
+
+    // Post-generation: scan for allergy violations
+    // Also include dairy terms for dairy-free users (restriction, not just allergy)
+    const scanTerms = [...expandedAllergies];
+    if (isDairyFree && !scanTerms.includes('dairy')) {
+      const dairyTerms = ALLERGY_EXPANSIONS['dairy'];
+      if (dairyTerms) {
+        for (const term of dairyTerms) {
+          if (!scanTerms.includes(term.toLowerCase())) {
+            scanTerms.push(term.toLowerCase());
+          }
+        }
+      }
+    }
+    scanForAllergyViolations(mealPlan, scanTerms);
+
+    // Post-generation: correct ingredient categories to match iOS GroceryCategory enum
+    correctIngredientCategories(mealPlan);
+
+    // Post-generation: fix nonsensical imperial units (e.g. "6 cup salmon" → "48 oz salmon")
+    const isMetric = (userProfile.measurementSystem || 'Metric') === 'Metric';
+    correctIngredientUnits(mealPlan, isMetric);
 
     // AI-generated recipes don't get images — iOS shows gradient placeholders
     const allRecipes: GeneratedRecipeDTO[] = [];
