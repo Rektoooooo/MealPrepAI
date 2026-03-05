@@ -378,17 +378,28 @@ struct GroceryListView: View {
             "organic", "free-range", "free range",
         ]
 
+        // Remove parenthetical content first (e.g., "(cooked)", "(dry)")
+        normalized = normalized.replacingOccurrences(
+            of: "\\([^)]*\\)", with: "", options: .regularExpression
+        )
+
         for word in preparationWords {
-            normalized = normalized.replacingOccurrences(of: word, with: "")
+            // Use word boundaries to avoid substring matches (e.g., "raw" inside "strawberry")
+            normalized = normalized.replacingOccurrences(
+                of: "\\b\(NSRegularExpression.escapedPattern(for: word))\\b",
+                with: "",
+                options: .regularExpression
+            )
         }
 
         // Remove part descriptors that map to the same grocery item
         // Only strip part words for specific base ingredients
         if normalized.contains("egg") {
-            // Handle both singular and plural forms: "whites", "white", "yolks", "yolk"
             let eggParts = ["whites", "white", "yolks", "yolk"]
             for part in eggParts {
-                normalized = normalized.replacingOccurrences(of: part, with: "")
+                normalized = normalized.replacingOccurrences(
+                    of: "\\b\(part)\\b", with: "", options: .regularExpression
+                )
             }
         }
 
@@ -622,8 +633,11 @@ struct GroceryListView: View {
 
         // Create grocery items with normalized display names
         for (normalizedKey, (ingredient, quantity, unit)) in ingredientQuantities {
-            // Update ingredient name to the clean normalized version
-            ingredient.name = displayName(for: normalizedKey)
+            // Strip alt-key unit suffix (e.g., "asparagus_g" → "asparagus")
+            let displayKey = normalizedKey.contains("_")
+                ? String(normalizedKey.prefix(while: { $0 != "_" }))
+                : normalizedKey
+            ingredient.name = displayName(for: displayKey)
 
             let groceryItem = GroceryItem(
                 quantity: quantity,
