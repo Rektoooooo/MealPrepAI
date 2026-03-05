@@ -15,6 +15,8 @@ struct GroceryListView: View {
     @State private var showingCompleteConfirmation = false
     @State private var animateContent = false
     @State private var showGroceryError = false
+    @State private var showingClearCheckedAlert = false
+    @State private var showingRegenerateAlert = false
     @Environment(NotificationManager.self) private var notificationManager
 
     private var currentMealPlan: MealPlan? {
@@ -113,7 +115,7 @@ struct GroceryListView: View {
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
-                        Button(action: clearCheckedItems) {
+                        Button(action: { showingClearCheckedAlert = true }) {
                             Label("Clear Checked", systemImage: "checkmark.circle")
                         }
                         Button(action: uncheckAllItems) {
@@ -125,7 +127,7 @@ struct GroceryListView: View {
                         }
                         if currentMealPlan != nil {
                             Divider()
-                            Button(action: { Task { @MainActor in generateGroceryList() } }) {
+                            Button(action: { showingRegenerateAlert = true }) {
                                 Label("Regenerate from Meal Plan", systemImage: "arrow.clockwise")
                             }
                         }
@@ -155,6 +157,20 @@ struct GroceryListView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Failed to generate your grocery list. Please try again.")
+            }
+            .alert("Clear Checked Items?", isPresented: $showingClearCheckedAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear", role: .destructive) { clearCheckedItems() }
+            } message: {
+                Text("This will remove all checked items from your grocery list.")
+            }
+            .alert("Regenerate Grocery List?", isPresented: $showingRegenerateAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Regenerate", role: .destructive) {
+                    Task { @MainActor in generateGroceryList() }
+                }
+            } message: {
+                Text("This will replace your current grocery list with items from your meal plan. Manually added items will be lost.")
             }
             .alert("Complete Shopping?", isPresented: $showingCompleteConfirmation) {
                 Button("Cancel", role: .cancel) { }

@@ -168,6 +168,11 @@ struct TodayView: View {
                 RecipeDetailSheet(recipe: recipe)
             }
             .alert("Health Sync Issue", isPresented: $showHealthKitError) {
+                Button("Open Health") {
+                    if let url = URL(string: "x-apple-health://") {
+                        UIApplication.shared.open(url)
+                    }
+                }
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Meal was marked as eaten but couldn't sync to Apple Health. Check Health permissions in Settings.")
