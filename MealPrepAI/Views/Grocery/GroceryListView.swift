@@ -430,6 +430,57 @@ struct GroceryListView: View {
             .joined(separator: " ")
     }
 
+    // MARK: - Unit Conversion Helpers
+
+    /// Convert any weight unit to grams
+    private func toGrams(_ qty: Double, _ unit: MeasurementUnit) -> Double? {
+        switch unit {
+        case .gram: return qty
+        case .kilogram: return qty * 1000
+        case .ounce: return qty * 28.35
+        case .pound: return qty * 453.6
+        default: return nil
+        }
+    }
+
+    /// Convert any volume unit to milliliters
+    private func toMl(_ qty: Double, _ unit: MeasurementUnit) -> Double? {
+        switch unit {
+        case .milliliter: return qty
+        case .liter: return qty * 1000
+        case .cup: return qty * 240
+        case .tablespoon: return qty * 15
+        case .teaspoon: return qty * 5
+        case .fluidOunce: return qty * 30
+        default: return nil
+        }
+    }
+
+    /// Convert any unit to grams (weight, volume via 1ml≈1g, or count via lookup)
+    private func anyToGrams(_ qty: Double, _ unit: MeasurementUnit, ingredient: String) -> Double? {
+        if let g = toGrams(qty, unit) { return g }
+        if let ml = toMl(qty, unit) { return ml } // 1ml ≈ 1g for most foods
+        if unit.isCount {
+            return gramsPerPiece(for: ingredient).map { qty * $0 }
+        }
+        return nil
+    }
+
+    /// Grams per piece for countable items (mirrors backend COUNTABLE_INGREDIENTS)
+    private func gramsPerPiece(for ingredient: String) -> Double? {
+        let lookup: [(String, Double)] = [
+            ("sweet potato", 150), ("banana", 120), ("apple", 180), ("pear", 180),
+            ("orange", 150), ("lemon", 60), ("lime", 45), ("avocado", 170),
+            ("peach", 150), ("nectarine", 140), ("kiwi", 75), ("potato", 170),
+            ("onion", 150), ("tomato", 125), ("bell pepper", 150), ("cucumber", 200),
+            ("zucchini", 200), ("carrot", 70), ("corn", 250), ("tortilla", 40),
+            ("pita", 60), ("egg", 50), ("chicken breast", 170), ("pork chop", 200),
+            ("steak", 225), ("rice cake", 10),
+        ]
+        let name = ingredient.lowercased()
+        return lookup.first { name.contains($0.0) }?.1
+    }
+
     private func generateGroceryList() {
         #if DEBUG
         print("[DEBUG:Grocery] ========== GENERATE GROCERY LIST START ==========")
@@ -496,8 +547,35 @@ struct GroceryListView: View {
 
                     let key = normalizeIngredientName(ingredient.name)
                     if let existing = ingredientQuantities[key] {
-                        // Add to existing quantity (simple addition for same units)
-                        ingredientQuantities[key] = (existing.0, existing.1 + recipeIngredient.quantity, existing.2)
+                        let existingUnit = existing.2
+                        let newUnit = recipeIngredient.unit
+
+                        if existingUnit == newUnit {
+                            // Same unit — just add
+                            ingredientQuantities[key] = (existing.0, existing.1 + recipeIngredient.quantity, existingUnit)
+                        } else if existingUnit.isWeight && newUnit.isWeight {
+                            // Both weight — sum in grams
+                            let total = (toGrams(existing.1, existingUnit) ?? existing.1)
+                                      + (toGrams(recipeIngredient.quantity, newUnit) ?? recipeIngredient.quantity)
+                            ingredientQuantities[key] = (existing.0, total, .gram)
+                        } else if existingUnit.isVolume && newUnit.isVolume {
+                            // Both volume — sum in ml
+                            let total = (toMl(existing.1, existingUnit) ?? existing.1)
+                                      + (toMl(recipeIngredient.quantity, newUnit) ?? recipeIngredient.quantity)
+                            ingredientQuantities[key] = (existing.0, total, .milliliter)
+                        } else if let existingGrams = anyToGrams(existing.1, existingUnit, ingredient: key),
+                                  let newGrams = anyToGrams(recipeIngredient.quantity, newUnit, ingredient: key) {
+                            // Cross-category (weight↔count, volume↔weight, etc.) — sum in grams
+                            ingredientQuantities[key] = (existing.0, existingGrams + newGrams, .gram)
+                        } else {
+                            // Truly incompatible — store separately
+                            let altKey = "\(key)_\(newUnit.rawValue)"
+                            if let alt = ingredientQuantities[altKey] {
+                                ingredientQuantities[altKey] = (alt.0, alt.1 + recipeIngredient.quantity, newUnit)
+                            } else {
+                                ingredientQuantities[altKey] = (ingredient, recipeIngredient.quantity, newUnit)
+                            }
+                        }
                     } else {
                         ingredientQuantities[key] = (ingredient, recipeIngredient.quantity, recipeIngredient.unit)
                     }
@@ -514,6 +592,33 @@ struct GroceryListView: View {
         #if DEBUG
         print("[DEBUG:Grocery] Unique ingredients: \(ingredientQuantities.count)")
         #endif
+
+        // Convert grams to user-friendly display units
+        for (key, value) in ingredientQuantities {
+            let (ing, qty, unit) = value
+            guard unit == .gram else { continue }
+
+            // Countable items → pieces
+            if let gpp = gramsPerPiece(for: key), qty >= gpp * 0.25 {
+                let pieces = qty / gpp
+                let rounded = (pieces * 2).rounded() / 2  // nearest 0.5
+                ingredientQuantities[key] = (ing, max(0.5, rounded), .piece)
+                continue
+            }
+
+            // Large gram quantities → kg
+            if qty >= 1000 {
+                ingredientQuantities[key] = (ing, (qty / 100).rounded() / 10, .kilogram)
+            }
+        }
+
+        // Convert large ml → liters
+        for (key, value) in ingredientQuantities {
+            let (ing, qty, unit) = value
+            if unit == .milliliter && qty >= 1000 {
+                ingredientQuantities[key] = (ing, (qty / 100).rounded() / 10, .liter)
+            }
+        }
 
         // Create grocery items with normalized display names
         for (normalizedKey, (ingredient, quantity, unit)) in ingredientQuantities {
