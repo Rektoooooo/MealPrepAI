@@ -72,16 +72,6 @@ Reusable UI components in `Views/Components/UIComponents.swift`: `HeroHeaderCard
 
 `Models/Enums/AppEnums.swift` defines all app enums: `MealType`, `DietaryRestriction`, `Allergy`, `CookingSkill`, `CookingTime`, `CuisineType`, `WeightGoal`, `GroceryCategory`, `MeasurementUnit`, `RecipeComplexity`, `ActivityLevel`, `Gender`. All are `Codable`, `CaseIterable`, and `Identifiable`.
 
-## Implementation Status
-
-Currently in **Phase 1 (Foundation)** - UI scaffolding complete with placeholder data. See `PLAN.md` for roadmap:
-- Phase 2: Onboarding flow
-- Phase 3: Claude API integration (via backend proxy)
-- Phase 4: Meal plan display
-- Phase 5: Editing & swapping
-- Phase 6: Grocery list logic
-- Phase 7: Recipe library features
-
 ## Key Design Decisions
 
 - **Local-first with SwiftData** - Offline support, plans cached locally
