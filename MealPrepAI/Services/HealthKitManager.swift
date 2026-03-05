@@ -64,9 +64,10 @@ final class HealthKitManager {
             return
         }
 
-        // Check if we have write permission for dietary energy
-        let status = healthStore.authorizationStatus(for: HKQuantityType(.dietaryEnergyConsumed))
-        isAuthorized = status == .sharingAuthorized
+        // Check if we have write permission for ALL nutrition types
+        isAuthorized = writeTypes.allSatisfy { type in
+            healthStore.authorizationStatus(for: type) == .sharingAuthorized
+        }
     }
 
     // MARK: - Write Nutrition Data
@@ -76,7 +77,13 @@ final class HealthKitManager {
     ///   - meal: The meal that was eaten
     /// - Returns: Array of HealthKit sample UUIDs for tracking
     func logMealNutrition(meal: Meal) async throws -> [String] {
-        guard isAuthorized, let recipe = meal.recipe else { return [] }
+        guard let recipe = meal.recipe else { return [] }
+
+        // Ensure authorization before saving (handles missing/new types)
+        if !isAuthorized {
+            try await requestAuthorization()
+        }
+        guard isAuthorized else { return [] }
 
         let date = meal.eatenAt ?? Date()
 
@@ -116,6 +123,9 @@ final class HealthKitManager {
     /// Delete nutrition samples from HealthKit when a meal is unmarked
     /// - Parameter sampleIDs: Array of HealthKit sample UUID strings to delete
     func deleteMealNutrition(sampleIDs: [String]) async throws {
+        if !isAuthorized {
+            try await requestAuthorization()
+        }
         guard isAuthorized else { return }
 
         var samplesToDelete: [HKSample] = []
