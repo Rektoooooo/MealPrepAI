@@ -1350,10 +1350,12 @@ Never label a snack as "breakfast" or vice versa.
 ${isMetric
   ? `- METRIC ONLY: grams (g), kilograms (kg), milliliters (ml), liters (L), Celsius (°C)
 - Ingredient quantities: ALWAYS use grams (e.g. "200 g chicken breast", "50 g oats", "100 ml milk")
+- For whole countable items (banana, apple, egg, potato, onion, tomato, bell pepper), use "piece" (e.g. "2 piece banana", "1 piece onion")
 - Temperatures: ALWAYS °C (e.g. "Bake at 200°C", "Preheat to 180°C")
 - NEVER use oz, cups, tablespoons, °F — the user uses metric`
   : `- IMPERIAL ONLY: ounces (oz), pounds (lb), cups, tablespoons (tbsp), teaspoons (tsp), Fahrenheit (°F)
 - Ingredient quantities: ALWAYS use oz/lb/cups (e.g. "6 oz chicken breast", "1/2 cup oats", "1 cup milk")
+- For whole countable items (banana, apple, egg, potato, onion, tomato, bell pepper), use "piece" (e.g. "2 piece banana", "1 piece onion")
 - Temperatures: ALWAYS °F (e.g. "Bake at 400°F", "Preheat to 350°F")
 - NEVER use grams, ml, °C — the user uses imperial`}
 
@@ -1682,30 +1684,108 @@ const OUNCE_INGREDIENTS = [
 ];
 
 /**
+ * Naturally countable ingredients with grams-per-piece ratios.
+ * Longer patterns first to avoid partial matches (e.g. "sweet potato" before "potato").
+ */
+const COUNTABLE_INGREDIENTS: [string, number][] = [
+  ['sweet potato', 150],
+  ['banana', 120],
+  ['apple', 180],
+  ['pear', 180],
+  ['orange', 150],
+  ['lemon', 60],
+  ['lime', 45],
+  ['avocado', 170],
+  ['peach', 150],
+  ['nectarine', 140],
+  ['kiwi', 75],
+  ['potato', 170],
+  ['onion', 150],
+  ['tomato', 125],
+  ['bell pepper', 150],
+  ['cucumber', 200],
+  ['zucchini', 200],
+  ['carrot', 70],
+  ['corn', 250],
+  ['tortilla', 40],
+  ['pita', 60],
+];
+
+/** Skip conversion for these forms — they are measured by weight/volume, not count */
+const COUNTABLE_SKIP_FORMS = [
+  'diced', 'chopped', 'sliced', 'minced', 'grated', 'shredded',
+  'juice', 'puree', 'paste', 'sauce', 'dried', 'canned', 'frozen',
+  'powder', 'flakes', 'mashed', 'crushed',
+];
+
+/**
  * Correct nonsensical imperial units (e.g. "6 cup salmon" → "48 ounce salmon").
- * Only runs for imperial mode. Fixes proteins measured in cups/grams.
+ * Also converts countable items from weight → piece (both metric and imperial).
  */
 function correctIngredientUnits(mealPlan: MealPlanResponse, isMetric: boolean): void {
-  if (isMetric) return;
+  // --- Imperial protein fix (cup/gram → ounce for proteins) ---
+  if (!isMetric) {
+    for (const day of mealPlan.days) {
+      for (const meal of day.meals) {
+        for (const ing of meal.recipe.ingredients) {
+          const nameLower = ing.name.toLowerCase();
+          const isProtein = OUNCE_INGREDIENTS.some(p => nameLower.includes(p));
 
+          if (isProtein && ing.unit === 'cup') {
+            const oldQty = ing.quantity;
+            ing.quantity = Math.round(ing.quantity * 8 * 10) / 10;
+            ing.unit = 'ounce';
+            if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} cup → ${ing.quantity} ounce`);
+          } else if (isProtein && ing.unit === 'gram') {
+            const oldQty = ing.quantity;
+            ing.quantity = Math.round(ing.quantity / 28.35 * 10) / 10;
+            ing.unit = 'ounce';
+            if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} gram → ${ing.quantity} ounce`);
+          }
+        }
+      }
+    }
+  }
+
+  // --- Countable item fix (both metric and imperial) ---
   for (const day of mealPlan.days) {
     for (const meal of day.meals) {
       for (const ing of meal.recipe.ingredients) {
         const nameLower = ing.name.toLowerCase();
-        const isProtein = OUNCE_INGREDIENTS.some(p => nameLower.includes(p));
 
-        if (isProtein && ing.unit === 'cup') {
-          // cup → ounce for proteins (1 cup meat ≈ 8 oz)
-          const oldQty = ing.quantity;
-          ing.quantity = Math.round(ing.quantity * 8 * 10) / 10;
-          ing.unit = 'ounce';
-          if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} cup → ${ing.quantity} ounce`);
-        } else if (isProtein && ing.unit === 'gram') {
-          // gram → ounce for proteins (28.35g per oz)
-          const oldQty = ing.quantity;
-          ing.quantity = Math.round(ing.quantity / 28.35 * 10) / 10;
-          ing.unit = 'ounce';
-          if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldQty} gram → ${ing.quantity} ounce`);
+        // Skip prepared forms (diced, sliced, juice, etc.)
+        if (COUNTABLE_SKIP_FORMS.some(form => nameLower.includes(form))) continue;
+
+        // Skip if already using a count unit
+        if (['piece', 'slice', 'bunch', 'clove'].includes(ing.unit)) continue;
+
+        for (const [pattern, gramsPerPiece] of COUNTABLE_INGREDIENTS) {
+          if (!nameLower.includes(pattern)) continue;
+
+          let grams: number;
+          if (ing.unit === 'gram') {
+            grams = ing.quantity;
+          } else if (ing.unit === 'ounce') {
+            grams = ing.quantity * 28.35;
+          } else if (ing.unit === 'cup') {
+            // 1 cup diced produce ≈ 150g, rough approximation
+            grams = ing.quantity * 150;
+          } else {
+            break; // tablespoon, teaspoon etc. — skip
+          }
+
+          const pieces = grams / gramsPerPiece;
+          if (pieces < 0.25) break; // too small, likely a sub-ingredient
+
+          // Round to nearest 0.5
+          const rounded = Math.round(pieces * 2) / 2;
+          const finalQty = Math.max(0.5, rounded);
+
+          const oldDesc = `${ing.quantity} ${ing.unit}`;
+          ing.quantity = finalQty;
+          ing.unit = 'piece';
+          if (DEBUG) console.warn(`[UNIT-FIX] "${ing.name}": ${oldDesc} → ${finalQty} piece`);
+          break; // first match wins
         }
       }
     }
