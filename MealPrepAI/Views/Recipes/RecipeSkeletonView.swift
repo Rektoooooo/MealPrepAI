@@ -19,10 +19,7 @@ struct RecipeSkeletonView: View {
             .padding(.horizontal, Design.Spacing.lg)
 
             // Grid skeletons
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: Design.Spacing.md),
-                GridItem(.flexible(), spacing: Design.Spacing.md)
-            ], spacing: Design.Spacing.md) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: Design.Spacing.md)], spacing: Design.Spacing.md) {
                 ForEach(0..<6, id: \.self) { _ in
                     RecipeCardSkeleton()
                 }

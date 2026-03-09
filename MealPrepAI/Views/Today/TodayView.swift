@@ -22,6 +22,7 @@ struct TodayView: View {
     @State private var showHealthKitError = false
     @AppStorage("measurementSystem") private var measurementSystem: MeasurementSystem = .metric
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.adaptiveLayout) private var layout
 
     private var currentMealPlan: MealPlan? {
         mealPlans.first
@@ -105,8 +106,9 @@ struct TodayView: View {
                             .offset(y: animateCards ? 0 : 20)
                     }
                 }
-                .padding(.horizontal, Design.Spacing.md)
-                .padding(.bottom, 100) // Extra bottom padding for floating tab bar
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.bottom, layout.tabBarBottomPadding)
+                .contentWidth()
             }
             .warmBackground()
             .navigationBarTitleDisplayMode(.inline)

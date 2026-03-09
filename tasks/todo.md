@@ -174,3 +174,75 @@ All changes in `firebase/functions/src/api/generatePlan.ts`.
 
 ### Verification
 - [x] TypeScript compilation clean (tsc --noEmit)
+
+---
+
+## Pre-Release UX Fixes (March 5, 2026)
+
+- [x] **Confirmation for "Clear Checked Items"** — GroceryListView now shows destructive confirmation alert before deleting checked items
+- [x] **Confirmation for "Regenerate from Meal Plan"** — GroceryListView warns that manual items will be lost before regenerating
+- [x] **HealthKit "Open Health" deep link** — TodayView HealthKit error alert now includes "Open Health" button that deep-links to Apple Health app
+
+---
+
+## Release Readiness Audit (March 5, 2026)
+
+**Overall Score: 84/100 — READY FOR RELEASE**
+
+### Scoring
+| Category | Score | Status |
+|----------|-------|--------|
+| UX Flows | 17/20 | Smart empty states, confirmations on destructive actions |
+| UI Consistency | 18/20 | Comprehensive Design System, fully adaptive dark mode |
+| Error Handling | 13/15 | User-friendly API errors, retry logic, timeouts |
+| Accessibility | 10/15 | Good labels in many views, gaps in charts & animations |
+| App Store Compliance | 13/15 | Privacy manifest, entitlements, App Check configured |
+| Code Quality | 13/15 | Proper thread safety, no memory leaks, clean architecture |
+
+### Remaining Items (Non-Blocking)
+- [ ] **#14** StoreKit config team ID placeholder (testing only, not production)
+- [ ] **#20** Hardcoded font sizes (236 occurrences) — cosmetic, doesn't affect core function
+- [ ] Charts missing VoiceOver labels (MacroBreakdownChart, WeeklyCalorieChart)
+- [ ] Reduce motion not applied to all offset/opacity animations (61 files)
+- [ ] Force unwraps in MealPlanCalendarView (3 calendar operations)
+- [ ] Unused TestModel.swift (dead code)
+
+### Strengths
+- Architecture: Clean MVVM + @Observable, actor-isolated networking, versioned schema
+- Security: Keychain credentials, Firebase App Check enforced, strict Firestore rules
+- Error handling: Comprehensive APIError enum, smart retry with exponential backoff
+- Dark mode: Fully adaptive color system throughout
+- Destructive actions: All confirmed (delete account, clear items, regenerate, sign out)
+- Developer tools: Properly #if DEBUG gated
+- Memory safety: [weak self] on all detached Tasks, timers, observers
+- Privacy: PrivacyInfo.xcprivacy properly configured, no tracking
+
+---
+
+## iPad UI Optimization (March 9, 2026)
+
+### Phase 1: Responsive Design System Foundation
+- [x] Added `AdaptiveLayout` struct to `DesignSystem.swift` with compact/regular presets
+- [x] Added `AdaptiveLayoutKey` environment key + `EnvironmentValues` extension
+- [x] Added `.adaptiveLayout()` ViewModifier (injects layout based on horizontalSizeClass)
+- [x] Added `.contentWidth()` ViewModifier (constrains maxWidth to 700pt on iPad, centered)
+
+### Phase 2: Navigation Restructure
+- [x] `ContentView.swift` branches by size class: iPhone keeps FloatingTabBar, iPad uses `TabView(.sidebarAdaptable)`
+- [x] `.adaptiveLayout()` injected at top level for all child views
+
+### Phase 3: Responsive Grid Columns
+- [x] `RecipesView.swift` — 2 grids changed from 2-column fixed to `GridItem(.adaptive(minimum: 160))`
+- [x] `RecipeSkeletonView.swift` — grid changed to adaptive columns
+
+### Phase 4: Adaptive Bottom Padding
+- [x] 7 files updated: `.padding(.bottom, 100)` → `.padding(.bottom, layout.tabBarBottomPadding)`
+  - TodayView, WeeklyPlanView, GroceryListView, RecipesView, ProfileView, InsightsView, IngredientSubstitutionSheet
+
+### Phase 5: Content Max-Width + Horizontal Padding
+- [x] 4 single-column views updated with `.contentWidth()` and adaptive horizontal padding
+  - TodayView, WeeklyPlanView, GroceryListView, ProfileView
+
+### Verification
+- [x] iPhone simulator build succeeded (zero warnings from changes)
+- [x] 10 files changed, ~60 lines of new code

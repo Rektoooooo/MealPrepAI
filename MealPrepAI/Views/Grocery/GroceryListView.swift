@@ -13,6 +13,7 @@ struct GroceryListView: View {
     @State private var showingShareSheet = false
     @State private var showingHistory = false
     @State private var showingCompleteConfirmation = false
+    @Environment(\.adaptiveLayout) private var layout
     @State private var animateContent = false
     @State private var showGroceryError = false
     @State private var showingClearCheckedAlert = false
@@ -86,8 +87,9 @@ struct GroceryListView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal, Design.Spacing.md)
-                        .padding(.bottom, 100)
+                        .padding(.horizontal, layout.horizontalPadding)
+                        .padding(.bottom, layout.tabBarBottomPadding)
+                        .contentWidth()
                     }
                 }
             }

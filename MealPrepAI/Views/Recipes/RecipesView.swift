@@ -14,6 +14,7 @@ struct RecipesView: View {
 
     // MARK: - Accessibility
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.adaptiveLayout) private var layout
 
     // MARK: - State
     @State private var searchText = ""
@@ -272,10 +273,7 @@ struct RecipesView: View {
                             }
                             .padding(.horizontal, Design.Spacing.lg)
 
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: Design.Spacing.md),
-                                GridItem(.flexible(), spacing: Design.Spacing.md)
-                            ], spacing: Design.Spacing.md) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: Design.Spacing.md)], spacing: Design.Spacing.md) {
                                 ForEach(gridRecipes, id: \.id) { recipe in
                                     StackedRecipeCard(
                                         recipe: recipe,
@@ -307,7 +305,7 @@ struct RecipesView: View {
                         .opacity(animateContent ? 1 : 0)
                     }
                 }
-                .padding(.bottom, 100)
+                .padding(.bottom, layout.tabBarBottomPadding)
             }
             .refreshable {
                 await refreshRecipes()
@@ -466,10 +464,7 @@ struct RecipesView: View {
                 .padding(.horizontal, Design.Spacing.lg)
 
             // Grid skeletons
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: Design.Spacing.md),
-                GridItem(.flexible(), spacing: Design.Spacing.md)
-            ], spacing: Design.Spacing.md) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: Design.Spacing.md)], spacing: Design.Spacing.md) {
                 ForEach(0..<4, id: \.self) { _ in
                     skeletonCard(height: 180)
                 }

@@ -11,10 +11,31 @@ import SwiftData
 struct ContentView: View {
     @Query private var userProfiles: [UserProfile]
     @State private var selectedTab = 0
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
+        Group {
+            if sizeClass == .regular {
+                iPadTabView
+            } else {
+                iPhoneTabView
+            }
+        }
+        .adaptiveLayout()
+        .environment(\.userProfile, userProfiles.first)
+        .onAppear {
+            AnalyticsService.shared.trackScreenView(screenName: "Today")
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            let screenNames = ["Today", "Plan", "Grocery", "Recipes", "Profile"]
+            let name = newTab < screenNames.count ? screenNames[newTab] : "Unknown"
+            AnalyticsService.shared.trackScreenView(screenName: name)
+        }
+    }
+
+    // MARK: - iPhone Layout (unchanged)
+    private var iPhoneTabView: some View {
         ZStack(alignment: .bottom) {
-            // Content area
             Group {
                 switch selectedTab {
                 case 0: TodayView()
@@ -27,19 +48,31 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Custom floating tab bar
             FloatingTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard)
-        .environment(\.userProfile, userProfiles.first)
-        .onAppear {
-            AnalyticsService.shared.trackScreenView(screenName: "Today")
+    }
+
+    // MARK: - iPad Layout
+    private var iPadTabView: some View {
+        TabView(selection: $selectedTab) {
+            Tab("Today", systemImage: "house.fill", value: 0) {
+                TodayView()
+            }
+            Tab("Plan", systemImage: "calendar", value: 1) {
+                WeeklyPlanView()
+            }
+            Tab("Grocery", systemImage: "cart.fill", value: 2) {
+                GroceryListView()
+            }
+            Tab("Recipes", systemImage: "book.fill", value: 3) {
+                RecipesView()
+            }
+            Tab("Profile", systemImage: "person.fill", value: 4) {
+                ProfileView()
+            }
         }
-        .onChange(of: selectedTab) { _, newTab in
-            let screenNames = ["Today", "Plan", "Grocery", "Recipes", "Profile"]
-            let name = newTab < screenNames.count ? screenNames[newTab] : "Unknown"
-            AnalyticsService.shared.trackScreenView(screenName: name)
-        }
+        .tabViewStyle(.sidebarAdaptable)
     }
 }
 

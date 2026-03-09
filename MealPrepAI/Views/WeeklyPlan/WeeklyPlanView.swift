@@ -16,6 +16,7 @@ struct WeeklyPlanView: View {
     @State private var weekOffset: Int = 0
     @State private var cachedWeekStart: Date = Date()
     @State private var cachedWeekDays: [(dayName: String, date: Int, fullDate: Date)] = []
+    @Environment(\.adaptiveLayout) private var layout
 
     private var viewingWeekStart: Date { cachedWeekStart }
 
@@ -216,8 +217,9 @@ struct WeeklyPlanView: View {
                         .offset(y: animateContent ? 0 : 20)
                     }
                 }
-                .padding(.horizontal, Design.Spacing.md)
-                .padding(.bottom, 100)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.bottom, layout.tabBarBottomPadding)
+                .contentWidth()
             }
             .warmBackground()
             .navigationBarTitleDisplayMode(.inline)

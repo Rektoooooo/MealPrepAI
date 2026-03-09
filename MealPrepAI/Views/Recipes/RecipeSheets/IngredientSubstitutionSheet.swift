@@ -16,6 +16,8 @@ struct IngredientSubstitutionSheet: View {
     @State private var selectedIndex: Int?
     @State private var swapCompleted = false
 
+    @Environment(\.adaptiveLayout) private var layout
+
     // Loading animation state
     @State private var loadingProgress: Double = 0
     @State private var loadingMessage = "Analyzing ingredient..."
@@ -248,7 +250,7 @@ struct IngredientSubstitutionSheet: View {
                     }
                 }
                 .padding(.horizontal, Design.Spacing.lg)
-                .padding(.bottom, 100)
+                .padding(.bottom, layout.tabBarBottomPadding)
             }
 
             // Confirm button pinned to bottom

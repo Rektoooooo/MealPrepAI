@@ -9,6 +9,7 @@ struct InsightsView: View {
     let fatTarget: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.adaptiveLayout) private var layout
     @State private var cardAppeared: [Bool] = Array(repeating: false, count: 4)
 
     private var days: [Day] {
@@ -62,7 +63,7 @@ struct InsightsView: View {
                     .offset(y: cardAppeared[3] ? 0 : 20)
             }
             .padding(.horizontal, Design.Spacing.md)
-            .padding(.bottom, 100)
+            .padding(.bottom, layout.tabBarBottomPadding)
         }
         .warmBackground()
         .navigationTitle("Insights")

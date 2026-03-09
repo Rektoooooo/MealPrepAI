@@ -761,6 +761,68 @@ extension GroceryCategory {
     }
 }
 
+// MARK: - Adaptive Layout (iPad Support)
+
+struct AdaptiveLayout {
+    let horizontalPadding: CGFloat
+    let gridColumns: Int
+    let contentMaxWidth: CGFloat
+    let tabBarBottomPadding: CGFloat
+
+    static let compact = AdaptiveLayout(
+        horizontalPadding: Design.Spacing.md,
+        gridColumns: 2,
+        contentMaxWidth: .infinity,
+        tabBarBottomPadding: 100
+    )
+    static let regular = AdaptiveLayout(
+        horizontalPadding: Design.Spacing.xxl,
+        gridColumns: 3,
+        contentMaxWidth: 700,
+        tabBarBottomPadding: 40
+    )
+}
+
+private struct AdaptiveLayoutKey: EnvironmentKey {
+    static let defaultValue = AdaptiveLayout.compact
+}
+
+extension EnvironmentValues {
+    var adaptiveLayout: AdaptiveLayout {
+        get { self[AdaptiveLayoutKey.self] }
+        set { self[AdaptiveLayoutKey.self] = newValue }
+    }
+}
+
+struct AdaptiveLayoutModifier: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.adaptiveLayout, sizeClass == .regular ? .regular : .compact)
+    }
+}
+
+struct ContentWidthModifier: ViewModifier {
+    @Environment(\.adaptiveLayout) private var layout
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: layout.contentMaxWidth)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+extension View {
+    func adaptiveLayout() -> some View {
+        modifier(AdaptiveLayoutModifier())
+    }
+
+    func contentWidth() -> some View {
+        modifier(ContentWidthModifier())
+    }
+}
+
 // MARK: - App URLs
 /// Centralized URL constants to avoid force unwraps throughout the app.
 enum AppURLs {

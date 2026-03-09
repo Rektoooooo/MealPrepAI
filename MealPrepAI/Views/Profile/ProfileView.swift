@@ -12,6 +12,7 @@ struct ProfileView: View {
     @Environment(SubscriptionManager.self) var subscriptionManager
     @Environment(\.userProfile) private var profile
     @Query(filter: #Predicate<Recipe> { $0.isFavorite }) private var favoriteRecipes: [Recipe]
+    @Environment(\.adaptiveLayout) private var layout
 
     @State private var showingEditProfile = false
     @State private var showingSignOutAlert = false
@@ -58,8 +59,9 @@ struct ProfileView: View {
                         .opacity(animateContent ? 1 : 0)
                         .offset(y: animateContent ? 0 : 20)
                 }
-                .padding(.horizontal, Design.Spacing.md)
-                .padding(.bottom, 100)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.bottom, layout.tabBarBottomPadding)
+                .contentWidth()
             }
             .warmBackground()
             .navigationBarTitleDisplayMode(.inline)
