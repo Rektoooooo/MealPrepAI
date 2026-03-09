@@ -433,11 +433,11 @@ struct GroceryListView: View {
         if normalized.hasSuffix("s") && !skipDepluralize.contains(normalized) && normalized.count > 3 {
             // Handle "ies" -> "y" (e.g. "berries" -> "berry")
             if normalized.hasSuffix("ies") {
-                normalized = String(normalized.dropLast(3)) + "y"
+                if normalized.count >= 3 { normalized = String(normalized.dropLast(3)) + "y" }
             }
             // Handle "oes" -> "o" (e.g. "tomatoes" -> "tomato", "potatoes" -> "potato")
             else if normalized.hasSuffix("oes") {
-                normalized = String(normalized.dropLast(2))
+                if normalized.count >= 2 { normalized = String(normalized.dropLast(2)) }
             }
             // Handle regular "s" (e.g. "eggs" -> "egg", "onions" -> "onion")
             else if !normalized.hasSuffix("ss") && !normalized.hasSuffix("us") {

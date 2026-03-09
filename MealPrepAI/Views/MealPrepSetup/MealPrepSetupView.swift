@@ -50,7 +50,6 @@ struct MealPrepSetupView: View {
                 generatingOverlay
             }
         }
-        .preferredColorScheme(.light)
         .interactiveDismissDisabled(viewModel.isGenerating)
         .alert("Something Went Wrong", isPresented: Binding(
             get: { viewModel.generationError != nil },

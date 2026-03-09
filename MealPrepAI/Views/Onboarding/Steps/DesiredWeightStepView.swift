@@ -6,6 +6,7 @@ struct DesiredWeightStepView: View {
     @Binding var measurementSystem: MeasurementSystem
     let onContinue: () -> Void
 
+    @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 72
     @State private var appeared = false
 
     private var currentWeightDisplay: Int {
@@ -73,7 +74,7 @@ struct DesiredWeightStepView: View {
                 // Target weight display
                 VStack(spacing: OnboardingDesign.Spacing.xxs) {
                     Text("\(targetWeightDisplay)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                        .font(.system(size: heroFontSize, weight: .bold, design: .rounded))
                         .foregroundStyle(OnboardingDesign.Colors.textPrimary)
                         .contentTransition(.numericText())
                         .animation(.spring(response: 0.3), value: targetWeightDisplay)

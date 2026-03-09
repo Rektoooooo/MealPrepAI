@@ -21,6 +21,7 @@ struct IngredientSubstitutionSheet: View {
     @State private var loadingMessage = "Analyzing ingredient..."
     @State private var loadingAppeared = false
     @State private var foodIndex = 0
+    @ScaledMetric(relativeTo: .largeTitle) private var successIconSize: CGFloat = 70
     @State private var resultsAppeared = false
 
     private let loadingMessages = [
@@ -285,7 +286,7 @@ struct IngredientSubstitutionSheet: View {
 
             VStack(spacing: Design.Spacing.lg) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 70))
+                    .font(.system(size: successIconSize))
                     .foregroundStyle(Color.brandGreen)
                     .symbolEffect(.bounce, value: swapCompleted)
 

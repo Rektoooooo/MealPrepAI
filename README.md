@@ -65,9 +65,9 @@ Premium mint-green design language featuring glass morphism cards, soft gradient
 
 ## Requirements
 
-- iOS 17.0+
-- Xcode 16.0+
-- Swift 5.9+
+- iOS 26.0+
+- Xcode 26.0+
+- Swift 6.0+
 
 ## License
 

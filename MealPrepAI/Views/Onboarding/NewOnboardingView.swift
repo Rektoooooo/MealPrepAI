@@ -204,7 +204,6 @@ struct NewOnboardingView: View {
                 )
             }
         }
-        .preferredColorScheme(.light)
         .interactiveDismissDisabled()
         .alert("Unable to Save", isPresented: $showSaveErrorAlert) {
             Button("Try Again") {

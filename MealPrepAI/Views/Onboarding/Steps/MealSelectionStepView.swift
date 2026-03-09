@@ -102,6 +102,9 @@ private struct MealCountRow: View {
     @Binding var count: Int
     let range: ClosedRange<Int>
 
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 20
+    @ScaledMetric(relativeTo: .title3) private var stepperButtonSize: CGFloat = 28
+
     var body: some View {
         HStack(spacing: OnboardingDesign.Spacing.md) {
             // Icon
@@ -110,7 +113,7 @@ private struct MealCountRow: View {
                     .fill(iconColor.opacity(0.15))
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: iconSize))
                     .foregroundStyle(iconColor)
             }
 
@@ -129,7 +132,7 @@ private struct MealCountRow: View {
                     }
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: stepperButtonSize))
                         .foregroundStyle(count > range.lowerBound ? OnboardingDesign.Colors.textPrimary.opacity(0.6) : OnboardingDesign.Colors.textSecondary.opacity(0.3))
                 }
                 .disabled(count <= range.lowerBound)
@@ -146,7 +149,7 @@ private struct MealCountRow: View {
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: stepperButtonSize))
                         .foregroundStyle(count < range.upperBound ? OnboardingDesign.Colors.accent : OnboardingDesign.Colors.textSecondary.opacity(0.3))
                 }
                 .disabled(count >= range.upperBound)

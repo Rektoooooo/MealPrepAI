@@ -1333,7 +1333,7 @@ struct ProfileView: View {
         let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
 
-        if let url = URL(string: "mailto:sebastian.kucera@icloud.com?subject=\(encodedSubject)&body=\(encodedBody)") {
+        if let url = URL(string: "mailto:support@mealprepai.app?subject=\(encodedSubject)&body=\(encodedBody)") {
             UIApplication.shared.open(url)
         }
     }

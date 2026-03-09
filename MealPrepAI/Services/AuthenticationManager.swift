@@ -33,6 +33,9 @@ final class AuthenticationManager {
     private(set) var userEmail: String?
     private(set) var userFullName: PersonNameComponents?
 
+    /// Non-nil when a Keychain operation fails; UI can observe and surface this.
+    private(set) var keychainError: String?
+
     // MARK: - Private Properties
 
     private let guestModeKey = "com.mealprepai.isGuestMode"
@@ -269,6 +272,7 @@ final class AuthenticationManager {
 
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         if status != errSecSuccess {
+            keychainError = "Failed to save credentials securely (error \(status)). Your login may not persist between app launches."
             #if DEBUG
             print("AuthenticationManager: Failed to save to Keychain (\(account)): \(status)")
             #endif

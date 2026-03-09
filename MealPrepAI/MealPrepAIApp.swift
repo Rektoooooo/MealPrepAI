@@ -48,6 +48,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 /// Tracks whether ModelContainer fell back to in-memory storage
 var didFallBackToInMemoryStore = false
 
+/// Tracks whether ModelContainer creation failed entirely (even in-memory fallback)
+var modelContainerFatalError: String?
+
 // Create ModelContainer with CloudKit sync and schema versioning
 let sharedModelContainer: ModelContainer = {
     let schema = Schema(versionedSchema: SchemaV1.self)
@@ -80,7 +83,11 @@ let sharedModelContainer: ModelContainer = {
         do {
             return try ModelContainer(for: schema, configurations: [fallbackConfig])
         } catch {
-            fatalError("Could not create even in-memory ModelContainer: \(error)")
+            // Record the error so the UI can show an alert instead of crashing
+            modelContainerFatalError = error.localizedDescription
+            // Return a bare-minimum container so the app process stays alive
+            // swiftlint:disable:next force_try
+            return try! ModelContainer(for: Schema([]), configurations: [])
         }
     }
 }()
@@ -99,6 +106,7 @@ struct MealPrepAIApp: App {
     @State private var networkMonitor = NetworkMonitor()
     @State private var streakManager = StreakManager()
     @State private var showDataStorageAlert = didFallBackToInMemoryStore
+    @State private var showFatalStorageError = (modelContainerFatalError != nil)
 
     // Firebase Recipe Services - initialized after Firebase is configured
     @State private var firebaseRecipeService: FirebaseRecipeService
@@ -224,6 +232,11 @@ struct MealPrepAIApp: App {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text("Your data couldn't be saved to persistent storage. Any data created this session may be lost when you close the app. Try restarting the app or freeing up device storage.")
+            }
+            .alert("Unable to Start", isPresented: $showFatalStorageError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("The app's data storage could not be initialized. Please restart the app. If this persists, try reinstalling or freeing up device storage.")
             }
         }
         .modelContainer(sharedModelContainer)
