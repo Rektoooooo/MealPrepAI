@@ -11,6 +11,7 @@ import AuthenticationServices
 struct AuthenticationView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     @State private var isSigningIn = false
     @State private var showError = false
     @State private var errorMessage = ""
@@ -144,6 +145,11 @@ struct AuthenticationView: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.8).delay(0.2)) {
                 animateContent = true
+            }
+        }
+        .onChange(of: authManager.authState) { _, newState in
+            if newState == .guest || newState == .authenticated {
+                dismiss()
             }
         }
     }
