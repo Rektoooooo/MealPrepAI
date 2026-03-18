@@ -40,6 +40,7 @@ final class UserProfile {
     var preferredCuisinesData: Data?
     var customDietaryRestrictions: String?  // Comma-separated custom diets
     var customAllergies: String?            // Comma-separated custom allergies
+    var customDislikes: String?             // Comma-separated custom dislikes
     var cookingSkillRaw: String = "Intermediate"
     var maxCookingTimeRaw: String = "30-45 minutes"
 

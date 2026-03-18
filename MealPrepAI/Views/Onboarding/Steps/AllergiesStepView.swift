@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AllergiesStepView: View {
     @Binding var selectedAllergies: Set<Allergy>
+    @Binding var customAllergies: String
     let onContinue: () -> Void
 
     @State private var appeared = false
@@ -19,7 +20,7 @@ struct AllergiesStepView: View {
             // Header
             OnboardingStepHeader(
                 "Allergies",
-                subtitle: "Any allergies? (Select all that apply)"
+                subtitle: "Anything your body has beef with?"
             )
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 20)
@@ -50,6 +51,24 @@ struct AllergiesStepView: View {
                         }
                     }
                 }
+
+                // Custom allergies input
+                HStack(spacing: OnboardingDesign.Spacing.xs) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(OnboardingDesign.Colors.textTertiary)
+
+                    TextField("Other allergies (e.g., kiwi, corn)", text: $customAllergies)
+                        .font(OnboardingDesign.Typography.subheadline)
+                        .foregroundStyle(OnboardingDesign.Colors.textPrimary)
+                }
+                .padding(.horizontal, OnboardingDesign.Spacing.md)
+                .padding(.vertical, OnboardingDesign.Spacing.sm)
+                .background(
+                    RoundedRectangle(cornerRadius: OnboardingDesign.Radius.sm)
+                        .fill(OnboardingDesign.Colors.unselectedBackground)
+                )
+                .padding(.top, OnboardingDesign.Spacing.sm)
             }
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 30)
@@ -76,6 +95,7 @@ struct AllergiesStepView: View {
 #Preview {
     AllergiesStepView(
         selectedAllergies: .constant([]),
+        customAllergies: .constant(""),
         onContinue: {}
     )
 }

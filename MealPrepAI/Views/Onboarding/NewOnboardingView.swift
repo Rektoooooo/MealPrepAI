@@ -255,12 +255,14 @@ struct NewOnboardingView: View {
         case .allergies:
             AllergiesStepView(
                 selectedAllergies: $viewModel.allergies,
+                customAllergies: $viewModel.customAllergies,
                 onContinue: { goToNext() }
             )
 
         case .dislikes:
             DislikesStepView(
                 selectedDislikes: $viewModel.foodDislikes,
+                customDislikes: $viewModel.customDislikes,
                 onContinue: { goToNext() }
             )
 

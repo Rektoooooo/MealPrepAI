@@ -300,6 +300,20 @@ class MealPlanGenerator {
         }
         #endif
 
+        // Build allergies array with custom entries
+        var allergiesArray = profile.allergies.map { $0.rawValue }
+        if let custom = profile.customAllergies, !custom.isEmpty {
+            let customItems = custom.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            allergiesArray.append(contentsOf: customItems)
+        }
+
+        // Build food dislikes array with custom entries
+        var foodDislikesArray = profile.foodDislikes.map { $0.rawValue }
+        if let custom = profile.customDislikes, !custom.isEmpty {
+            let customItems = custom.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            foodDislikesArray.append(contentsOf: customItems)
+        }
+
         return GeneratePlanUserProfile(
             age: profile.age,
             gender: profile.gender.rawValue,
@@ -312,8 +326,8 @@ class MealPlanGenerator {
             fatGrams: fat,
             weightGoal: profile.weightGoal.rawValue,
             dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
-            allergies: profile.allergies.map { $0.rawValue },
-            foodDislikes: profile.foodDislikes.map { $0.rawValue },
+            allergies: allergiesArray,
+            foodDislikes: foodDislikesArray,
             preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
             dislikedCuisines: dislikedCuisines,
             cookingSkill: profile.cookingSkill.rawValue,
@@ -415,14 +429,28 @@ class MealPlanGenerator {
                 .filter { $0.value == .dislike }
                 .map { $0.key }
 
+            // Build allergies array with custom entries for swap
+            var swapAllergiesArray = profile.allergies.map { $0.rawValue }
+            if let custom = profile.customAllergies, !custom.isEmpty {
+                let customItems = custom.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                swapAllergiesArray.append(contentsOf: customItems)
+            }
+
+            // Build food dislikes array with custom entries for swap
+            var swapFoodDislikesArray = profile.foodDislikes.map { $0.rawValue }
+            if let custom = profile.customDislikes, !custom.isEmpty {
+                let customItems = custom.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                swapFoodDislikesArray.append(contentsOf: customItems)
+            }
+
             let swapProfile = SwapMealUserProfile(
                 dailyCalorieTarget: profile.dailyCalorieTarget,
                 proteinGrams: profile.proteinGrams,
                 carbsGrams: profile.carbsGrams,
                 fatGrams: profile.fatGrams,
                 dietaryRestrictions: profile.dietaryRestrictions.map { $0.rawValue },
-                allergies: profile.allergies.map { $0.rawValue },
-                foodDislikes: profile.foodDislikes.map { $0.rawValue },
+                allergies: swapAllergiesArray,
+                foodDislikes: swapFoodDislikesArray,
                 preferredCuisines: profile.preferredCuisines.map { $0.rawValue },
                 dislikedCuisines: swapDislikedCuisines,
                 cookingSkill: profile.cookingSkill.rawValue,

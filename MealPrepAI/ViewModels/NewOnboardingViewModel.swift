@@ -23,9 +23,11 @@ class NewOnboardingViewModel {
 
     // MARK: - Step 6: Allergies
     var allergies: Set<Allergy> = []
+    var customAllergies: String = ""
 
     // MARK: - Step 7: Food Dislikes
     var foodDislikes: Set<FoodDislike> = []
+    var customDislikes: String = ""
 
     // MARK: - Step 9-12: Body Metrics
     var weightKg: Double = 70
@@ -281,6 +283,13 @@ class NewOnboardingViewModel {
         // Remove any existing profiles to enforce single-profile invariant
         let existing = try? modelContext.fetch(FetchDescriptor<UserProfile>())
         existing?.forEach { modelContext.delete($0) }
+
+        // Save custom free-text fields
+        let trimmedCustomAllergies = customAllergies.trimmingCharacters(in: .whitespacesAndNewlines)
+        profile.customAllergies = trimmedCustomAllergies.isEmpty ? nil : trimmedCustomAllergies
+
+        let trimmedCustomDislikes = customDislikes.trimmingCharacters(in: .whitespacesAndNewlines)
+        profile.customDislikes = trimmedCustomDislikes.isEmpty ? nil : trimmedCustomDislikes
 
         modelContext.insert(profile)
 

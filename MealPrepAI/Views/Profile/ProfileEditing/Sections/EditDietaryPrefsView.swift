@@ -70,6 +70,26 @@ struct EditDietaryPrefsView: View {
                                     .foregroundStyle(Color.textSecondary)
                             }
                         }
+
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textSecondary)
+
+                            TextField("Other allergies (e.g., kiwi, corn)", text: customAllergiesBinding)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        .padding(.horizontal, Design.Spacing.md)
+                        .padding(.vertical, Design.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.Radius.sm)
+                                .fill(Color.cardBackground.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Design.Radius.sm)
+                                        .strokeBorder(Color.textSecondary.opacity(0.2), lineWidth: 1)
+                                )
+                        )
                     }
                 }
 
@@ -112,6 +132,26 @@ struct EditDietaryPrefsView: View {
                                 }
                             }
                         }
+
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textSecondary)
+
+                            TextField("Other dislikes (e.g., liver, okra)", text: customDislikesBinding)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        .padding(.horizontal, Design.Spacing.md)
+                        .padding(.vertical, Design.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.Radius.sm)
+                                .fill(Color.cardBackground.opacity(0.6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Design.Radius.sm)
+                                        .strokeBorder(Color.textSecondary.opacity(0.2), lineWidth: 1)
+                                )
+                        )
                     }
                 }
 
@@ -133,7 +173,9 @@ struct EditDietaryPrefsView: View {
     private var hasAnyRestrictions: Bool {
         !profile.dietaryRestrictions.isEmpty ||
         !profile.allergies.isEmpty ||
-        !profile.foodDislikes.isEmpty
+        !profile.foodDislikes.isEmpty ||
+        (profile.customAllergies != nil && !profile.customAllergies!.isEmpty) ||
+        (profile.customDislikes != nil && !profile.customDislikes!.isEmpty)
     }
 
     private var summaryCard: some View {
@@ -225,6 +267,22 @@ struct EditDietaryPrefsView: View {
                     radius: Design.Shadow.card.radius,
                     y: Design.Shadow.card.y
                 )
+        )
+    }
+
+    // MARK: - Custom Field Bindings
+
+    private var customAllergiesBinding: Binding<String> {
+        Binding(
+            get: { profile.customAllergies ?? "" },
+            set: { profile.customAllergies = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private var customDislikesBinding: Binding<String> {
+        Binding(
+            get: { profile.customDislikes ?? "" },
+            set: { profile.customDislikes = $0.isEmpty ? nil : $0 }
         )
     }
 
